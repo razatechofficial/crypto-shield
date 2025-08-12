@@ -129,7 +129,7 @@ export default function SdkWizard() {
       }
       acc[lang.category].push(lang);
       return acc;
-    }, {} as Record<string, typeof languages>);
+    }, {} as Record<string, Array<(typeof languages)[0]>>);
     
     return categories;
   };
@@ -209,12 +209,14 @@ export default function SdkWizard() {
 
                 {/* Language Selection */}
                 <div>
-                  <Label className="text-foreground font-medium mb-4 block">
-                    Target Programming Languages 
-                    <span className="text-muted-foreground text-sm font-normal ml-2">
+                  <div className="mb-4">
+                    <Label className="text-foreground font-medium block">
+                      Target Programming Languages 
+                    </Label>
+                    <span className="text-muted-foreground text-sm font-normal">
                       (Select multiple languages to generate SDKs for each)
                     </span>
-                  </Label>
+                  </div>
                   <div className="space-y-6">
                     {Object.entries(getLanguagesByCategory()).map(([category, categoryLanguages]) => (
                       <div key={category} className="space-y-3">
@@ -246,7 +248,7 @@ export default function SdkWizard() {
                 </div>
 
                 {/* Algorithm Selection */}
-                {algorithms && (
+                {algorithms && Array.isArray(algorithms) && (
                   <AlgorithmSelector
                     algorithms={algorithms}
                     selectedAlgorithm={selectedAlgorithm}
@@ -296,8 +298,8 @@ export default function SdkWizard() {
                   <div className="text-left space-y-2">
                     <p className="text-foreground font-medium">SDK Details:</p>
                     <p className="text-muted-foreground">Name: {sdkName}</p>
-                    <p className="text-muted-foreground">Languages: {selectedLanguages.map(id => languages.find(l => l.id === id)?.name).join(', ')}</p>
-                    <p className="text-muted-foreground">Algorithm: {algorithms?.find((a: any) => a.id === selectedAlgorithm)?.displayName}</p>
+                    <p className="text-muted-foreground">Languages: {selectedLanguages.map(id => languages.find(l => l.id === id)?.name).filter(Boolean).join(', ')}</p>
+                    <p className="text-muted-foreground">Algorithm: {Array.isArray(algorithms) ? algorithms?.find((a: any) => a.id === selectedAlgorithm)?.displayName || 'N/A' : 'N/A'}</p>
                   </div>
                 </div>
                 <Button 
