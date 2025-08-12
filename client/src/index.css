@@ -5,94 +5,94 @@
 
 :root {
   --background: hsl(0, 0%, 100%);
-  --foreground: hsl(210, 25%, 7.8431%);
-  --card: hsl(180, 6.6667%, 97.0588%);
-  --card-foreground: hsl(210, 25%, 7.8431%);
+  --foreground: hsl(0, 0%, 0%);
+  --card: hsl(0, 0%, 100%);
+  --card-foreground: hsl(0, 0%, 0%);
   --popover: hsl(0, 0%, 100%);
-  --popover-foreground: hsl(210, 25%, 7.8431%);
-  --primary: hsl(217, 91%, 59%);
+  --popover-foreground: hsl(0, 0%, 0%);
+  --primary: hsl(0, 0%, 0%);
   --primary-foreground: hsl(0, 0%, 100%);
-  --secondary: hsl(210, 25%, 7.8431%);
-  --secondary-foreground: hsl(0, 0%, 100%);
-  --muted: hsl(240, 1.9608%, 90%);
-  --muted-foreground: hsl(210, 25%, 7.8431%);
-  --accent: hsl(211.5789, 51.3514%, 92.7451%);
-  --accent-foreground: hsl(217, 91%, 59%);
+  --secondary: hsl(0, 0%, 96%);
+  --secondary-foreground: hsl(0, 0%, 0%);
+  --muted: hsl(0, 0%, 96%);
+  --muted-foreground: hsl(0, 0%, 45%);
+  --accent: hsl(0, 0%, 96%);
+  --accent-foreground: hsl(0, 0%, 0%);
   --destructive: hsl(0, 84%, 60%);
   --destructive-foreground: hsl(0, 0%, 100%);
-  --border: hsl(201.4286, 30.4348%, 90.9804%);
-  --input: hsl(200, 23.0769%, 97.4510%);
-  --ring: hsl(217, 91%, 59%);
-  --chart-1: hsl(217, 91%, 59%);
-  --chart-2: hsl(142, 76%, 36%);
-  --chart-3: hsl(38, 92%, 50%);
-  --chart-4: hsl(147, 79%, 42%);
-  --chart-5: hsl(340, 75%, 51%);
-  --sidebar: hsl(180, 6.6667%, 97.0588%);
-  --sidebar-foreground: hsl(210, 25%, 7.8431%);
-  --sidebar-primary: hsl(217, 91%, 59%);
+  --border: hsl(0, 0%, 89%);
+  --input: hsl(0, 0%, 96%);
+  --ring: hsl(0, 0%, 0%);
+  --chart-1: hsl(0, 0%, 0%);
+  --chart-2: hsl(0, 0%, 25%);
+  --chart-3: hsl(0, 0%, 50%);
+  --chart-4: hsl(0, 0%, 75%);
+  --chart-5: hsl(0, 0%, 35%);
+  --sidebar: hsl(0, 0%, 100%);
+  --sidebar-foreground: hsl(0, 0%, 0%);
+  --sidebar-primary: hsl(0, 0%, 0%);
   --sidebar-primary-foreground: hsl(0, 0%, 100%);
-  --sidebar-accent: hsl(211.5789, 51.3514%, 92.7451%);
-  --sidebar-accent-foreground: hsl(217, 91%, 59%);
-  --sidebar-border: hsl(205.0000, 25.0000%, 90.5882%);
-  --sidebar-ring: hsl(217, 91%, 59%);
+  --sidebar-accent: hsl(0, 0%, 96%);
+  --sidebar-accent-foreground: hsl(0, 0%, 0%);
+  --sidebar-border: hsl(0, 0%, 89%);
+  --sidebar-ring: hsl(0, 0%, 0%);
   --font-sans: 'Inter', sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: 'JetBrains Mono', monospace;
   --radius: 0.5rem;
   
-  /* Averox Custom Colors */
-  --averox-primary: hsl(222, 84%, 5%);
-  --averox-secondary: hsl(215, 28%, 17%);
-  --averox-accent: hsl(217, 91%, 59%);
+  /* Averox Custom Colors - White Theme */
+  --averox-primary: hsl(0, 0%, 0%);
+  --averox-secondary: hsl(0, 0%, 96%);
+  --averox-accent: hsl(0, 0%, 20%);
   --averox-success: hsl(142, 76%, 36%);
   --averox-warning: hsl(38, 92%, 50%);
   --averox-error: hsl(0, 84%, 60%);
-  --averox-slate-900: hsl(222, 84%, 5%);
-  --averox-slate-800: hsl(215, 28%, 17%);
-  --averox-slate-700: hsl(215, 25%, 27%);
-  --averox-slate-600: hsl(215, 16%, 47%);
-  --averox-slate-500: hsl(220, 9%, 46%);
-  --averox-slate-400: hsl(218, 11%, 65%);
-  --averox-slate-300: hsl(216, 12%, 84%);
-  --averox-slate-200: hsl(214, 32%, 91%);
-  --averox-slate-100: hsl(220, 14%, 96%);
-  --averox-slate-50: hsl(220, 14%, 98%);
+  --averox-slate-900: hsl(0, 0%, 0%);
+  --averox-slate-800: hsl(0, 0%, 15%);
+  --averox-slate-700: hsl(0, 0%, 25%);
+  --averox-slate-600: hsl(0, 0%, 45%);
+  --averox-slate-500: hsl(0, 0%, 55%);
+  --averox-slate-400: hsl(0, 0%, 65%);
+  --averox-slate-300: hsl(0, 0%, 75%);
+  --averox-slate-200: hsl(0, 0%, 85%);
+  --averox-slate-100: hsl(0, 0%, 95%);
+  --averox-slate-50: hsl(0, 0%, 98%);
 }
 
 .dark {
-  --background: hsl(222, 84%, 5%);
-  --foreground: hsl(210, 40%, 98%);
-  --card: hsl(215, 28%, 17%);
-  --card-foreground: hsl(210, 40%, 98%);
-  --popover: hsl(222, 84%, 5%);
-  --popover-foreground: hsl(210, 40%, 98%);
-  --primary: hsl(217, 91%, 59%);
-  --primary-foreground: hsl(0, 0%, 100%);
-  --secondary: hsl(217, 33%, 17%);
-  --secondary-foreground: hsl(210, 40%, 98%);
-  --muted: hsl(215, 28%, 17%);
-  --muted-foreground: hsl(215, 16%, 47%);
-  --accent: hsl(215, 28%, 17%);
-  --accent-foreground: hsl(210, 40%, 98%);
-  --destructive: hsl(0, 62%, 30%);
-  --destructive-foreground: hsl(210, 40%, 98%);
-  --border: hsl(215, 28%, 17%);
-  --input: hsl(215, 28%, 17%);
-  --ring: hsl(217, 91%, 59%);
-  --chart-1: hsl(217, 91%, 59%);
-  --chart-2: hsl(142, 76%, 36%);
-  --chart-3: hsl(38, 92%, 50%);
-  --chart-4: hsl(147, 79%, 42%);
-  --chart-5: hsl(340, 75%, 51%);
-  --sidebar: hsl(215, 28%, 17%);
-  --sidebar-foreground: hsl(210, 40%, 98%);
-  --sidebar-primary: hsl(217, 91%, 59%);
-  --sidebar-primary-foreground: hsl(0, 0%, 100%);
-  --sidebar-accent: hsl(215, 28%, 17%);
-  --sidebar-accent-foreground: hsl(210, 40%, 98%);
-  --sidebar-border: hsl(215, 28%, 17%);
-  --sidebar-ring: hsl(217, 91%, 59%);
+  --background: hsl(0, 0%, 0%);
+  --foreground: hsl(0, 0%, 100%);
+  --card: hsl(0, 0%, 4%);
+  --card-foreground: hsl(0, 0%, 100%);
+  --popover: hsl(0, 0%, 0%);
+  --popover-foreground: hsl(0, 0%, 100%);
+  --primary: hsl(0, 0%, 100%);
+  --primary-foreground: hsl(0, 0%, 0%);
+  --secondary: hsl(0, 0%, 15%);
+  --secondary-foreground: hsl(0, 0%, 100%);
+  --muted: hsl(0, 0%, 15%);
+  --muted-foreground: hsl(0, 0%, 65%);
+  --accent: hsl(0, 0%, 15%);
+  --accent-foreground: hsl(0, 0%, 100%);
+  --destructive: hsl(0, 84%, 60%);
+  --destructive-foreground: hsl(0, 0%, 100%);
+  --border: hsl(0, 0%, 20%);
+  --input: hsl(0, 0%, 15%);
+  --ring: hsl(0, 0%, 100%);
+  --chart-1: hsl(0, 0%, 100%);
+  --chart-2: hsl(0, 0%, 75%);
+  --chart-3: hsl(0, 0%, 50%);
+  --chart-4: hsl(0, 0%, 25%);
+  --chart-5: hsl(0, 0%, 65%);
+  --sidebar: hsl(0, 0%, 0%);
+  --sidebar-foreground: hsl(0, 0%, 100%);
+  --sidebar-primary: hsl(0, 0%, 100%);
+  --sidebar-primary-foreground: hsl(0, 0%, 0%);
+  --sidebar-accent: hsl(0, 0%, 15%);
+  --sidebar-accent-foreground: hsl(0, 0%, 100%);
+  --sidebar-border: hsl(0, 0%, 20%);
+  --sidebar-ring: hsl(0, 0%, 100%);
 }
 
 @layer base {
@@ -108,32 +108,33 @@
   /* Averox Specific Styles */
   .glass-effect {
     backdrop-filter: blur(10px);
-    background: rgba(30, 41, 59, 0.8);
+    background: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(0, 0, 0, 0.1);
   }
 
   .gradient-border {
-    background: linear-gradient(45deg, var(--averox-accent), var(--averox-success));
+    background: linear-gradient(45deg, var(--averox-accent), var(--averox-primary));
     padding: 2px;
     border-radius: 8px;
   }
 
   .gradient-border-content {
-    background: var(--averox-secondary);
+    background: var(--background);
     border-radius: 6px;
     padding: 1rem;
   }
 
-  /* Custom scrollbar for dark theme */
+  /* Custom scrollbar for white theme */
   ::-webkit-scrollbar {
     width: 6px;
   }
 
   ::-webkit-scrollbar-track {
-    background: var(--averox-slate-800);
+    background: var(--averox-slate-200);
   }
 
   ::-webkit-scrollbar-thumb {
-    background: var(--averox-slate-600);
+    background: var(--averox-slate-400);
     border-radius: 3px;
   }
 
@@ -143,7 +144,7 @@
 
   /* Focus styles for better accessibility */
   .focus-visible:focus-visible {
-    outline: 2px solid var(--averox-accent);
+    outline: 2px solid var(--averox-primary);
     outline-offset: 2px;
   }
 
@@ -163,15 +164,15 @@
 
   /* Custom button hover effects */
   .btn-primary {
-    background: var(--averox-accent);
+    background: var(--averox-primary);
     color: white;
     transition: all 0.2s ease-in-out;
   }
 
   .btn-primary:hover {
-    background: hsl(217, 91%, 54%);
+    background: var(--averox-slate-800);
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   }
 
   /* Security indicator animations */
@@ -192,65 +193,68 @@
 
   /* Chart container styles */
   .chart-container {
-    background: var(--averox-slate-800);
-    border: 1px solid var(--averox-slate-700);
+    background: var(--background);
+    border: 1px solid var(--border);
     border-radius: 0.75rem;
     padding: 1.5rem;
   }
 
   /* Status badge styles */
   .status-active {
-    background: rgba(16, 185, 129, 0.2);
+    background: rgba(16, 185, 129, 0.1);
     color: var(--averox-success);
-    border: 1px solid rgba(16, 185, 129, 0.3);
+    border: 1px solid rgba(16, 185, 129, 0.2);
   }
 
   .status-warning {
-    background: rgba(245, 158, 11, 0.2);
+    background: rgba(245, 158, 11, 0.1);
     color: var(--averox-warning);
-    border: 1px solid rgba(245, 158, 11, 0.3);
+    border: 1px solid rgba(245, 158, 11, 0.2);
   }
 
   .status-error {
-    background: rgba(239, 68, 68, 0.2);
+    background: rgba(239, 68, 68, 0.1);
     color: var(--averox-error);
-    border: 1px solid rgba(239, 68, 68, 0.3);
+    border: 1px solid rgba(239, 68, 68, 0.2);
   }
 
   /* Table hover effects */
   .table-row:hover {
-    background: var(--averox-slate-700);
+    background: var(--averox-slate-100);
     transition: background-color 0.2s ease-in-out;
   }
 
   /* Form input focus styles */
   .form-input:focus {
-    border-color: var(--averox-accent);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    border-color: var(--averox-primary);
+    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.1);
   }
 
   /* Modal and dialog overlay */
   .modal-overlay {
-    background: rgba(0, 0, 0, 0.8);
+    background: rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(4px);
   }
 
   /* Notification styles */
   .notification-success {
-    background: var(--averox-slate-800);
+    background: var(--background);
     border-left: 4px solid var(--averox-success);
-    color: var(--averox-slate-100);
+    color: var(--foreground);
+    border: 1px solid var(--border);
   }
 
   .notification-error {
-    background: var(--averox-slate-800);
+    background: var(--background);
     border-left: 4px solid var(--averox-error);
-    color: var(--averox-slate-100);
+    color: var(--foreground);
+    border: 1px solid var(--border);
   }
 
   .notification-warning {
-    background: var(--averox-slate-800);
+    background: var(--background);
     border-left: 4px solid var(--averox-warning);
-    color: var(--averox-slate-100);
+    color: var(--foreground);
+    border: 1px solid var(--border);
   }
 }

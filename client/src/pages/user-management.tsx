@@ -15,22 +15,9 @@ export default function UserManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: users, isLoading } = useQuery({
+  const { data: users = [], isLoading } = useQuery({
     queryKey: ["/api/users"],
     retry: false,
-    onError: (error: Error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-    },
   });
 
   const updateRoleMutation = useMutation({
@@ -42,7 +29,7 @@ export default function UserManagement() {
         title: "Success",
         description: "User role updated successfully!",
       });
-      queryClient.invalidateQueries(["/api/users"]);
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
     },
     onError: (error: Error) => {
       if (isUnauthorizedError(error)) {

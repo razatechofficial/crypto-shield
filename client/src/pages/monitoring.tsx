@@ -11,22 +11,9 @@ import { formatDistanceToNow } from "date-fns";
 export default function Monitoring() {
   const { toast } = useToast();
 
-  const { data: events, isLoading: eventsLoading } = useQuery({
+  const { data: events = [], isLoading: eventsLoading } = useQuery({
     queryKey: ["/api/monitoring/events"],
     retry: false,
-    onError: (error: Error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-    },
   });
 
   // Mock monitoring data - in real app this would come from API

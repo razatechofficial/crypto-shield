@@ -14,7 +14,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      let user = await storage.getUser(userId);
+      
+      // If user doesn't have a tenant, create one automatically
+      if (user && !user.tenantId) {
+        const tenant = await storage.createTenant({
+          name: `${user.firstName || user.email || 'User'}'s Workspace`,
+          subscriptionTier: 'starter'
+        });
+        
+        user = await storage.updateUser(userId, { tenantId: tenant.id });
+      }
+      
       res.json(user);
     } catch (error) {
       console.error("Error fetching user:", error);

@@ -10,40 +10,14 @@ import { formatDistanceToNow } from "date-fns";
 export default function Dashboard() {
   const { toast } = useToast();
 
-  const { data: stats, isLoading: statsLoading } = useQuery({
+  const { data: stats = {}, isLoading: statsLoading } = useQuery({
     queryKey: ["/api/dashboard/stats"],
     retry: false,
-    onError: (error: Error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-    },
   });
 
-  const { data: activities, isLoading: activitiesLoading } = useQuery({
+  const { data: activities = [], isLoading: activitiesLoading } = useQuery({
     queryKey: ["/api/dashboard/activities"],
     retry: false,
-    onError: (error: Error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-    },
   });
 
   if (statsLoading) {
@@ -51,8 +25,8 @@ export default function Dashboard() {
       <div className="p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="bg-slate-800 rounded-xl p-6 border border-slate-700 animate-pulse">
-              <div className="h-16 bg-slate-700 rounded"></div>
+            <div key={i} className="bg-card rounded-xl p-6 border border-border animate-pulse">
+              <div className="h-16 bg-muted rounded"></div>
             </div>
           ))}
         </div>

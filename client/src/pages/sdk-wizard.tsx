@@ -37,22 +37,9 @@ export default function SdkWizard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: algorithms, isLoading: algorithmsLoading } = useQuery({
+  const { data: algorithms = [], isLoading: algorithmsLoading } = useQuery({
     queryKey: ["/api/algorithms"],
     retry: false,
-    onError: (error: Error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-    },
   });
 
   const generateSDKMutation = useMutation({
@@ -64,26 +51,8 @@ export default function SdkWizard() {
         title: "Success",
         description: "SDK generated successfully!",
       });
-      queryClient.invalidateQueries(["/api/sdks"]);
+      queryClient.invalidateQueries({ queryKey: ["/api/sdks"] });
       setStep(3);
-    },
-    onError: (error: Error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-      toast({
-        title: "Error",
-        description: "Failed to generate SDK. Please try again.",
-        variant: "destructive",
-      });
     },
   });
 

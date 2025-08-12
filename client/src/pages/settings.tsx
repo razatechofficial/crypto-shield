@@ -26,22 +26,9 @@ export default function Settings() {
   const [sessionTimeout, setSessionTimeout] = useState('8');
   const [maxFailedAttempts, setMaxFailedAttempts] = useState('5');
 
-  const { data: algorithms } = useQuery({
+  const { data: algorithms = [] } = useQuery({
     queryKey: ["/api/algorithms"],
     retry: false,
-    onError: (error: Error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-    },
   });
 
   const saveSettingsMutation = useMutation({
@@ -53,7 +40,7 @@ export default function Settings() {
         title: "Success",
         description: "Settings saved successfully!",
       });
-      queryClient.invalidateQueries(["/api/settings"]);
+      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
     },
     onError: (error: Error) => {
       if (isUnauthorizedError(error)) {

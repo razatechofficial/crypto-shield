@@ -13,22 +13,9 @@ export default function KeyManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: keys, isLoading } = useQuery({
+  const { data: keys = [], isLoading } = useQuery({
     queryKey: ["/api/keys"],
     retry: false,
-    onError: (error: Error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-    },
   });
 
   const rotateKeyMutation = useMutation({
@@ -40,7 +27,7 @@ export default function KeyManagement() {
         title: "Success",
         description: "Key rotation initiated successfully!",
       });
-      queryClient.invalidateQueries(["/api/keys"]);
+      queryClient.invalidateQueries({ queryKey: ["/api/keys"] });
     },
     onError: (error: Error) => {
       if (isUnauthorizedError(error)) {
