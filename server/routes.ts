@@ -335,8 +335,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Set proper headers for ZIP download
       res.setHeader('Content-Type', 'application/zip');
-      res.setHeader('Content-Disposition', `attachment; filename="${sdk.name}-v${sdk.version}.zip"`);
+      res.setHeader('Content-Disposition', `attachment; filename="${sdk.name.replace(/[^a-zA-Z0-9\s]/g, '')}-v${sdk.version}.zip"`);
+      res.setHeader('Cache-Control', 'no-cache');
       
+      // Pipe archive to response
       archive.pipe(res);
 
       // Parse SDK configuration
@@ -443,8 +445,18 @@ setup(
       archive.append('export { encrypt, decrypt, generateKey } from "./core";', { name: 'src/index.ts' });
       archive.append('# Averox SDK Python Module\nfrom .core import encrypt, decrypt, generate_key', { name: 'src/__init__.py' });
 
+      // Add error handling for archive completion
+      archive.on('error', (err) => {
+        console.error('Archive error:', err);
+        res.status(500).json({ message: "Failed to create SDK archive" });
+      });
+
+      archive.on('end', () => {
+        console.log('Archive finalized successfully');
+      });
+
       // Finalize the archive
-      archive.finalize();
+      await archive.finalize();
 
     } catch (error) {
       console.error("Error generating SDK download:", error);
