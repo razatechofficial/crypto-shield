@@ -109,6 +109,7 @@ export default function SdkWizard() {
   const [dataTypes, setDataTypes] = useState<string[]>([]);
   const [recommendedAlgorithms, setRecommendedAlgorithms] = useState<EncryptionAlgorithm[]>([]);
   const [userSelectedAlgorithms, setUserSelectedAlgorithms] = useState<string[]>([]);
+  const [generatedSDK, setGeneratedSDK] = useState<any>(null);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -129,9 +130,12 @@ export default function SdkWizard() {
             complianceRequirements,
             deploymentEnvironment,
           }) as unknown as EncryptionAlgorithm[];
+          console.log('Recommended algorithms received:', response);
           setRecommendedAlgorithms(response);
           // Auto-select ALL recommended algorithms
-          setUserSelectedAlgorithms(response.map((alg: EncryptionAlgorithm) => alg.id));
+          const algorithmIds = response.map((alg: EncryptionAlgorithm) => alg.id);
+          console.log('Auto-selecting algorithm IDs:', algorithmIds);
+          setUserSelectedAlgorithms(algorithmIds);
           if (response.length > 0 && !selectedAlgorithm) {
             setSelectedAlgorithm(response[0].id);
           }
@@ -158,13 +162,14 @@ export default function SdkWizard() {
     mutationFn: async (data: any) => {
       return await apiRequest('POST', '/api/sdks/generate', data);
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast({
         title: "Success",
         description: "SDK generated successfully!",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/sdks"] });
-      setStep(3);
+      setGeneratedSDK(data);
+      setStep(7); // Go to download step
     },
   });
 
@@ -209,7 +214,7 @@ export default function SdkWizard() {
       return;
     }
     
-    if (step === 5) {
+    if (step === 6) {
       handleGenerateSDK();
       return;
     }
@@ -835,29 +840,55 @@ export default function SdkWizard() {
                   className="bg-blue-500 hover:bg-blue-600 text-white"
                   data-testid="button-next"
                 >
-                  {step === 5 ? (generateSDKMutation.isPending ? 'Generating...' : 'Generate SDK') : 'Next'}
+                  {step === 6 ? (generateSDKMutation.isPending ? 'Generating...' : 'Generate SDK') : 'Next'}
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
               </div>
             )}
 
-            {/* Success Step */}
-            {step === 6 && (
+            {/* Success/Download Step */}
+            {step === 7 && generatedSDK && (
               <div className="text-center space-y-6 mt-8">
                 <div className="w-16 h-16 bg-green-500 bg-opacity-20 rounded-full flex items-center justify-center mx-auto">
                   <Download className="w-8 h-8 text-green-500" />
                 </div>
                 <div>
                   <h3 className="text-2xl font-bold text-foreground mb-2">SDK Generated Successfully!</h3>
-                  <p className="text-muted-foreground">Your custom encryption SDK is ready for download and integration.</p>
+                  <p className="text-muted-foreground">Your custom encryption SDK "{generatedSDK.name}" is ready for download and integration.</p>
+                </div>
+                <div className="bg-card border border-border rounded-lg p-6 text-left max-w-md mx-auto">
+                  <h4 className="text-foreground font-medium mb-2">SDK Details:</h4>
+                  <div className="space-y-2 text-sm text-muted-foreground">
+                    <div>Name: {generatedSDK.name}</div>
+                    <div>Version: {generatedSDK.version}</div>
+                    <div>Languages: {selectedLanguages.join(', ')}</div>
+                    <div>Algorithms: {userSelectedAlgorithms.length} selected</div>
+                  </div>
                 </div>
                 <Button 
                   className="bg-blue-500 hover:bg-blue-600 text-white"
+                  onClick={() => window.open(generatedSDK.downloadUrl, '_blank')}
                   data-testid="button-download-sdk"
                 >
                   <Download className="w-4 h-4 mr-2" />
                   Download SDK
                 </Button>
+                <div className="mt-4">
+                  <Button 
+                    variant="outline"
+                    onClick={() => {
+                      setStep(1);
+                      setGeneratedSDK(null);
+                      setSdkName('');
+                      setUserSelectedAlgorithms([]);
+                      setSelectedLanguages([]);
+                    }}
+                    className="border-border text-foreground"
+                    data-testid="button-create-another"
+                  >
+                    Create Another SDK
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>
