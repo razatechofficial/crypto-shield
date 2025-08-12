@@ -150,11 +150,6 @@ export default function SdkWizard() {
           }) as unknown as EncryptionAlgorithm[];
           console.log('Recommended algorithms received:', response);
           setRecommendedAlgorithms(response);
-          // Don't set algorithms here, let the useEffect below handle it
-          // Use setTimeout to ensure state update is applied
-          setTimeout(() => {
-            console.log('userSelectedAlgorithms after update should be:', algorithmIds);
-          }, 100);
           if (response.length > 0 && !selectedAlgorithm) {
             setSelectedAlgorithm(response[0].id);
           }
@@ -189,7 +184,7 @@ export default function SdkWizard() {
         setUserSelectedAlgorithms(algorithmIds);
       }
     }
-  }, [recommendedAlgorithms, step]);
+  }, [recommendedAlgorithms, step, userSelectedAlgorithms.length]);
 
   const generateSDKMutation = useMutation({
     mutationFn: async (data: any) => {
