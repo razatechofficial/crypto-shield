@@ -130,8 +130,8 @@ export default function SdkWizard() {
             deploymentEnvironment,
           }) as unknown as EncryptionAlgorithm[];
           setRecommendedAlgorithms(response);
-          // Auto-select recommended algorithms
-          setUserSelectedAlgorithms(response.slice(0, 3).map((alg: EncryptionAlgorithm) => alg.id));
+          // Auto-select ALL recommended algorithms
+          setUserSelectedAlgorithms(response.map((alg: EncryptionAlgorithm) => alg.id));
           if (response.length > 0 && !selectedAlgorithm) {
             setSelectedAlgorithm(response[0].id);
           }
