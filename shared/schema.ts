@@ -1,0 +1,244 @@
+import { sql } from 'drizzle-orm';
+import {
+  index,
+  jsonb,
+  pgTable,
+  timestamp,
+  varchar,
+  text,
+  integer,
+  boolean,
+  pgEnum,
+} from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod";
+import { relations } from 'drizzle-orm';
+
+// Session storage table for Replit Auth
+export const sessions = pgTable(
+  "sessions",
+  {
+    sid: varchar("sid").primaryKey(),
+    sess: jsonb("sess").notNull(),
+    expire: timestamp("expire").notNull(),
+  },
+  (table) => [index("IDX_session_expire").on(table.expire)],
+);
+
+// User roles enum
+export const userRoleEnum = pgEnum('user_role', ['admin', 'developer', 'viewer']);
+
+// Subscription tiers enum
+export const subscriptionTierEnum = pgEnum('subscription_tier', ['starter', 'professional', 'enterprise']);
+
+// Algorithm types enum
+export const algorithmTypeEnum = pgEnum('algorithm_type', ['symmetric', 'asymmetric', 'hash', 'post_quantum']);
+
+// Key status enum
+export const keyStatusEnum = pgEnum('key_status', ['active', 'rotating', 'revoked', 'expired']);
+
+// SDK language enum
+export const sdkLanguageEnum = pgEnum('sdk_language', ['javascript', 'python', 'java', 'csharp', 'go', 'rust']);
+
+// User storage table for Replit Auth
+export const users = pgTable("users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: varchar("email").unique(),
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  profileImageUrl: varchar("profile_image_url"),
+  role: userRoleEnum("role").default('developer'),
+  tenantId: varchar("tenant_id").references(() => tenants.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Tenants table for multi-tenancy
+export const tenants = pgTable("tenants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  domain: varchar("domain"),
+  subscriptionTier: subscriptionTierEnum("subscription_tier").default('starter'),
+  apiKey: varchar("api_key").unique().notNull(),
+  settings: jsonb("settings").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Encryption algorithms table
+export const encryptionAlgorithms = pgTable("encryption_algorithms", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull().unique(),
+  displayName: varchar("display_name").notNull(),
+  description: text("description"),
+  type: algorithmTypeEnum("type").notNull(),
+  keySize: integer("key_size"),
+  isQuantumSafe: boolean("is_quantum_safe").default(false),
+  isPostQuantum: boolean("is_post_quantum").default(false),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Generated SDKs table
+export const sdks = pgTable("sdks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  name: varchar("name").notNull(),
+  language: sdkLanguageEnum("language").notNull(),
+  algorithmId: varchar("algorithm_id").references(() => encryptionAlgorithms.id).notNull(),
+  configuration: jsonb("configuration").notNull().default({}),
+  features: jsonb("features").notNull().default({}),
+  downloadUrl: varchar("download_url"),
+  version: varchar("version").default('1.0.0'),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Encryption keys table
+export const encryptionKeys = pgTable("encryption_keys", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  keyId: varchar("key_id").notNull().unique(),
+  keyType: varchar("key_type").notNull(), // 'primary', 'session', 'backup'
+  algorithmId: varchar("algorithm_id").references(() => encryptionAlgorithms.id).notNull(),
+  status: keyStatusEnum("status").default('active'),
+  expiresAt: timestamp("expires_at"),
+  rotationInterval: integer("rotation_interval").default(30), // days
+  metadata: jsonb("metadata").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Security events table for monitoring
+export const securityEvents = pgTable("security_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  eventType: varchar("event_type").notNull(), // 'threat_detected', 'key_rotated', 'unauthorized_access'
+  severity: varchar("severity").notNull(), // 'low', 'medium', 'high', 'critical'
+  source: varchar("source"), // IP address or service
+  description: text("description"),
+  metadata: jsonb("metadata").default({}),
+  isResolved: boolean("is_resolved").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// API usage statistics
+export const apiUsage = pgTable("api_usage", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  date: timestamp("date").notNull(),
+  encryptionRequests: integer("encryption_requests").default(0),
+  decryptionRequests: integer("decryption_requests").default(0),
+  keyRotations: integer("key_rotations").default(0),
+  threatsBlocked: integer("threats_blocked").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Relations
+export const tenantRelations = relations(tenants, ({ many }) => ({
+  users: many(users),
+  sdks: many(sdks),
+  encryptionKeys: many(encryptionKeys),
+  securityEvents: many(securityEvents),
+  apiUsage: many(apiUsage),
+}));
+
+export const userRelations = relations(users, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [users.tenantId],
+    references: [tenants.id],
+  }),
+  sdks: many(sdks),
+}));
+
+export const sdkRelations = relations(sdks, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [sdks.tenantId],
+    references: [tenants.id],
+  }),
+  user: one(users, {
+    fields: [sdks.userId],
+    references: [users.id],
+  }),
+  algorithm: one(encryptionAlgorithms, {
+    fields: [sdks.algorithmId],
+    references: [encryptionAlgorithms.id],
+  }),
+}));
+
+export const encryptionKeyRelations = relations(encryptionKeys, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [encryptionKeys.tenantId],
+    references: [tenants.id],
+  }),
+  algorithm: one(encryptionAlgorithms, {
+    fields: [encryptionKeys.algorithmId],
+    references: [encryptionAlgorithms.id],
+  }),
+}));
+
+export const securityEventRelations = relations(securityEvents, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [securityEvents.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
+export const apiUsageRelations = relations(apiUsage, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [apiUsage.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
+// Insert schemas
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertTenantSchema = createInsertSchema(tenants).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSdkSchema = createInsertSchema(sdks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertEncryptionKeySchema = createInsertSchema(encryptionKeys).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSecurityEventSchema = createInsertSchema(securityEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertApiUsageSchema = createInsertSchema(apiUsage).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Types
+export type UpsertUser = typeof users.$inferInsert;
+export type User = typeof users.$inferSelect;
+export type Tenant = typeof tenants.$inferSelect;
+export type InsertTenant = z.infer<typeof insertTenantSchema>;
+export type Sdk = typeof sdks.$inferSelect;
+export type InsertSdk = z.infer<typeof insertSdkSchema>;
+export type EncryptionAlgorithm = typeof encryptionAlgorithms.$inferSelect;
+export type EncryptionKey = typeof encryptionKeys.$inferSelect;
+export type InsertEncryptionKey = z.infer<typeof insertEncryptionKeySchema>;
+export type SecurityEvent = typeof securityEvents.$inferSelect;
+export type InsertSecurityEvent = z.infer<typeof insertSecurityEventSchema>;
+export type ApiUsage = typeof apiUsage.$inferSelect;
+export type InsertApiUsage = z.infer<typeof insertApiUsageSchema>;

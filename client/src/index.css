@@ -1,0 +1,256 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: hsl(0, 0%, 100%);
+  --foreground: hsl(210, 25%, 7.8431%);
+  --card: hsl(180, 6.6667%, 97.0588%);
+  --card-foreground: hsl(210, 25%, 7.8431%);
+  --popover: hsl(0, 0%, 100%);
+  --popover-foreground: hsl(210, 25%, 7.8431%);
+  --primary: hsl(217, 91%, 59%);
+  --primary-foreground: hsl(0, 0%, 100%);
+  --secondary: hsl(210, 25%, 7.8431%);
+  --secondary-foreground: hsl(0, 0%, 100%);
+  --muted: hsl(240, 1.9608%, 90%);
+  --muted-foreground: hsl(210, 25%, 7.8431%);
+  --accent: hsl(211.5789, 51.3514%, 92.7451%);
+  --accent-foreground: hsl(217, 91%, 59%);
+  --destructive: hsl(0, 84%, 60%);
+  --destructive-foreground: hsl(0, 0%, 100%);
+  --border: hsl(201.4286, 30.4348%, 90.9804%);
+  --input: hsl(200, 23.0769%, 97.4510%);
+  --ring: hsl(217, 91%, 59%);
+  --chart-1: hsl(217, 91%, 59%);
+  --chart-2: hsl(142, 76%, 36%);
+  --chart-3: hsl(38, 92%, 50%);
+  --chart-4: hsl(147, 79%, 42%);
+  --chart-5: hsl(340, 75%, 51%);
+  --sidebar: hsl(180, 6.6667%, 97.0588%);
+  --sidebar-foreground: hsl(210, 25%, 7.8431%);
+  --sidebar-primary: hsl(217, 91%, 59%);
+  --sidebar-primary-foreground: hsl(0, 0%, 100%);
+  --sidebar-accent: hsl(211.5789, 51.3514%, 92.7451%);
+  --sidebar-accent-foreground: hsl(217, 91%, 59%);
+  --sidebar-border: hsl(205.0000, 25.0000%, 90.5882%);
+  --sidebar-ring: hsl(217, 91%, 59%);
+  --font-sans: 'Inter', sans-serif;
+  --font-serif: Georgia, serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --radius: 0.5rem;
+  
+  /* Averox Custom Colors */
+  --averox-primary: hsl(222, 84%, 5%);
+  --averox-secondary: hsl(215, 28%, 17%);
+  --averox-accent: hsl(217, 91%, 59%);
+  --averox-success: hsl(142, 76%, 36%);
+  --averox-warning: hsl(38, 92%, 50%);
+  --averox-error: hsl(0, 84%, 60%);
+  --averox-slate-900: hsl(222, 84%, 5%);
+  --averox-slate-800: hsl(215, 28%, 17%);
+  --averox-slate-700: hsl(215, 25%, 27%);
+  --averox-slate-600: hsl(215, 16%, 47%);
+  --averox-slate-500: hsl(220, 9%, 46%);
+  --averox-slate-400: hsl(218, 11%, 65%);
+  --averox-slate-300: hsl(216, 12%, 84%);
+  --averox-slate-200: hsl(214, 32%, 91%);
+  --averox-slate-100: hsl(220, 14%, 96%);
+  --averox-slate-50: hsl(220, 14%, 98%);
+}
+
+.dark {
+  --background: hsl(222, 84%, 5%);
+  --foreground: hsl(210, 40%, 98%);
+  --card: hsl(215, 28%, 17%);
+  --card-foreground: hsl(210, 40%, 98%);
+  --popover: hsl(222, 84%, 5%);
+  --popover-foreground: hsl(210, 40%, 98%);
+  --primary: hsl(217, 91%, 59%);
+  --primary-foreground: hsl(0, 0%, 100%);
+  --secondary: hsl(217, 33%, 17%);
+  --secondary-foreground: hsl(210, 40%, 98%);
+  --muted: hsl(215, 28%, 17%);
+  --muted-foreground: hsl(215, 16%, 47%);
+  --accent: hsl(215, 28%, 17%);
+  --accent-foreground: hsl(210, 40%, 98%);
+  --destructive: hsl(0, 62%, 30%);
+  --destructive-foreground: hsl(210, 40%, 98%);
+  --border: hsl(215, 28%, 17%);
+  --input: hsl(215, 28%, 17%);
+  --ring: hsl(217, 91%, 59%);
+  --chart-1: hsl(217, 91%, 59%);
+  --chart-2: hsl(142, 76%, 36%);
+  --chart-3: hsl(38, 92%, 50%);
+  --chart-4: hsl(147, 79%, 42%);
+  --chart-5: hsl(340, 75%, 51%);
+  --sidebar: hsl(215, 28%, 17%);
+  --sidebar-foreground: hsl(210, 40%, 98%);
+  --sidebar-primary: hsl(217, 91%, 59%);
+  --sidebar-primary-foreground: hsl(0, 0%, 100%);
+  --sidebar-accent: hsl(215, 28%, 17%);
+  --sidebar-accent-foreground: hsl(210, 40%, 98%);
+  --sidebar-border: hsl(215, 28%, 17%);
+  --sidebar-ring: hsl(217, 91%, 59%);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+    font-family: var(--font-sans);
+  }
+
+  /* Averox Specific Styles */
+  .glass-effect {
+    backdrop-filter: blur(10px);
+    background: rgba(30, 41, 59, 0.8);
+  }
+
+  .gradient-border {
+    background: linear-gradient(45deg, var(--averox-accent), var(--averox-success));
+    padding: 2px;
+    border-radius: 8px;
+  }
+
+  .gradient-border-content {
+    background: var(--averox-secondary);
+    border-radius: 6px;
+    padding: 1rem;
+  }
+
+  /* Custom scrollbar for dark theme */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--averox-slate-800);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--averox-slate-600);
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--averox-slate-500);
+  }
+
+  /* Focus styles for better accessibility */
+  .focus-visible:focus-visible {
+    outline: 2px solid var(--averox-accent);
+    outline-offset: 2px;
+  }
+
+  /* Animation for loading states */
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+
+  .animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  /* Custom button hover effects */
+  .btn-primary {
+    background: var(--averox-accent);
+    color: white;
+    transition: all 0.2s ease-in-out;
+  }
+
+  .btn-primary:hover {
+    background: hsl(217, 91%, 54%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+  }
+
+  /* Security indicator animations */
+  @keyframes security-pulse {
+    0%, 100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.8;
+      transform: scale(1.05);
+    }
+  }
+
+  .security-indicator {
+    animation: security-pulse 2s ease-in-out infinite;
+  }
+
+  /* Chart container styles */
+  .chart-container {
+    background: var(--averox-slate-800);
+    border: 1px solid var(--averox-slate-700);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+  }
+
+  /* Status badge styles */
+  .status-active {
+    background: rgba(16, 185, 129, 0.2);
+    color: var(--averox-success);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+  }
+
+  .status-warning {
+    background: rgba(245, 158, 11, 0.2);
+    color: var(--averox-warning);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+  }
+
+  .status-error {
+    background: rgba(239, 68, 68, 0.2);
+    color: var(--averox-error);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+  }
+
+  /* Table hover effects */
+  .table-row:hover {
+    background: var(--averox-slate-700);
+    transition: background-color 0.2s ease-in-out;
+  }
+
+  /* Form input focus styles */
+  .form-input:focus {
+    border-color: var(--averox-accent);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+
+  /* Modal and dialog overlay */
+  .modal-overlay {
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(4px);
+  }
+
+  /* Notification styles */
+  .notification-success {
+    background: var(--averox-slate-800);
+    border-left: 4px solid var(--averox-success);
+    color: var(--averox-slate-100);
+  }
+
+  .notification-error {
+    background: var(--averox-slate-800);
+    border-left: 4px solid var(--averox-error);
+    color: var(--averox-slate-100);
+  }
+
+  .notification-warning {
+    background: var(--averox-slate-800);
+    border-left: 4px solid var(--averox-warning);
+    color: var(--averox-slate-100);
+  }
+}
