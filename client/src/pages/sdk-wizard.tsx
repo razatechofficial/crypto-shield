@@ -187,6 +187,8 @@ export default function SdkWizard() {
       return await apiRequest('POST', '/api/sdks/generate', data);
     },
     onSuccess: (data) => {
+      console.log('SDK generation response received:', data);
+      console.log('downloadUrl in response:', data.downloadUrl);
       toast({
         title: "Success",
         description: "SDK generated successfully!",

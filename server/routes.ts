@@ -289,10 +289,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Ensure downloadUrl is included in response
       console.log('Generated SDK with downloadUrl:', downloadUrl);
-      res.json({
+      console.log('SDK from storage:', sdk);
+      const response = {
         ...sdk,
         downloadUrl: downloadUrl // Explicitly ensure downloadUrl is in response
-      });
+      };
+      console.log('Final response being sent:', response);
+      res.json(response);
     } catch (error) {
       console.error("Error generating SDK:", error);
       res.status(500).json({ message: "Failed to generate SDK" });
