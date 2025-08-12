@@ -38,7 +38,7 @@ export const algorithmTypeEnum = pgEnum('algorithm_type', ['symmetric', 'asymmet
 export const keyStatusEnum = pgEnum('key_status', ['active', 'rotating', 'revoked', 'expired']);
 
 // SDK language enum
-export const sdkLanguageEnum = pgEnum('sdk_language', ['javascript', 'python', 'java', 'csharp', 'go', 'rust']);
+export const sdkLanguageEnum = pgEnum('sdk_language', ['javascript', 'python', 'java', 'csharp', 'go', 'rust', 'dart', 'swift', 'kotlin', 'php', 'ruby', 'cpp']);
 
 // User storage table for Replit Auth
 export const users = pgTable("users", {
@@ -85,12 +85,17 @@ export const sdks = pgTable("sdks", {
   tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   userId: varchar("user_id").references(() => users.id).notNull(),
   name: varchar("name").notNull(),
-  language: sdkLanguageEnum("language").notNull(),
-  algorithmId: varchar("algorithm_id").references(() => encryptionAlgorithms.id).notNull(),
+  languages: text("languages").notNull(), // JSON array of supported languages
+  algorithms: text("algorithms").notNull(), // JSON array of algorithm IDs
+  applicationType: varchar("application_type"),
+  deploymentEnvironment: varchar("deployment_environment"),
+  securityLevel: varchar("security_level"),
+  dataTypes: text("data_types"), // JSON array
+  complianceRequirements: text("compliance_requirements"), // JSON array
   configuration: jsonb("configuration").notNull().default({}),
   features: jsonb("features").notNull().default({}),
   downloadUrl: varchar("download_url"),
-  version: varchar("version").default('1.0.0'),
+  version: varchar("version").default('2.0.0'),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -161,10 +166,6 @@ export const sdkRelations = relations(sdks, ({ one }) => ({
   user: one(users, {
     fields: [sdks.userId],
     references: [users.id],
-  }),
-  algorithm: one(encryptionAlgorithms, {
-    fields: [sdks.algorithmId],
-    references: [encryptionAlgorithms.id],
   }),
 }));
 

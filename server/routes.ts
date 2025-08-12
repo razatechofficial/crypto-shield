@@ -7,7 +7,7 @@ import { z } from "zod";
 import { randomUUID } from "crypto";
 
 // Helper functions for advanced SDK generation
-function generateSetupCommands(language: string): string[] {
+function generateSetupCommands(languages: string[]): Record<string, string[]> {
   const commands: Record<string, string[]> = {
     javascript: ['npm install averox-crypto-sdk --save', 'npx averox-crypto init'],
     python: ['pip install averox-crypto-sdk', 'averox-crypto init'],
@@ -15,8 +15,19 @@ function generateSetupCommands(language: string): string[] {
     csharp: ['dotnet add package AveroxCrypto', 'dotnet averox init'],
     go: ['go mod init && go get github.com/averox/crypto-sdk', 'averox init'],
     rust: ['cargo add averox-crypto', 'cargo averox init'],
+    dart: ['pub add averox_crypto', 'dart run averox_crypto:init'],
+    swift: ['pod install AveroxCrypto', 'averox-swift init'],
+    kotlin: ['implementation "com.averox:crypto-sdk"', './gradlew averoxKotlinInit'],
+    php: ['composer require averox/crypto-sdk', 'php artisan averox:init'],
+    ruby: ['gem install averox-crypto', 'averox init'],
+    cpp: ['git clone https://github.com/averox/crypto-cpp', 'make install'],
   };
-  return commands[language] || ['# Platform-specific installation commands will be generated'];
+  
+  const result: Record<string, string[]> = {};
+  languages.forEach(lang => {
+    result[lang] = commands[lang] || [`# ${lang.charAt(0).toUpperCase() + lang.slice(1)} installation commands will be generated`];
+  });
+  return result;
 }
 
 function generateSDKVersion(sdkData: any): string {
@@ -196,11 +207,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "User not associated with a tenant" });
       }
 
-      const sdkData = insertSdkSchema.parse({
-        ...req.body,
+      // Parse and prepare SDK data for unified multi-language/algorithm approach
+      const requestBody = req.body;
+      const sdkData = {
+        name: requestBody.name,
+        languages: JSON.stringify(requestBody.languages || []),
+        algorithms: JSON.stringify(requestBody.algorithms || []),
+        applicationType: requestBody.applicationType,
+        deploymentEnvironment: requestBody.deploymentEnvironment,
+        securityLevel: requestBody.securityLevel,
+        dataTypes: JSON.stringify(requestBody.dataTypes || []),
+        complianceRequirements: JSON.stringify(requestBody.complianceRequirements || []),
+        configuration: requestBody.configuration || {},
+        features: requestBody.features || {},
         tenantId: user.tenantId,
         userId: userId,
-      });
+      };
 
       // Generate comprehensive SDK with auto-features
       const downloadUrl = `/api/sdks/${randomUUID()}/download`;
@@ -209,12 +231,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const enhancedConfiguration = {
         ...(sdkData.configuration || {}),
         
-        // Auto-Installation & Setup
+        // Auto-Installation & Setup for Multiple Languages
         installer: {
           autoDetectPlatform: true,
           dependencyResolution: 'automatic',
           configGeneration: 'zero-config',
-          setupCommands: generateSetupCommands(sdkData.language),
+          multiLanguageSupport: true,
+          setupCommands: generateSetupCommands(JSON.parse(sdkData.languages)),
         },
         
         // Advanced Security Features  
@@ -254,10 +277,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         tenantId: user.tenantId,
         eventType: 'sdk_generated',
         severity: 'low',
-        description: `Advanced SDK generated: ${sdk.language} with ${Object.keys(enhancedConfiguration).length} auto-features enabled`,
+        description: `Advanced multi-language SDK generated with ${Object.keys(enhancedConfiguration).length} auto-features enabled`,
         metadata: { 
           sdkId: sdk.id, 
-          language: sdk.language,
+          languages: JSON.parse(sdk.languages),
+          algorithms: JSON.parse(sdk.algorithms),
           features: Object.keys(sdkData.features || {}),
           autoFeatures: Object.keys(enhancedConfiguration),
         },

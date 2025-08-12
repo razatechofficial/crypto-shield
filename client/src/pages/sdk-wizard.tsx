@@ -222,92 +222,96 @@ export default function SdkWizard() {
   };
 
   const handleGenerateSDK = () => {
-    // Generate multiple SDKs - one for each selected language and algorithm combination
-    const sdkRequests = selectedLanguages.flatMap(language => 
-      userSelectedAlgorithms.map(algorithmId => ({
-        name: `${sdkName} (${language})`,
-        applicationType,
-        deploymentEnvironment,
-        securityLevel,
-        dataTypes,
-        complianceRequirements,
-        language,
-        algorithmId,
-        configuration: {
-          // Zero Configuration - Auto Setup
-          autoSetup: true,
-          autoInstall: true,
-          autoConfig: true,
-          
-          // Security Configuration
-          quantumSafe: userSelectedAlgorithms.some(id => 
-            Array.isArray(algorithms) && algorithms.find((alg: EncryptionAlgorithm) => alg.id === id)?.isPostQuantum
-          ),
-          encryptionLevel: securityLevel,
-          complianceMode: complianceRequirements,
-          
-          // Auto-Healing Configuration
-          selfHealing: {
-            enabled: selectedFeatures.includes('selfHealing'),
-            threatDetection: true,
-            autoRotation: selectedFeatures.includes('autoRotation'),
-            rotationInterval: securityLevel === 'maximum' ? 7 : securityLevel === 'enhanced' ? 30 : 90,
-            autoRecovery: true,
-            anomalyDetection: true,
-          },
-          
-          // Telemetry & Monitoring
-          telemetry: {
-            enabled: selectedFeatures.includes('telemetry'),
-            realTimeMonitoring: true,
-            performanceMetrics: true,
-            securityEvents: true,
-            usageAnalytics: true,
-            alerting: {
-              enabled: true,
-              threatAlerts: true,
-              performanceAlerts: true,
-              keyExpirationAlerts: true,
-            },
-          },
-          
-          // Zero-Knowledge Architecture
-          zeroKnowledge: {
-            enabled: selectedFeatures.includes('zeroKnowledge'),
-            clientSideEncryption: true,
-            keyDerivation: 'client',
-            serverBlindness: true,
-          },
-          
-          // Multi-Tenant Support
-          multiTenant: {
-            enabled: selectedFeatures.includes('multiTenant'),
-            isolation: 'strict',
-            tenantKeySegregation: true,
-          },
-          
-          // Backup & Recovery
-          backup: {
-            enabled: selectedFeatures.includes('backup'),
-            autoBackup: true,
-            backupInterval: '24h',
-            distributedBackup: true,
-            disasterRecovery: true,
-          }
-        },
-        features: Object.fromEntries(
-          features.map(feature => [
-            feature.id, 
-            selectedFeatures.includes(feature.id)
-          ])
+    // Generate single unified SDK with multiple languages and algorithms
+    const unifiedSDK = {
+      name: sdkName,
+      applicationType,
+      deploymentEnvironment,
+      securityLevel,
+      dataTypes,
+      complianceRequirements,
+      languages: selectedLanguages, // Array of selected languages
+      algorithms: userSelectedAlgorithms, // Array of selected algorithms
+      configuration: {
+        // Zero Configuration - Auto Setup
+        autoSetup: true,
+        autoInstall: true,
+        autoConfig: true,
+        
+        // Security Configuration
+        quantumSafe: userSelectedAlgorithms.some(id => 
+          Array.isArray(algorithms) && algorithms.find((alg: EncryptionAlgorithm) => alg.id === id)?.isPostQuantum
         ),
-      }))
-    );
+        encryptionLevel: securityLevel,
+        complianceMode: complianceRequirements,
+        
+        // Multi-Language Support
+        languageBindings: {
+          crossPlatform: true,
+          nativeOptimization: true,
+          unifiedAPI: true,
+          sharedConfiguration: true,
+        },
+        
+        // Auto-Healing Configuration
+        selfHealing: {
+          enabled: selectedFeatures.includes('selfHealing'),
+          threatDetection: true,
+          autoRotation: selectedFeatures.includes('autoRotation'),
+          rotationInterval: securityLevel === 'maximum' ? 7 : securityLevel === 'enhanced' ? 30 : 90,
+          autoRecovery: true,
+          anomalyDetection: true,
+        },
+        
+        // Telemetry & Monitoring
+        telemetry: {
+          enabled: selectedFeatures.includes('telemetry'),
+          realTimeMonitoring: true,
+          performanceMetrics: true,
+          securityEvents: true,
+          usageAnalytics: true,
+          alerting: {
+            enabled: true,
+            threatAlerts: true,
+            performanceAlerts: true,
+            keyExpirationAlerts: true,
+          },
+        },
+        
+        // Zero-Knowledge Architecture
+        zeroKnowledge: {
+          enabled: selectedFeatures.includes('zeroKnowledge'),
+          clientSideEncryption: true,
+          keyDerivation: 'client',
+          serverBlindness: true,
+        },
+        
+        // Multi-Tenant Support
+        multiTenant: {
+          enabled: selectedFeatures.includes('multiTenant'),
+          isolation: 'strict',
+          tenantKeySegregation: true,
+        },
+        
+        // Backup & Recovery
+        backup: {
+          enabled: selectedFeatures.includes('backup'),
+          autoBackup: true,
+          backupInterval: '24h',
+          distributedBackup: true,
+          disasterRecovery: true,
+        }
+      },
+      features: Object.fromEntries(
+        features.map(feature => [
+          feature.id, 
+          selectedFeatures.includes(feature.id)
+        ])
+      ),
+    };
 
-    // Generate all SDKs
-    sdkRequests.forEach(sdkRequest => {
-      generateSDKMutation.mutate(sdkRequest);
-    });
+    // Generate single unified SDK
+    generateSDKMutation.mutate(unifiedSDK);
   };
 
   const handleFeatureToggle = (featureId: string) => {
