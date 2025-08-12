@@ -481,7 +481,7 @@ export default function SdkWizard() {
                 </div>
 
                 {/* Smart Recommendations */}
-                {recommendedAlgorithms.length > 0 && (
+                {Array.isArray(recommendedAlgorithms) && recommendedAlgorithms.length > 0 && (
                   <div className="mb-8">
                     <div className="flex items-center gap-2 mb-4">
                       <Lightbulb className="w-5 h-5 text-yellow-500" />
@@ -491,7 +491,7 @@ export default function SdkWizard() {
                       </Badge>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {recommendedAlgorithms.slice(0, 4).map((algorithm) => (
+                      {Array.isArray(recommendedAlgorithms) && recommendedAlgorithms.slice(0, 4).map((algorithm) => (
                         <Label 
                           key={algorithm.id}
                           className="flex items-start space-x-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/20 transition-colors"
@@ -545,7 +545,7 @@ export default function SdkWizard() {
                         <Label 
                           key={algorithm.id}
                           className={`flex items-start space-x-3 border rounded-lg p-4 cursor-pointer hover:bg-secondary transition-colors ${
-                            recommendedAlgorithms.some(rec => rec.id === algorithm.id) 
+                            Array.isArray(recommendedAlgorithms) && recommendedAlgorithms.some(rec => rec.id === algorithm.id) 
                               ? 'bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800'
                               : 'bg-card border-border'
                           }`}
@@ -576,7 +576,7 @@ export default function SdkWizard() {
                               <Badge variant="outline" className="text-xs capitalize">
                                 {algorithm.type}
                               </Badge>
-                              {recommendedAlgorithms.some(rec => rec.id === algorithm.id) && (
+                              {Array.isArray(recommendedAlgorithms) && recommendedAlgorithms.some(rec => rec.id === algorithm.id) && (
                                 <Badge variant="secondary" className="text-xs bg-yellow-100 dark:bg-yellow-950/20 text-yellow-700 dark:text-yellow-400">
                                   Recommended
                                 </Badge>
