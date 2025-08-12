@@ -351,10 +351,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 This SDK provides enterprise-grade encryption capabilities with quantum-safe algorithms and auto-healing features.
 
 ## Supported Languages
-${languages.map(lang => `- ${lang}`).join('\n')}
+${languages.map((lang: string) => `- ${lang}`).join('\n')}
 
 ## Included Algorithms
-${algorithms.map(alg => `- ${alg}`).join('\n')}
+${algorithms.map((alg: string) => `- ${alg}`).join('\n')}
 
 ## Installation
 

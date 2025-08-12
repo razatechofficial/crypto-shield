@@ -895,14 +895,35 @@ export default function SdkWizard() {
                 </div>
                 <Button 
                   className="bg-blue-500 hover:bg-blue-600 text-white"
-                  onClick={() => {
+                  onClick={async () => {
                     console.log('Downloading SDK from:', generatedSDK.downloadUrl);
-                    const link = document.createElement('a');
-                    link.href = generatedSDK.downloadUrl;
-                    link.download = `${generatedSDK.name}-v${generatedSDK.version}.zip`;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
+                    try {
+                      const response = await fetch(generatedSDK.downloadUrl, {
+                        method: 'GET',
+                        credentials: 'include', // Include cookies for authentication
+                      });
+                      
+                      if (!response.ok) {
+                        throw new Error(`Download failed: ${response.status}`);
+                      }
+                      
+                      const blob = await response.blob();
+                      const url = window.URL.createObjectURL(blob);
+                      const link = document.createElement('a');
+                      link.href = url;
+                      link.download = `${generatedSDK.name}-v${generatedSDK.version}.zip`;
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                      window.URL.revokeObjectURL(url);
+                    } catch (error) {
+                      console.error('Download error:', error);
+                      toast({
+                        title: "Download Failed",
+                        description: "Failed to download SDK. Please try again.",
+                        variant: "destructive",
+                      });
+                    }
                   }}
                   data-testid="button-download-sdk"
                 >
