@@ -446,7 +446,7 @@ setup(
       archive.append('# Averox SDK Python Module\nfrom .core import encrypt, decrypt, generate_key', { name: 'src/__init__.py' });
 
       // Add error handling for archive completion
-      archive.on('error', (err) => {
+      archive.on('error', (err: any) => {
         console.error('Archive error:', err);
         res.status(500).json({ message: "Failed to create SDK archive" });
       });

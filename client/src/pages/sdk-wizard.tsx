@@ -155,7 +155,9 @@ export default function SdkWizard() {
             deploymentEnvironment,
           }) as unknown as EncryptionAlgorithm[];
           console.log('Recommended algorithms received:', response);
-          setRecommendedAlgorithms(response);
+          // Ensure response is an array
+          const recommendations = Array.isArray(response) ? response : [];
+          setRecommendedAlgorithms(recommendations);
         } catch (error) {
           if (isUnauthorizedError(error as Error)) {
             toast({
@@ -510,14 +512,14 @@ export default function SdkWizard() {
                 </div>
 
                 {/* Recommended Algorithms */}
-                {recommendedAlgorithms.length > 0 && (
+                {Array.isArray(recommendedAlgorithms) && recommendedAlgorithms.length > 0 && (
                   <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-6">
                     <div className="flex items-center gap-3 mb-4">
                       <Sparkles className="h-5 w-5 text-blue-600" />
                       <h4 className="font-semibold text-blue-900 dark:text-blue-100">Recommended for Your Application</h4>
                     </div>
                     <div className="grid grid-cols-1 gap-3">
-                      {recommendedAlgorithms.map((algorithm) => (
+                      {(recommendedAlgorithms || []).map((algorithm) => (
                         <Label 
                           key={algorithm.id}
                           className="flex items-center space-x-3 bg-white dark:bg-gray-900 border border-blue-200 dark:border-blue-700 rounded-lg p-4 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950/50 transition-colors"
@@ -553,7 +555,7 @@ export default function SdkWizard() {
                 <div>
                   <h4 className="font-semibold text-foreground mb-4">All Available Algorithms</h4>
                   <div className="grid grid-cols-1 gap-3">
-                    {algorithms.filter((alg: any) => !recommendedAlgorithms.some(rec => rec.id === alg.id)).map((algorithm: any) => (
+                    {algorithms.filter((alg: any) => !Array.isArray(recommendedAlgorithms) || !recommendedAlgorithms.some(rec => rec.id === alg.id)).map((algorithm: any) => (
                       <Label 
                         key={algorithm.id}
                         className="flex items-center space-x-3 bg-card border border-border rounded-lg p-4 cursor-pointer hover:bg-secondary transition-colors"
