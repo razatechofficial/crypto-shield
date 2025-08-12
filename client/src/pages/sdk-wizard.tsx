@@ -41,6 +41,16 @@ const applicationTypes = [
   { id: 'api', name: 'API/Backend Service', description: 'Server-side APIs and microservices' },
   { id: 'iot', name: 'IoT/Embedded', description: 'Internet of Things devices and embedded systems' },
   { id: 'enterprise', name: 'Enterprise Software', description: 'Large-scale enterprise applications' },
+  { id: 'videoconf', name: 'Video Conferencing', description: 'Video calling and conferencing applications' },
+  { id: 'messaging', name: 'Chat/Messaging', description: 'Real-time messaging and communication apps' },
+  { id: 'social', name: 'Social Media', description: 'Social networking and content sharing platforms' },
+  { id: 'gaming', name: 'Gaming', description: 'Online games and gaming platforms' },
+  { id: 'streaming', name: 'Media Streaming', description: 'Video/audio streaming and media platforms' },
+  { id: 'ecommerce', name: 'E-commerce', description: 'Online shopping and marketplace applications' },
+  { id: 'fintech', name: 'Fintech/Banking', description: 'Financial services and banking applications' },
+  { id: 'healthcare', name: 'Healthcare/Medical', description: 'Medical and healthcare management systems' },
+  { id: 'education', name: 'Education/E-learning', description: 'Learning management and educational platforms' },
+  { id: 'blockchain', name: 'Blockchain/Crypto', description: 'Cryptocurrency and blockchain applications' },
 ];
 
 const deploymentEnvironments = [
@@ -66,12 +76,20 @@ const securityLevels = [
 ];
 
 const dataTypeOptions = [
-  { id: 'personal', name: 'Personal Data', description: 'User profiles, contact information' },
-  { id: 'financial', name: 'Financial Data', description: 'Payment info, transactions, banking' },
-  { id: 'medical', name: 'Medical Records', description: 'Health information, patient data' },
-  { id: 'business', name: 'Business Data', description: 'Corporate documents, trade secrets' },
-  { id: 'communications', name: 'Communications', description: 'Messages, emails, chat logs' },
-  { id: 'files', name: 'File Storage', description: 'Documents, images, media files' },
+  { id: 'personal', name: 'Personal Data', description: 'User profiles, contact information, PII' },
+  { id: 'financial', name: 'Financial Data', description: 'Payment info, transactions, banking records' },
+  { id: 'medical', name: 'Medical Records', description: 'Health information, patient data, PHI' },
+  { id: 'business', name: 'Business Data', description: 'Corporate documents, trade secrets, IP' },
+  { id: 'communications', name: 'Communications', description: 'Messages, emails, chat logs, calls' },
+  { id: 'files', name: 'File Storage', description: 'Documents, images, media files, attachments' },
+  { id: 'authentication', name: 'Authentication', description: 'Passwords, tokens, credentials, sessions' },
+  { id: 'biometric', name: 'Biometric Data', description: 'Fingerprints, facial recognition, voice patterns' },
+  { id: 'location', name: 'Location Data', description: 'GPS coordinates, geolocation, tracking data' },
+  { id: 'analytics', name: 'Analytics/Metrics', description: 'User behavior, performance data, statistics' },
+  { id: 'media', name: 'Media Content', description: 'Videos, audio, images, streaming content' },
+  { id: 'social', name: 'Social Data', description: 'Posts, likes, connections, social graphs' },
+  { id: 'iot', name: 'IoT/Sensor Data', description: 'Device data, sensor readings, telemetry' },
+  { id: 'blockchain', name: 'Blockchain/Crypto', description: 'Wallet data, transactions, smart contracts' },
 ];
 
 const features = [
@@ -135,7 +153,12 @@ export default function SdkWizard() {
           // Auto-select ALL recommended algorithms
           const algorithmIds = response.map((alg: EncryptionAlgorithm) => alg.id);
           console.log('Auto-selecting algorithm IDs:', algorithmIds);
+          console.log('Current userSelectedAlgorithms before update:', userSelectedAlgorithms);
           setUserSelectedAlgorithms(algorithmIds);
+          // Use setTimeout to ensure state update is applied
+          setTimeout(() => {
+            console.log('userSelectedAlgorithms after update should be:', algorithmIds);
+          }, 100);
           if (response.length > 0 && !selectedAlgorithm) {
             setSelectedAlgorithm(response[0].id);
           }
@@ -156,7 +179,16 @@ export default function SdkWizard() {
       };
       fetchRecommendations();
     }
-  }, [step, applicationType, securityLevel, complianceRequirements, deploymentEnvironment, selectedAlgorithm, toast]);
+  }, [step, applicationType, securityLevel, complianceRequirements, deploymentEnvironment]);
+
+  // Auto-select recommended algorithms when they change
+  useEffect(() => {
+    if (Array.isArray(recommendedAlgorithms) && recommendedAlgorithms.length > 0) {
+      const algorithmIds = recommendedAlgorithms.map((alg: EncryptionAlgorithm) => alg.id);
+      console.log('Setting selected algorithms from recommendedAlgorithms:', algorithmIds);
+      setUserSelectedAlgorithms(algorithmIds);
+    }
+  }, [recommendedAlgorithms]);
 
   const generateSDKMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -822,7 +854,7 @@ export default function SdkWizard() {
             )}
 
             {/* Action Buttons */}
-            {step < 6 && (
+            {step <= 6 && (
               <div className="flex justify-between mt-8">
                 <Button 
                   onClick={handlePrevious}
