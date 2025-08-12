@@ -25,12 +25,12 @@ export default function StatsCard({
   };
 
   return (
-    <Card className="bg-slate-800 border-slate-700">
+    <Card className="bg-card border-border">
       <CardContent className="p-6">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-slate-400 text-sm">{title}</p>
-            <p className="text-3xl font-bold text-white mt-1" data-testid={`stat-${title.toLowerCase().replace(/\s+/g, '-')}`}>
+            <p className="text-muted-foreground text-sm">{title}</p>
+            <p className="text-3xl font-bold text-foreground mt-1" data-testid={`stat-${title.toLowerCase().replace(/\s+/g, '-')}`}>
               {value}
             </p>
             {change && (

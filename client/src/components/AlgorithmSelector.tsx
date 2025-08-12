@@ -17,7 +17,7 @@ export default function AlgorithmSelector({
 }: AlgorithmSelectorProps) {
   return (
     <div>
-      <label className="block text-white font-medium mb-4">Encryption Algorithm</label>
+      <label className="block text-foreground font-medium mb-4">Encryption Algorithm</label>
       <RadioGroup value={selectedAlgorithm} onValueChange={onAlgorithmChange}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {algorithms.map((algorithm) => (
@@ -32,12 +32,12 @@ export default function AlgorithmSelector({
                 className="cursor-pointer"
                 data-testid={`algorithm-${algorithm.name}`}
               >
-                <Card className="bg-slate-700 border-slate-600 peer-checked:border-blue-500 peer-checked:bg-slate-600 hover:bg-slate-600 transition-colors">
+                <Card className="bg-card border-border peer-checked:border-primary peer-checked:bg-secondary hover:bg-secondary transition-colors">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h4 className="text-white font-medium">{algorithm.displayName}</h4>
-                        <p className="text-slate-400 text-sm">{algorithm.description}</p>
+                        <h4 className="text-foreground font-medium">{algorithm.displayName}</h4>
+                        <p className="text-muted-foreground text-sm">{algorithm.description}</p>
                       </div>
                       <div className="flex flex-col items-end space-y-1">
                         {algorithm.isQuantumSafe && (

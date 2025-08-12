@@ -121,42 +121,42 @@ export default function Dashboard() {
       </div>
 
       {/* Recent Activities */}
-      <Card className="bg-slate-800 border-slate-700">
+      <Card className="bg-card border-border">
         <CardHeader>
-          <CardTitle className="text-white">Recent Activities</CardTitle>
+          <CardTitle className="text-foreground">Recent Activities</CardTitle>
         </CardHeader>
         <CardContent>
           {activitiesLoading ? (
             <div className="space-y-4">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="flex items-center space-x-4 p-3 bg-slate-700 rounded-lg animate-pulse">
-                  <div className="w-8 h-8 bg-slate-600 rounded-lg"></div>
+                <div key={i} className="flex items-center space-x-4 p-3 bg-secondary rounded-lg animate-pulse">
+                  <div className="w-8 h-8 bg-muted rounded-lg"></div>
                   <div className="flex-1">
-                    <div className="h-4 bg-slate-600 rounded w-3/4 mb-2"></div>
-                    <div className="h-3 bg-slate-600 rounded w-1/2"></div>
+                    <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
+                    <div className="h-3 bg-muted rounded w-1/2"></div>
                   </div>
-                  <div className="h-3 bg-slate-600 rounded w-20"></div>
+                  <div className="h-3 bg-muted rounded w-20"></div>
                 </div>
               ))}
             </div>
           ) : activities?.length ? (
             <div className="space-y-4">
               {activities.map((activity: any) => (
-                <div key={activity.id} className="flex items-center space-x-4 p-3 bg-slate-700 rounded-lg">
-                  <div className="w-8 h-8 bg-slate-600 rounded-lg flex items-center justify-center">
+                <div key={activity.id} className="flex items-center space-x-4 p-3 bg-secondary rounded-lg">
+                  <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center">
                     {getActivityIcon(activity.eventType)}
                   </div>
                   <div className="flex-1">
-                    <p className="text-white font-medium" data-testid={`activity-title-${activity.id}`}>
+                    <p className="text-foreground font-medium" data-testid={`activity-title-${activity.id}`}>
                       {activity.eventType === 'sdk_generated' && 'SDK Generated Successfully'}
                       {activity.eventType === 'key_rotated' && 'Key Rotation Completed'}
                       {activity.eventType === 'threat_detected' && 'Security Alert Detected'}
                     </p>
-                    <p className="text-slate-400 text-sm" data-testid={`activity-description-${activity.id}`}>
+                    <p className="text-muted-foreground text-sm" data-testid={`activity-description-${activity.id}`}>
                       {activity.description}
                     </p>
                   </div>
-                  <span className="text-slate-400 text-sm" data-testid={`activity-time-${activity.id}`}>
+                  <span className="text-muted-foreground text-sm" data-testid={`activity-time-${activity.id}`}>
                     {formatDistanceToNow(new Date(activity.createdAt), { addSuffix: true })}
                   </span>
                 </div>
@@ -164,7 +164,7 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="text-center py-8">
-              <p className="text-slate-400">No recent activities</p>
+              <p className="text-muted-foreground">No recent activities</p>
             </div>
           )}
         </CardContent>

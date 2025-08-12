@@ -37,7 +37,7 @@ export default function SecurityChart({ type, title, data, options }: SecurityCh
     plugins: {
       legend: {
         labels: { 
-          color: '#F8FAFC',
+          color: 'hsl(var(--foreground))',
           font: { family: 'Inter' }
         }
       },
@@ -47,12 +47,12 @@ export default function SecurityChart({ type, title, data, options }: SecurityCh
     },
     scales: type === "line" ? {
       y: {
-        ticks: { color: '#94A3B8' },
-        grid: { color: '#334155' }
+        ticks: { color: 'hsl(var(--muted-foreground))' },
+        grid: { color: 'hsl(var(--border))' }
       },
       x: {
-        ticks: { color: '#94A3B8' },
-        grid: { color: '#334155' }
+        ticks: { color: 'hsl(var(--muted-foreground))' },
+        grid: { color: 'hsl(var(--border))' }
       }
     } : undefined,
   };
@@ -62,8 +62,8 @@ export default function SecurityChart({ type, title, data, options }: SecurityCh
   const Chart = type === "line" ? Line : Doughnut;
 
   return (
-    <div className="bg-slate-800 rounded-xl p-6 border border-slate-700">
-      <h3 className="text-lg font-semibold text-white mb-4">{title}</h3>
+    <div className="bg-card rounded-xl p-6 border border-border">
+      <h3 className="text-lg font-semibold text-foreground mb-4">{title}</h3>
       <div className="h-64">
         <Chart data={data} options={chartOptions} />
       </div>

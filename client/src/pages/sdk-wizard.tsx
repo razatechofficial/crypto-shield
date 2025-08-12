@@ -119,49 +119,49 @@ export default function SdkWizard() {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${
-                step >= 1 ? 'bg-blue-500 text-white' : 'bg-slate-600 text-slate-400'
+                step >= 1 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
               }`}>
                 1
               </div>
-              <span className={step >= 1 ? 'text-white font-medium' : 'text-slate-400 font-medium'}>
+              <span className={step >= 1 ? 'text-foreground font-medium' : 'text-muted-foreground font-medium'}>
                 Algorithm Selection
               </span>
             </div>
-            <div className="flex-1 h-px bg-slate-700 mx-4"></div>
+            <div className="flex-1 h-px bg-border mx-4"></div>
             <div className="flex items-center space-x-2">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${
-                step >= 2 ? 'bg-blue-500 text-white' : 'bg-slate-600 text-slate-400'
+                step >= 2 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
               }`}>
                 2
               </div>
-              <span className={step >= 2 ? 'text-white font-medium' : 'text-slate-400 font-medium'}>
+              <span className={step >= 2 ? 'text-foreground font-medium' : 'text-muted-foreground font-medium'}>
                 Configuration
               </span>
             </div>
-            <div className="flex-1 h-px bg-slate-700 mx-4"></div>
+            <div className="flex-1 h-px bg-border mx-4"></div>
             <div className="flex items-center space-x-2">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${
-                step >= 3 ? 'bg-blue-500 text-white' : 'bg-slate-600 text-slate-400'
+                step >= 3 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
               }`}>
                 3
               </div>
-              <span className={step >= 3 ? 'text-white font-medium' : 'text-slate-400 font-medium'}>
+              <span className={step >= 3 ? 'text-foreground font-medium' : 'text-muted-foreground font-medium'}>
                 Generation
               </span>
             </div>
           </div>
         </div>
 
-        <Card className="bg-slate-800 border-slate-700">
+        <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle className="text-white text-2xl">Create Your Encryption SDK</CardTitle>
+            <CardTitle className="text-foreground text-2xl">Create Your Encryption SDK</CardTitle>
           </CardHeader>
           <CardContent className="p-8">
             {step === 1 && (
               <div className="space-y-8">
                 {/* SDK Name */}
                 <div>
-                  <Label htmlFor="sdkName" className="text-white font-medium mb-2 block">
+                  <Label htmlFor="sdkName" className="text-foreground font-medium mb-2 block">
                     SDK Name
                   </Label>
                   <Input
@@ -169,24 +169,24 @@ export default function SdkWizard() {
                     value={sdkName}
                     onChange={(e) => setSdkName(e.target.value)}
                     placeholder="My Encryption SDK"
-                    className="bg-slate-700 border-slate-600 text-white"
+                    className="bg-background border-border text-foreground"
                     data-testid="input-sdk-name"
                   />
                 </div>
 
                 {/* Language Selection */}
                 <div>
-                  <Label className="text-white font-medium mb-4 block">Target Programming Language</Label>
+                  <Label className="text-foreground font-medium mb-4 block">Target Programming Language</Label>
                   <RadioGroup value={selectedLanguage} onValueChange={setSelectedLanguage}>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       {languages.map((language) => (
                         <div key={language.id}>
                           <RadioGroupItem value={language.id} id={language.id} className="sr-only peer" />
                           <Label htmlFor={language.id} className="cursor-pointer" data-testid={`language-${language.id}`}>
-                            <Card className="bg-slate-700 border-slate-600 peer-checked:border-blue-500 peer-checked:bg-slate-600 hover:bg-slate-600 transition-colors">
+                            <Card className="bg-card border-border peer-checked:border-primary peer-checked:bg-secondary hover:bg-secondary transition-colors">
                               <CardContent className="p-4 text-center">
                                 <div className="text-3xl mb-2">{language.icon}</div>
-                                <p className="text-white font-medium">{language.name}</p>
+                                <p className="text-foreground font-medium">{language.name}</p>
                               </CardContent>
                             </Card>
                           </Label>
@@ -210,22 +210,22 @@ export default function SdkWizard() {
             {step === 2 && (
               <div className="space-y-8">
                 <div>
-                  <Label className="text-white font-medium mb-4 block">Security Features</Label>
+                  <Label className="text-foreground font-medium mb-4 block">Security Features</Label>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {features.map((feature) => (
                       <Label 
                         key={feature.id}
-                        className="flex items-center space-x-3 bg-slate-700 border border-slate-600 rounded-lg p-4 cursor-pointer hover:bg-slate-600 transition-colors"
+                        className="flex items-center space-x-3 bg-card border border-border rounded-lg p-4 cursor-pointer hover:bg-secondary transition-colors"
                         data-testid={`feature-${feature.id}`}
                       >
                         <Checkbox 
                           checked={selectedFeatures.includes(feature.id)}
                           onCheckedChange={() => handleFeatureToggle(feature.id)}
-                          className="border-slate-500"
+                          className="border-border"
                         />
                         <div>
-                          <h4 className="text-white font-medium">{feature.name}</h4>
-                          <p className="text-slate-400 text-sm">{feature.description}</p>
+                          <h4 className="text-foreground font-medium">{feature.name}</h4>
+                          <p className="text-muted-foreground text-sm">{feature.description}</p>
                         </div>
                       </Label>
                     ))}
@@ -240,15 +240,15 @@ export default function SdkWizard() {
                   <Download className="w-8 h-8 text-green-500" />
                 </div>
                 <div>
-                  <h3 className="text-2xl font-bold text-white mb-2">SDK Generated Successfully!</h3>
-                  <p className="text-slate-400">Your custom encryption SDK is ready for download and integration.</p>
+                  <h3 className="text-2xl font-bold text-foreground mb-2">SDK Generated Successfully!</h3>
+                  <p className="text-muted-foreground">Your custom encryption SDK is ready for download and integration.</p>
                 </div>
-                <div className="bg-slate-700 rounded-lg p-4">
+                <div className="bg-secondary rounded-lg p-4">
                   <div className="text-left space-y-2">
-                    <p className="text-white font-medium">SDK Details:</p>
-                    <p className="text-slate-300">Name: {sdkName}</p>
-                    <p className="text-slate-300">Language: {languages.find(l => l.id === selectedLanguage)?.name}</p>
-                    <p className="text-slate-300">Algorithm: {algorithms?.find((a: any) => a.id === selectedAlgorithm)?.displayName}</p>
+                    <p className="text-foreground font-medium">SDK Details:</p>
+                    <p className="text-muted-foreground">Name: {sdkName}</p>
+                    <p className="text-muted-foreground">Language: {languages.find(l => l.id === selectedLanguage)?.name}</p>
+                    <p className="text-muted-foreground">Algorithm: {algorithms?.find((a: any) => a.id === selectedAlgorithm)?.displayName}</p>
                   </div>
                 </div>
                 <Button 
@@ -268,7 +268,7 @@ export default function SdkWizard() {
                   onClick={handlePrevious}
                   disabled={step === 1}
                   variant="outline"
-                  className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                  className="border-border text-foreground hover:bg-secondary"
                   data-testid="button-previous"
                 >
                   <ArrowLeft className="w-4 h-4 mr-2" />

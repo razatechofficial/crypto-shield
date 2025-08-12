@@ -73,43 +73,43 @@ export default function KeyManagement() {
         </Button>
       </div>
 
-      <Card className="bg-slate-800 border-slate-700">
+      <Card className="bg-card border-border">
         <CardHeader>
-          <CardTitle className="text-white">Encryption Keys</CardTitle>
+          <CardTitle className="text-foreground">Encryption Keys</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="space-y-4">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="h-16 bg-slate-700 rounded animate-pulse"></div>
+                <div key={i} className="h-16 bg-muted rounded animate-pulse"></div>
               ))}
             </div>
           ) : keys?.length ? (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-slate-700">
-                    <TableHead className="text-white font-medium">Key ID</TableHead>
-                    <TableHead className="text-white font-medium">Type</TableHead>
-                    <TableHead className="text-white font-medium">Algorithm</TableHead>
-                    <TableHead className="text-white font-medium">Created</TableHead>
-                    <TableHead className="text-white font-medium">Status</TableHead>
-                    <TableHead className="text-white font-medium">Actions</TableHead>
+                  <TableRow className="border-border">
+                    <TableHead className="text-foreground font-medium">Key ID</TableHead>
+                    <TableHead className="text-foreground font-medium">Type</TableHead>
+                    <TableHead className="text-foreground font-medium">Algorithm</TableHead>
+                    <TableHead className="text-foreground font-medium">Created</TableHead>
+                    <TableHead className="text-foreground font-medium">Status</TableHead>
+                    <TableHead className="text-foreground font-medium">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {keys.map((key: any) => (
-                    <TableRow key={key.id} className="border-slate-700">
-                      <TableCell className="text-slate-300 font-mono text-sm" data-testid={`key-id-${key.id}`}>
+                    <TableRow key={key.id} className="border-border">
+                      <TableCell className="text-foreground font-mono text-sm" data-testid={`key-id-${key.id}`}>
                         {key.keyId}
                       </TableCell>
-                      <TableCell className="text-slate-300" data-testid={`key-type-${key.id}`}>
+                      <TableCell className="text-foreground" data-testid={`key-type-${key.id}`}>
                         {key.keyType}
                       </TableCell>
-                      <TableCell className="text-slate-300" data-testid={`key-algorithm-${key.id}`}>
+                      <TableCell className="text-foreground" data-testid={`key-algorithm-${key.id}`}>
                         {key.algorithm?.displayName || 'N/A'}
                       </TableCell>
-                      <TableCell className="text-slate-300" data-testid={`key-created-${key.id}`}>
+                      <TableCell className="text-foreground" data-testid={`key-created-${key.id}`}>
                         {formatDistanceToNow(new Date(key.createdAt), { addSuffix: true })}
                       </TableCell>
                       <TableCell>
@@ -122,7 +122,7 @@ export default function KeyManagement() {
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="text-blue-500 hover:text-blue-400 hover:bg-slate-700"
+                            className="text-blue-500 hover:text-blue-400 hover:bg-secondary"
                             onClick={() => rotateKeyMutation.mutate(key.keyId)}
                             disabled={rotateKeyMutation.isPending || key.status === 'rotating'}
                             data-testid={`button-rotate-${key.id}`}
@@ -132,7 +132,7 @@ export default function KeyManagement() {
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="text-yellow-500 hover:text-yellow-400 hover:bg-slate-700"
+                            className="text-yellow-500 hover:text-yellow-400 hover:bg-secondary"
                             data-testid={`button-pause-${key.id}`}
                           >
                             <Pause className="w-4 h-4" />
@@ -140,7 +140,7 @@ export default function KeyManagement() {
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="text-red-500 hover:text-red-400 hover:bg-slate-700"
+                            className="text-red-500 hover:text-red-400 hover:bg-secondary"
                             data-testid={`button-delete-${key.id}`}
                           >
                             <Trash2 className="w-4 h-4" />

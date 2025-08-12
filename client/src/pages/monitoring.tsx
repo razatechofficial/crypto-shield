@@ -67,23 +67,23 @@ export default function Monitoring() {
     <div className="p-6">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         {/* Real-time Threats */}
-        <Card className="bg-slate-800 border-slate-700">
+        <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle className="text-white">Real-time Threats</CardTitle>
+            <CardTitle className="text-foreground">Real-time Threats</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
               <div className="flex items-center justify-between p-3 bg-red-500 bg-opacity-10 border border-red-500 border-opacity-20 rounded-lg">
                 <div>
-                  <p className="text-white font-medium">Brute Force Attack</p>
-                  <p className="text-slate-400 text-sm">IP: 203.0.113.45</p>
+                  <p className="text-foreground font-medium">Brute Force Attack</p>
+                  <p className="text-muted-foreground text-sm">IP: 203.0.113.45</p>
                 </div>
                 <Badge className="bg-red-500 text-white">BLOCKED</Badge>
               </div>
               <div className="flex items-center justify-between p-3 bg-yellow-500 bg-opacity-10 border border-yellow-500 border-opacity-20 rounded-lg">
                 <div>
-                  <p className="text-white font-medium">Key Compromise Attempt</p>
-                  <p className="text-slate-400 text-sm">Tenant: startup-inc</p>
+                  <p className="text-foreground font-medium">Key Compromise Attempt</p>
+                  <p className="text-muted-foreground text-sm">Tenant: startup-inc</p>
                 </div>
                 <Badge className="bg-yellow-500 text-white">MITIGATED</Badge>
               </div>
@@ -92,29 +92,29 @@ export default function Monitoring() {
         </Card>
 
         {/* System Health */}
-        <Card className="bg-slate-800 border-slate-700">
+        <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle className="text-white">System Health</CardTitle>
+            <CardTitle className="text-foreground">System Health</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               <div>
                 <div className="flex justify-between text-sm mb-1">
-                  <span className="text-slate-400">Encryption Performance</span>
+                  <span className="text-muted-foreground">Encryption Performance</span>
                   <span className="text-green-500">98.7%</span>
                 </div>
                 <Progress value={98.7} className="h-2" />
               </div>
               <div>
                 <div className="flex justify-between text-sm mb-1">
-                  <span className="text-slate-400">Key Infrastructure</span>
+                  <span className="text-muted-foreground">Key Infrastructure</span>
                   <span className="text-green-500">99.9%</span>
                 </div>
                 <Progress value={99.9} className="h-2" />
               </div>
               <div>
                 <div className="flex justify-between text-sm mb-1">
-                  <span className="text-slate-400">Auto-healing</span>
+                  <span className="text-muted-foreground">Auto-healing</span>
                   <span className="text-blue-500">100%</span>
                 </div>
                 <Progress value={100} className="h-2" />
@@ -124,22 +124,22 @@ export default function Monitoring() {
         </Card>
 
         {/* Compliance Status */}
-        <Card className="bg-slate-800 border-slate-700">
+        <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle className="text-white">Compliance Status</CardTitle>
+            <CardTitle className="text-foreground">Compliance Status</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-slate-300">FIPS 140-2 Level 3</span>
+                <span className="text-foreground">FIPS 140-2 Level 3</span>
                 <CheckCircle className="w-5 h-5 text-green-500" />
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-300">Common Criteria EAL4+</span>
+                <span className="text-foreground">Common Criteria EAL4+</span>
                 <CheckCircle className="w-5 h-5 text-green-500" />
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-300">ISO 27001</span>
+                <span className="text-foreground">ISO 27001</span>
                 <CheckCircle className="w-5 h-5 text-green-500" />
               </div>
               <div className="flex items-center justify-between">
