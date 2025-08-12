@@ -75,12 +75,16 @@ const dataTypeOptions = [
 ];
 
 const features = [
-  { id: 'autoRotation', name: 'Auto Key Rotation', description: 'Automatic key rotation every 30 days' },
-  { id: 'selfHealing', name: 'Self-Healing', description: 'Automatic threat detection and response' },
-  { id: 'zeroKnowledge', name: 'Zero-Knowledge', description: 'Server cannot access your encryption keys' },
-  { id: 'telemetry', name: 'Telemetry', description: 'Real-time monitoring and analytics' },
-  { id: 'multiTenant', name: 'Multi-Tenant Support', description: 'Isolated encryption for multiple clients' },
-  { id: 'backup', name: 'Key Backup & Recovery', description: 'Secure key backup and disaster recovery' },
+  { id: 'autoRotation', name: 'Auto Key Rotation', description: 'Intelligent key rotation with zero downtime' },
+  { id: 'selfHealing', name: 'Self-Healing Security', description: 'AI-powered threat detection and auto-response' },
+  { id: 'zeroKnowledge', name: 'Zero-Knowledge Architecture', description: 'Complete server-side blindness to your data' },
+  { id: 'telemetry', name: 'Real-time Telemetry', description: 'Advanced monitoring with predictive analytics' },
+  { id: 'multiTenant', name: 'Multi-Tenant Isolation', description: 'Enterprise-grade tenant segregation' },
+  { id: 'backup', name: 'Distributed Backup', description: 'Quantum-resistant backup with instant recovery' },
+  { id: 'autoInstall', name: 'Zero-Config Installation', description: 'One-command setup with auto-dependency management' },
+  { id: 'adaptiveEncryption', name: 'Adaptive Encryption', description: 'Dynamic algorithm selection based on threat level' },
+  { id: 'quantumShield', name: 'Quantum Shield', description: 'Future-proof protection against quantum attacks' },
+  { id: 'aiThreatDetection', name: 'AI Threat Detection', description: 'Machine learning-based anomaly detection' },
 ];
 
 export default function SdkWizard() {
@@ -91,7 +95,16 @@ export default function SdkWizard() {
   const [complianceRequirements, setComplianceRequirements] = useState<string[]>([]);
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
   const [selectedAlgorithm, setSelectedAlgorithm] = useState('');
-  const [selectedFeatures, setSelectedFeatures] = useState<string[]>(['autoRotation', 'selfHealing', 'telemetry']);
+  const [selectedFeatures, setSelectedFeatures] = useState<string[]>([
+    'autoRotation', 
+    'selfHealing', 
+    'telemetry', 
+    'zeroKnowledge',
+    'autoInstall', 
+    'adaptiveEncryption', 
+    'quantumShield', 
+    'aiThreatDetection'
+  ]);
   const [securityLevel, setSecurityLevel] = useState('');
   const [dataTypes, setDataTypes] = useState<string[]>([]);
   const [recommendedAlgorithms, setRecommendedAlgorithms] = useState<EncryptionAlgorithm[]>([]);
@@ -209,22 +222,91 @@ export default function SdkWizard() {
   };
 
   const handleGenerateSDK = () => {
-    generateSDKMutation.mutate({
-      name: sdkName,
-      applicationType,
-      deploymentEnvironment,
-      securityLevel,
-      dataTypes,
-      complianceRequirements,
-      languages: selectedLanguages,
-      algorithmIds: userSelectedAlgorithms,
-      configuration: {},
-      features: Object.fromEntries(
-        features.map(feature => [
-          feature.id, 
-          selectedFeatures.includes(feature.id)
-        ])
-      ),
+    // Generate multiple SDKs - one for each selected language and algorithm combination
+    const sdkRequests = selectedLanguages.flatMap(language => 
+      userSelectedAlgorithms.map(algorithmId => ({
+        name: `${sdkName} (${language})`,
+        applicationType,
+        deploymentEnvironment,
+        securityLevel,
+        dataTypes,
+        complianceRequirements,
+        language,
+        algorithmId,
+        configuration: {
+          // Zero Configuration - Auto Setup
+          autoSetup: true,
+          autoInstall: true,
+          autoConfig: true,
+          
+          // Security Configuration
+          quantumSafe: userSelectedAlgorithms.some(id => 
+            Array.isArray(algorithms) && algorithms.find((alg: EncryptionAlgorithm) => alg.id === id)?.isPostQuantum
+          ),
+          encryptionLevel: securityLevel,
+          complianceMode: complianceRequirements,
+          
+          // Auto-Healing Configuration
+          selfHealing: {
+            enabled: selectedFeatures.includes('selfHealing'),
+            threatDetection: true,
+            autoRotation: selectedFeatures.includes('autoRotation'),
+            rotationInterval: securityLevel === 'maximum' ? 7 : securityLevel === 'enhanced' ? 30 : 90,
+            autoRecovery: true,
+            anomalyDetection: true,
+          },
+          
+          // Telemetry & Monitoring
+          telemetry: {
+            enabled: selectedFeatures.includes('telemetry'),
+            realTimeMonitoring: true,
+            performanceMetrics: true,
+            securityEvents: true,
+            usageAnalytics: true,
+            alerting: {
+              enabled: true,
+              threatAlerts: true,
+              performanceAlerts: true,
+              keyExpirationAlerts: true,
+            },
+          },
+          
+          // Zero-Knowledge Architecture
+          zeroKnowledge: {
+            enabled: selectedFeatures.includes('zeroKnowledge'),
+            clientSideEncryption: true,
+            keyDerivation: 'client',
+            serverBlindness: true,
+          },
+          
+          // Multi-Tenant Support
+          multiTenant: {
+            enabled: selectedFeatures.includes('multiTenant'),
+            isolation: 'strict',
+            tenantKeySegregation: true,
+          },
+          
+          // Backup & Recovery
+          backup: {
+            enabled: selectedFeatures.includes('backup'),
+            autoBackup: true,
+            backupInterval: '24h',
+            distributedBackup: true,
+            disasterRecovery: true,
+          }
+        },
+        features: Object.fromEntries(
+          features.map(feature => [
+            feature.id, 
+            selectedFeatures.includes(feature.id)
+          ])
+        ),
+      }))
+    );
+
+    // Generate all SDKs
+    sdkRequests.forEach(sdkRequest => {
+      generateSDKMutation.mutate(sdkRequest);
     });
   };
 
