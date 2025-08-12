@@ -20,7 +20,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (user && !user.tenantId) {
         const tenant = await storage.createTenant({
           name: `${user.firstName || user.email || 'User'}'s Workspace`,
-          subscriptionTier: 'starter'
+          subscriptionTier: 'starter',
+          apiKey: `ak_${randomUUID().replace(/-/g, '')}`
         });
         
         user = await storage.updateUser(userId, { tenantId: tenant.id });
@@ -74,6 +75,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching algorithms:", error);
       res.status(500).json({ message: "Failed to fetch algorithms" });
+    }
+  });
+
+  app.post('/api/algorithms/recommend', isAuthenticated, async (req, res) => {
+    try {
+      const { applicationType, securityLevel, complianceRequirements = [], deploymentEnvironment } = req.body;
+      
+      // Get all algorithms
+      const allAlgorithms = await storage.getEncryptionAlgorithms();
+      
+      // Smart recommendation logic based on application requirements
+      let recommendedAlgorithms = [];
+      
+      // Filter by security level and application type
+      if (securityLevel === 'maximum' || applicationType === 'enterprise') {
+        // Prioritize post-quantum and high-security algorithms
+        recommendedAlgorithms = allAlgorithms.filter(alg => 
+          alg.isPostQuantum || alg.isQuantumSafe || 
+          ['RSA-4096', 'AES-256', 'ChaCha20-Poly1305', 'CRYSTALS-Kyber', 'FALCON'].includes(alg.name)
+        );
+      } else if (securityLevel === 'enhanced') {
+        // Balanced security with good performance
+        recommendedAlgorithms = allAlgorithms.filter(alg => 
+          ['AES-256', 'RSA-2048', 'ChaCha20-Poly1305', 'Ed25519', 'BLAKE3'].includes(alg.name)
+        );
+      } else {
+        // Standard security - widely compatible algorithms
+        recommendedAlgorithms = allAlgorithms.filter(alg => 
+          ['AES-128', 'AES-256', 'RSA-2048', 'ECDSA-P256', 'SHA-256'].includes(alg.name)
+        );
+      }
+      
+      // Add compliance-specific algorithms
+      if (complianceRequirements.includes('fips')) {
+        const fipsAlgorithms = allAlgorithms.filter(alg => 
+          ['AES-256', 'AES-128', 'RSA-2048', 'ECDSA-P256', 'SHA-256', 'SHA-384', 'HMAC-SHA256'].includes(alg.name)
+        );
+        recommendedAlgorithms = [...new Set([...recommendedAlgorithms, ...fipsAlgorithms])];
+      }
+      
+      if (complianceRequirements.includes('hipaa') || complianceRequirements.includes('gdpr')) {
+        const strongAlgorithms = allAlgorithms.filter(alg => 
+          alg.name.includes('256') || alg.isPostQuantum || ['ChaCha20-Poly1305', 'BLAKE3'].includes(alg.name)
+        );
+        recommendedAlgorithms = [...new Set([...recommendedAlgorithms, ...strongAlgorithms])];
+      }
+      
+      // Application-specific recommendations
+      if (applicationType === 'mobile') {
+        const mobileAlgorithms = allAlgorithms.filter(alg => 
+          ['ChaCha20-Poly1305', 'Ed25519', 'AES-256', 'BLAKE3'].includes(alg.name)
+        );
+        recommendedAlgorithms = [...new Set([...recommendedAlgorithms, ...mobileAlgorithms])];
+      }
+      
+      if (applicationType === 'iot') {
+        const iotAlgorithms = allAlgorithms.filter(alg => 
+          ['ChaCha20-Poly1305', 'Ed25519', 'AES-128', 'BLAKE2'].includes(alg.name)
+        );
+        recommendedAlgorithms = [...new Set([...recommendedAlgorithms, ...iotAlgorithms])];
+      }
+      
+      // Remove duplicates and ensure we have recommendations
+      recommendedAlgorithms = Array.from(new Set(recommendedAlgorithms.map(a => a.id)))
+        .map(id => allAlgorithms.find(a => a.id === id))
+        .filter(Boolean);
+      
+      // If no specific recommendations, provide general good choices
+      if (recommendedAlgorithms.length === 0) {
+        recommendedAlgorithms = allAlgorithms.filter(alg => 
+          ['AES-256', 'RSA-2048', 'ChaCha20-Poly1305', 'Ed25519', 'SHA-256'].includes(alg.name)
+        ).slice(0, 5);
+      }
+      
+      // Sort by preference (post-quantum first, then by key strength)
+      recommendedAlgorithms.sort((a, b) => {
+        if (a.isPostQuantum && !b.isPostQuantum) return -1;
+        if (!a.isPostQuantum && b.isPostQuantum) return 1;
+        if (a.keySize && b.keySize) return b.keySize - a.keySize;
+        return 0;
+      });
+      
+      res.json(recommendedAlgorithms.slice(0, 6)); // Return top 6 recommendations
+      
+    } catch (error) {
+      console.error("Error getting algorithm recommendations:", error);
+      res.status(500).json({ message: "Failed to get algorithm recommendations" });
     }
   });
 

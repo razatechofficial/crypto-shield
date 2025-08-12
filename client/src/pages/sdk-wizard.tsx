@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -11,7 +11,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import AlgorithmSelector from "@/components/AlgorithmSelector";
-import { ArrowLeft, ArrowRight, Download } from "lucide-react";
+import { ArrowLeft, ArrowRight, Download, Lightbulb } from "lucide-react";
+import type { EncryptionAlgorithm } from '@shared/schema';
 
 const languages = [
   { id: 'javascript', name: 'JavaScript', icon: '📜', category: 'Web Development' },
@@ -93,6 +94,8 @@ export default function SdkWizard() {
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>(['autoRotation', 'selfHealing', 'telemetry']);
   const [securityLevel, setSecurityLevel] = useState('');
   const [dataTypes, setDataTypes] = useState<string[]>([]);
+  const [recommendedAlgorithms, setRecommendedAlgorithms] = useState<EncryptionAlgorithm[]>([]);
+  const [userSelectedAlgorithms, setUserSelectedAlgorithms] = useState<string[]>([]);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -101,6 +104,42 @@ export default function SdkWizard() {
     queryKey: ["/api/algorithms"],
     retry: false,
   });
+
+  // Fetch algorithm recommendations when application details are filled
+  useEffect(() => {
+    if (step === 3 && applicationType && securityLevel) {
+      const fetchRecommendations = async () => {
+        try {
+          const response = await apiRequest('POST', '/api/algorithms/recommend', {
+            applicationType,
+            securityLevel,
+            complianceRequirements,
+            deploymentEnvironment,
+          }) as unknown as EncryptionAlgorithm[];
+          setRecommendedAlgorithms(response);
+          // Auto-select recommended algorithms
+          setUserSelectedAlgorithms(response.slice(0, 3).map((alg: EncryptionAlgorithm) => alg.id));
+          if (response.length > 0 && !selectedAlgorithm) {
+            setSelectedAlgorithm(response[0].id);
+          }
+        } catch (error) {
+          if (isUnauthorizedError(error as Error)) {
+            toast({
+              title: "Unauthorized",
+              description: "You are logged out. Logging in again...",
+              variant: "destructive",
+            });
+            setTimeout(() => {
+              window.location.href = "/api/login";
+            }, 500);
+          } else {
+            console.error('Failed to fetch algorithm recommendations:', error);
+          }
+        }
+      };
+      fetchRecommendations();
+    }
+  }, [step, applicationType, securityLevel, complianceRequirements, deploymentEnvironment, selectedAlgorithm, toast]);
 
   const generateSDKMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -138,10 +177,10 @@ export default function SdkWizard() {
     }
     
     // Step 3: Algorithm Selection
-    if (step === 3 && !selectedAlgorithm) {
+    if (step === 3 && userSelectedAlgorithms.length === 0) {
       toast({
         title: "Missing Information",
-        description: "Please select an encryption algorithm.",
+        description: "Please select at least one encryption algorithm.",
         variant: "destructive",
       });
       return;
@@ -178,7 +217,7 @@ export default function SdkWizard() {
       dataTypes,
       complianceRequirements,
       languages: selectedLanguages,
-      algorithmId: selectedAlgorithm,
+      algorithmIds: userSelectedAlgorithms,
       configuration: {},
       features: Object.fromEntries(
         features.map(feature => [
@@ -205,33 +244,34 @@ export default function SdkWizard() {
     );
   };
 
-  const handleComplianceToggle = (complianceId: string) => {
-    setComplianceRequirements(prev =>
-      prev.includes(complianceId)
-        ? prev.filter(id => id !== complianceId)
-        : [...prev, complianceId]
-    );
-  };
-
   const handleDataTypeToggle = (dataTypeId: string) => {
-    setDataTypes(prev =>
-      prev.includes(dataTypeId)
+    setDataTypes(prev => 
+      prev.includes(dataTypeId) 
         ? prev.filter(id => id !== dataTypeId)
         : [...prev, dataTypeId]
     );
   };
 
-  const getLanguagesByCategory = () => {
-    const categories = languages.reduce((acc, lang) => {
-      if (!acc[lang.category]) {
-        acc[lang.category] = [];
-      }
-      acc[lang.category].push(lang);
-      return acc;
-    }, {} as Record<string, Array<(typeof languages)[0]>>);
-    
-    return categories;
+  const handleComplianceToggle = (complianceId: string) => {
+    setComplianceRequirements(prev => 
+      prev.includes(complianceId) 
+        ? prev.filter(id => id !== complianceId)
+        : [...prev, complianceId]
+    );
   };
+
+  const getLanguagesByCategory = () => {
+    const grouped: { [key: string]: typeof languages } = {};
+    languages.forEach(lang => {
+      if (!grouped[lang.category]) {
+        grouped[lang.category] = [];
+      }
+      grouped[lang.category].push(lang);
+    });
+    return grouped;
+  };
+
+
 
   if (algorithmsLoading) {
     return (
@@ -436,17 +476,126 @@ export default function SdkWizard() {
             {step === 3 && (
               <div className="space-y-8">
                 <div className="text-center mb-6">
-                  <h3 className="text-lg font-semibold text-foreground mb-2">Encryption Algorithm</h3>
-                  <p className="text-muted-foreground text-sm">Choose the encryption standard for your application</p>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">Encryption Algorithms</h3>
+                  <p className="text-muted-foreground text-sm">Based on your application requirements, we recommend these algorithms</p>
                 </div>
 
-                {/* Algorithm Selection */}
-                {algorithms && Array.isArray(algorithms) && (
-                  <AlgorithmSelector
-                    algorithms={algorithms}
-                    selectedAlgorithm={selectedAlgorithm}
-                    onAlgorithmChange={setSelectedAlgorithm}
-                  />
+                {/* Smart Recommendations */}
+                {recommendedAlgorithms.length > 0 && (
+                  <div className="mb-8">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Lightbulb className="w-5 h-5 text-yellow-500" />
+                      <Label className="text-foreground font-medium">Recommended Algorithms</Label>
+                      <Badge variant="secondary" className="text-xs">
+                        Based on your {applicationType} app with {securityLevel} security
+                      </Badge>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {recommendedAlgorithms.slice(0, 4).map((algorithm) => (
+                        <Label 
+                          key={algorithm.id}
+                          className="flex items-start space-x-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/20 transition-colors"
+                          data-testid={`recommended-algorithm-${algorithm.id}`}
+                        >
+                          <Checkbox
+                            checked={userSelectedAlgorithms.includes(algorithm.id)}
+                            onCheckedChange={() => {
+                              setUserSelectedAlgorithms(prev => 
+                                prev.includes(algorithm.id)
+                                  ? prev.filter(id => id !== algorithm.id)
+                                  : [...prev, algorithm.id]
+                              );
+                              if (!selectedAlgorithm) {
+                                setSelectedAlgorithm(algorithm.id);
+                              }
+                            }}
+                            className="border-blue-400 mt-0.5"
+                          />
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="text-foreground font-medium">{algorithm.displayName}</h4>
+                              {algorithm.isPostQuantum && (
+                                <Badge variant="outline" className="text-xs bg-green-50 dark:bg-green-950/20 text-green-700 dark:text-green-400 border-green-300 dark:border-green-700">
+                                  Quantum-Safe
+                                </Badge>
+                              )}
+                              <Badge variant="outline" className="text-xs capitalize">
+                                {algorithm.type}
+                              </Badge>
+                            </div>
+                            <p className="text-muted-foreground text-sm">{algorithm.description}</p>
+                          </div>
+                        </Label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* All Available Algorithms */}
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <Label className="text-foreground font-medium">All Available Algorithms</Label>
+                    <span className="text-muted-foreground text-sm">
+                      {userSelectedAlgorithms.length} selected
+                    </span>
+                  </div>
+                  {algorithms && Array.isArray(algorithms) && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
+                      {algorithms.map((algorithm: EncryptionAlgorithm) => (
+                        <Label 
+                          key={algorithm.id}
+                          className={`flex items-start space-x-3 border rounded-lg p-4 cursor-pointer hover:bg-secondary transition-colors ${
+                            recommendedAlgorithms.some(rec => rec.id === algorithm.id) 
+                              ? 'bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800'
+                              : 'bg-card border-border'
+                          }`}
+                          data-testid={`algorithm-${algorithm.id}`}
+                        >
+                          <Checkbox
+                            checked={userSelectedAlgorithms.includes(algorithm.id)}
+                            onCheckedChange={() => {
+                              setUserSelectedAlgorithms(prev => 
+                                prev.includes(algorithm.id)
+                                  ? prev.filter(id => id !== algorithm.id)
+                                  : [...prev, algorithm.id]
+                              );
+                              if (!selectedAlgorithm) {
+                                setSelectedAlgorithm(algorithm.id);
+                              }
+                            }}
+                            className="border-border mt-0.5"
+                          />
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="text-foreground font-medium">{algorithm.displayName}</h4>
+                              {algorithm.isPostQuantum && (
+                                <Badge variant="outline" className="text-xs bg-green-50 dark:bg-green-950/20 text-green-700 dark:text-green-400 border-green-300 dark:border-green-700">
+                                  Quantum-Safe
+                                </Badge>
+                              )}
+                              <Badge variant="outline" className="text-xs capitalize">
+                                {algorithm.type}
+                              </Badge>
+                              {recommendedAlgorithms.some(rec => rec.id === algorithm.id) && (
+                                <Badge variant="secondary" className="text-xs bg-yellow-100 dark:bg-yellow-950/20 text-yellow-700 dark:text-yellow-400">
+                                  Recommended
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-muted-foreground text-sm">{algorithm.description}</p>
+                          </div>
+                        </Label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {userSelectedAlgorithms.length === 0 && (
+                  <div className="text-center p-6 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                    <p className="text-amber-800 dark:text-amber-400 text-sm">
+                      Please select at least one encryption algorithm to continue.
+                    </p>
+                  </div>
                 )}
               </div>
             )}
