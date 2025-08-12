@@ -144,14 +144,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const fipsAlgorithms = allAlgorithms.filter(alg => 
           ['AES-256', 'AES-128', 'RSA-2048', 'ECDSA-P256', 'SHA-256', 'SHA-384', 'HMAC-SHA256'].includes(alg.name)
         );
-        recommendedAlgorithms = [...new Set([...recommendedAlgorithms, ...fipsAlgorithms])];
+        recommendedAlgorithms = Array.from(new Set([...recommendedAlgorithms, ...fipsAlgorithms]));
       }
       
       if (complianceRequirements.includes('hipaa') || complianceRequirements.includes('gdpr')) {
         const strongAlgorithms = allAlgorithms.filter(alg => 
           alg.name.includes('256') || alg.isPostQuantum || ['ChaCha20-Poly1305', 'BLAKE3'].includes(alg.name)
         );
-        recommendedAlgorithms = [...new Set([...recommendedAlgorithms, ...strongAlgorithms])];
+        recommendedAlgorithms = Array.from(new Set([...recommendedAlgorithms, ...strongAlgorithms]));
       }
       
       // Application-specific recommendations
@@ -159,14 +159,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const mobileAlgorithms = allAlgorithms.filter(alg => 
           ['ChaCha20-Poly1305', 'Ed25519', 'AES-256', 'BLAKE3'].includes(alg.name)
         );
-        recommendedAlgorithms = [...new Set([...recommendedAlgorithms, ...mobileAlgorithms])];
+        recommendedAlgorithms = Array.from(new Set([...recommendedAlgorithms, ...mobileAlgorithms]));
       }
       
       if (applicationType === 'iot') {
         const iotAlgorithms = allAlgorithms.filter(alg => 
           ['ChaCha20-Poly1305', 'Ed25519', 'AES-128', 'BLAKE2'].includes(alg.name)
         );
-        recommendedAlgorithms = [...new Set([...recommendedAlgorithms, ...iotAlgorithms])];
+        recommendedAlgorithms = Array.from(new Set([...recommendedAlgorithms, ...iotAlgorithms]));
       }
       
       // Remove duplicates and ensure we have recommendations
