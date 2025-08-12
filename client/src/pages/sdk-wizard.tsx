@@ -14,10 +14,23 @@ import AlgorithmSelector from "@/components/AlgorithmSelector";
 import { ArrowLeft, ArrowRight, Download } from "lucide-react";
 
 const languages = [
-  { id: 'javascript', name: 'JavaScript', icon: '📜' },
-  { id: 'python', name: 'Python', icon: '🐍' },
-  { id: 'java', name: 'Java', icon: '☕' },
-  { id: 'csharp', name: 'C#', icon: '#️⃣' },
+  { id: 'javascript', name: 'JavaScript', icon: '📜', category: 'Web Development' },
+  { id: 'typescript', name: 'TypeScript', icon: '📘', category: 'Web Development' },
+  { id: 'python', name: 'Python', icon: '🐍', category: 'Backend & Data Science' },
+  { id: 'java', name: 'Java', icon: '☕', category: 'Enterprise & Android' },
+  { id: 'kotlin', name: 'Kotlin', icon: '🎯', category: 'Android Development' },
+  { id: 'swift', name: 'Swift', icon: '🦉', category: 'iOS Development' },
+  { id: 'objectivec', name: 'Objective-C', icon: '🍎', category: 'iOS Development' },
+  { id: 'csharp', name: 'C#', icon: '#️⃣', category: 'Enterprise & .NET' },
+  { id: 'cpp', name: 'C++', icon: '⚡', category: 'Systems Programming' },
+  { id: 'c', name: 'C', icon: '🔧', category: 'Systems Programming' },
+  { id: 'go', name: 'Go', icon: '🐹', category: 'Backend & Cloud' },
+  { id: 'rust', name: 'Rust', icon: '🦀', category: 'Systems Programming' },
+  { id: 'php', name: 'PHP', icon: '🐘', category: 'Web Development' },
+  { id: 'ruby', name: 'Ruby', icon: '💎', category: 'Web Development' },
+  { id: 'dart', name: 'Dart/Flutter', icon: '🎯', category: 'Mobile Development' },
+  { id: 'reactnative', name: 'React Native', icon: '📱', category: 'Mobile Development' },
+  { id: 'xamarin', name: 'Xamarin', icon: '🔵', category: 'Mobile Development' },
 ];
 
 const features = [
@@ -30,7 +43,7 @@ const features = [
 export default function SdkWizard() {
   const [step, setStep] = useState(1);
   const [sdkName, setSdkName] = useState('');
-  const [selectedLanguage, setSelectedLanguage] = useState('');
+  const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
   const [selectedAlgorithm, setSelectedAlgorithm] = useState('');
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>(['autoRotation', 'selfHealing', 'telemetry']);
   
@@ -57,10 +70,10 @@ export default function SdkWizard() {
   });
 
   const handleNext = () => {
-    if (step === 1 && (!sdkName || !selectedLanguage || !selectedAlgorithm)) {
+    if (step === 1 && (!sdkName || selectedLanguages.length === 0 || !selectedAlgorithm)) {
       toast({
         title: "Missing Information",
-        description: "Please fill in all required fields.",
+        description: "Please fill in all required fields and select at least one programming language.",
         variant: "destructive",
       });
       return;
@@ -81,7 +94,7 @@ export default function SdkWizard() {
   const handleGenerateSDK = () => {
     generateSDKMutation.mutate({
       name: sdkName,
-      language: selectedLanguage,
+      languages: selectedLanguages,
       algorithmId: selectedAlgorithm,
       configuration: {},
       features: Object.fromEntries(
@@ -99,6 +112,26 @@ export default function SdkWizard() {
         ? prev.filter(id => id !== featureId)
         : [...prev, featureId]
     );
+  };
+
+  const handleLanguageToggle = (languageId: string) => {
+    setSelectedLanguages(prev => 
+      prev.includes(languageId) 
+        ? prev.filter(id => id !== languageId)
+        : [...prev, languageId]
+    );
+  };
+
+  const getLanguagesByCategory = () => {
+    const categories = languages.reduce((acc, lang) => {
+      if (!acc[lang.category]) {
+        acc[lang.category] = [];
+      }
+      acc[lang.category].push(lang);
+      return acc;
+    }, {} as Record<string, typeof languages>);
+    
+    return categories;
   };
 
   if (algorithmsLoading) {
@@ -176,24 +209,40 @@ export default function SdkWizard() {
 
                 {/* Language Selection */}
                 <div>
-                  <Label className="text-foreground font-medium mb-4 block">Target Programming Language</Label>
-                  <RadioGroup value={selectedLanguage} onValueChange={setSelectedLanguage}>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {languages.map((language) => (
-                        <div key={language.id}>
-                          <RadioGroupItem value={language.id} id={language.id} className="sr-only peer" />
-                          <Label htmlFor={language.id} className="cursor-pointer" data-testid={`language-${language.id}`}>
-                            <Card className="bg-card border-border peer-checked:border-primary peer-checked:bg-secondary hover:bg-secondary transition-colors">
-                              <CardContent className="p-4 text-center">
-                                <div className="text-3xl mb-2">{language.icon}</div>
-                                <p className="text-foreground font-medium">{language.name}</p>
-                              </CardContent>
-                            </Card>
-                          </Label>
+                  <Label className="text-foreground font-medium mb-4 block">
+                    Target Programming Languages 
+                    <span className="text-muted-foreground text-sm font-normal ml-2">
+                      (Select multiple languages to generate SDKs for each)
+                    </span>
+                  </Label>
+                  <div className="space-y-6">
+                    {Object.entries(getLanguagesByCategory()).map(([category, categoryLanguages]) => (
+                      <div key={category} className="space-y-3">
+                        <h4 className="text-sm font-medium text-muted-foreground border-b border-border pb-1">
+                          {category}
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {categoryLanguages.map((language) => (
+                            <Label 
+                              key={language.id}
+                              className="flex items-center space-x-3 bg-card border border-border rounded-lg p-3 cursor-pointer hover:bg-secondary transition-colors"
+                              data-testid={`language-${language.id}`}
+                            >
+                              <Checkbox
+                                checked={selectedLanguages.includes(language.id)}
+                                onCheckedChange={() => handleLanguageToggle(language.id)}
+                                className="border-border"
+                              />
+                              <div className="flex items-center space-x-2">
+                                <span className="text-lg">{language.icon}</span>
+                                <span className="text-foreground font-medium text-sm">{language.name}</span>
+                              </div>
+                            </Label>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  </RadioGroup>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 {/* Algorithm Selection */}
@@ -247,7 +296,7 @@ export default function SdkWizard() {
                   <div className="text-left space-y-2">
                     <p className="text-foreground font-medium">SDK Details:</p>
                     <p className="text-muted-foreground">Name: {sdkName}</p>
-                    <p className="text-muted-foreground">Language: {languages.find(l => l.id === selectedLanguage)?.name}</p>
+                    <p className="text-muted-foreground">Languages: {selectedLanguages.map(id => languages.find(l => l.id === id)?.name).join(', ')}</p>
                     <p className="text-muted-foreground">Algorithm: {algorithms?.find((a: any) => a.id === selectedAlgorithm)?.displayName}</p>
                   </div>
                 </div>
