@@ -184,7 +184,8 @@ export default function SdkWizard() {
 
   const generateSDKMutation = useMutation({
     mutationFn: async (data: any) => {
-      return await apiRequest('POST', '/api/sdks/generate', data);
+      const response = await apiRequest('POST', '/api/sdks/generate', data);
+      return await response.json();
     },
     onSuccess: (data: any) => {
       console.log('SDK generation response received:', data);
