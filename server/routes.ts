@@ -330,12 +330,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "User not associated with a tenant" });
       }
 
-      // Validate request body
-      const validatedData = insertSdkSchema.parse({
+      // Prepare and validate request body - convert arrays to JSON strings
+      const requestData = {
         ...req.body,
         tenantId: user.tenantId,
         userId: userId,
-      });
+        // Convert arrays to JSON strings as expected by schema
+        languages: JSON.stringify(req.body.languages || []),
+        algorithms: JSON.stringify(req.body.algorithms || []),
+        dataTypes: JSON.stringify(req.body.dataTypes || []),
+        complianceRequirements: JSON.stringify(req.body.complianceRequirements || []),
+        // Ensure configuration and features are objects
+        configuration: req.body.configuration || {},
+        features: req.body.features || {}
+      };
+
+      const validatedData = insertSdkSchema.parse(requestData);
 
       // Generate download ID
       const downloadId = randomUUID();
@@ -395,6 +405,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const languages = JSON.parse(sdk.languages || '[]');
       const algorithmIds = JSON.parse(sdk.algorithms || '[]');
       const features = sdk.features || {};
+      
+      console.log('SDK generation details:', {
+        name: sdk.name,
+        languages: languages,
+        algorithmCount: algorithmIds.length,
+        features: Object.keys(features)
+      });
 
       // Get algorithm details from storage
       const allAlgorithms = await storage.getEncryptionAlgorithms();
