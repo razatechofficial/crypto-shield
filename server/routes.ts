@@ -222,7 +222,7 @@ extern "C" {
 
 // Key sizes
 #define AVEROX_KEY_SIZE 32
-#define AVEROX_IV_SIZE 16
+#define AVEROX_IV_SIZE 12
 #define AVEROX_TAG_SIZE 16
 
 // Structure definitions
@@ -243,10 +243,20 @@ int averox_encrypt(const uint8_t *plaintext, size_t plaintext_len,
                    const uint8_t *key, size_t key_len,
                    uint8_t *ciphertext, size_t *ciphertext_len,
                    uint8_t *iv, uint8_t *tag);
+int averox_encrypt_aad(const uint8_t *plaintext, size_t plaintext_len,
+                       const uint8_t *key, size_t key_len,
+                       const uint8_t *aad, size_t aad_len,
+                       uint8_t *ciphertext, size_t *ciphertext_len,
+                       uint8_t *iv, uint8_t *tag);
 int averox_decrypt(const uint8_t *ciphertext, size_t ciphertext_len,
                    const uint8_t *key, size_t key_len,
                    const uint8_t *iv, const uint8_t *tag,
                    uint8_t *plaintext, size_t *plaintext_len);
+int averox_decrypt_aad(const uint8_t *ciphertext, size_t ciphertext_len,
+                       const uint8_t *key, size_t key_len,
+                       const uint8_t *iv, const uint8_t *tag,
+                       const uint8_t *aad, size_t aad_len,
+                       uint8_t *plaintext, size_t *plaintext_len);
 
 // Utility functions
 int averox_init(void);
@@ -338,6 +348,81 @@ int averox_encrypt(const uint8_t *plaintext, size_t plaintext_len,
             break;
         }
         
+        // Process AAD if needed (placeholder for future AAD support)
+        // if (aad && aad_len > 0) {
+        //     if (EVP_EncryptUpdate(ctx, NULL, &len, aad, aad_len) != 1) {
+        //         break;
+        //     }
+        // }
+        
+        // Encrypt data
+        if (EVP_EncryptUpdate(ctx, ciphertext, &len, plaintext, plaintext_len) != 1) {
+            break;
+        }
+        *ciphertext_len = len;
+        
+        // Finalize
+        if (EVP_EncryptFinal_ex(ctx, ciphertext + len, &len) != 1) {
+            break;
+        }
+        *ciphertext_len += len;
+        
+        // Get authentication tag
+        if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, AVEROX_TAG_SIZE, tag) != 1) {
+            break;
+        }
+        
+        result = AVEROX_SUCCESS;
+    } while (0);
+    
+    EVP_CIPHER_CTX_free(ctx);
+    return result;
+}
+
+int averox_encrypt_aad(const uint8_t *plaintext, size_t plaintext_len,
+                       const uint8_t *key, size_t key_len,
+                       const uint8_t *aad, size_t aad_len,
+                       uint8_t *ciphertext, size_t *ciphertext_len,
+                       uint8_t *iv, uint8_t *tag) {
+    
+    if (!plaintext || !key || !ciphertext || !ciphertext_len || !iv || !tag) {
+        return AVEROX_ERROR_INVALID_PARAM;
+    }
+    
+    if (key_len != AVEROX_KEY_SIZE) {
+        return AVEROX_ERROR_INVALID_PARAM;
+    }
+    
+    if (!g_initialized && averox_init() != AVEROX_SUCCESS) {
+        return AVEROX_ERROR_CRYPTO_FAIL;
+    }
+    
+    // Generate random IV
+    if (RAND_bytes(iv, AVEROX_IV_SIZE) != 1) {
+        return AVEROX_ERROR_CRYPTO_FAIL;
+    }
+    
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    if (!ctx) {
+        return AVEROX_ERROR_MEMORY;
+    }
+    
+    int result = AVEROX_ERROR_CRYPTO_FAIL;
+    int len;
+    
+    do {
+        // Initialize encryption
+        if (EVP_EncryptInit_ex(ctx, EVP_aes_256_gcm(), NULL, key, iv) != 1) {
+            break;
+        }
+        
+        // Process AAD if provided
+        if (aad && aad_len > 0) {
+            if (EVP_EncryptUpdate(ctx, NULL, &len, aad, aad_len) != 1) {
+                break;
+            }
+        }
+        
         // Encrypt data
         if (EVP_EncryptUpdate(ctx, ciphertext, &len, plaintext, plaintext_len) != 1) {
             break;
@@ -391,6 +476,69 @@ int averox_decrypt(const uint8_t *ciphertext, size_t ciphertext_len,
         // Initialize decryption
         if (EVP_DecryptInit_ex(ctx, EVP_aes_256_gcm(), NULL, key, iv) != 1) {
             break;
+        }
+        
+        // Decrypt data
+        if (EVP_DecryptUpdate(ctx, plaintext, &len, ciphertext, ciphertext_len) != 1) {
+            break;
+        }
+        *plaintext_len = len;
+        
+        // Set expected tag
+        if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, AVEROX_TAG_SIZE, (void*)tag) != 1) {
+            break;
+        }
+        
+        // Finalize and verify tag
+        if (EVP_DecryptFinal_ex(ctx, plaintext + len, &len) != 1) {
+            break;
+        }
+        *plaintext_len += len;
+        
+        result = AVEROX_SUCCESS;
+    } while (0);
+    
+    EVP_CIPHER_CTX_free(ctx);
+    return result;
+}
+
+int averox_decrypt_aad(const uint8_t *ciphertext, size_t ciphertext_len,
+                       const uint8_t *key, size_t key_len,
+                       const uint8_t *iv, const uint8_t *tag,
+                       const uint8_t *aad, size_t aad_len,
+                       uint8_t *plaintext, size_t *plaintext_len) {
+    
+    if (!ciphertext || !key || !iv || !tag || !plaintext || !plaintext_len) {
+        return AVEROX_ERROR_INVALID_PARAM;
+    }
+    
+    if (key_len != AVEROX_KEY_SIZE) {
+        return AVEROX_ERROR_INVALID_PARAM;
+    }
+    
+    if (!g_initialized && averox_init() != AVEROX_SUCCESS) {
+        return AVEROX_ERROR_CRYPTO_FAIL;
+    }
+    
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    if (!ctx) {
+        return AVEROX_ERROR_MEMORY;
+    }
+    
+    int result = AVEROX_ERROR_CRYPTO_FAIL;
+    int len;
+    
+    do {
+        // Initialize decryption
+        if (EVP_DecryptInit_ex(ctx, EVP_aes_256_gcm(), NULL, key, iv) != 1) {
+            break;
+        }
+        
+        // Process AAD if provided
+        if (aad && aad_len > 0) {
+            if (EVP_DecryptUpdate(ctx, NULL, &len, aad, aad_len) != 1) {
+                break;
+            }
         }
         
         // Decrypt data
@@ -487,12 +635,13 @@ int main() {
     const char *test_data = "Hello, Averox Crypto System!";
     size_t data_len = strlen(test_data);
     
-    // Encrypt
+    // Encrypt (the encrypt function will generate a random IV)
     uint8_t ciphertext[1024];
     size_t ciphertext_len;
-    uint8_t iv[AVEROX_IV_SIZE];
-    uint8_t tag[AVEROX_TAG_SIZE];
+    uint8_t iv[AVEROX_IV_SIZE];  // Will be populated by averox_encrypt
+    uint8_t tag[AVEROX_TAG_SIZE]; // Will be populated by averox_encrypt
     
+    printf("Encrypting data: '%s'\\n", test_data);
     int result = averox_encrypt((const uint8_t*)test_data, data_len,
                                key, sizeof(key),
                                ciphertext, &ciphertext_len,
@@ -874,7 +1023,7 @@ Enterprise-grade encryption library with quantum-safe algorithms, auto-healing c
 
 ## Features
 
-- **Quantum-Safe Algorithms**: AES-256-GCM, XChaCha20-Poly1305, and post-quantum algorithms
+- **Industry-Standard Encryption**: AES-256-GCM authenticated encryption
 - **Zero-Configuration**: Auto-setup with secure defaults
 - **Multi-Language Support**: ${languages.join(', ')}
 - **Self-Healing**: Automatic key rotation and threat detection
@@ -935,9 +1084,9 @@ int main() {
 ## Security Features
 
 ### Encryption Algorithms
-- **AES-256-GCM**: Industry standard authenticated encryption
-- **XChaCha20-Poly1305**: Modern authenticated encryption with extended nonce
-- **Post-Quantum**: Ready for quantum-resistant cryptography
+- **AES-256-GCM**: Industry standard authenticated encryption with 12-byte IV
+- **OpenSSL Integration**: Uses proven cryptographic implementations
+- **Cross-Platform**: Consistent implementation across JavaScript, Python, C/C++, and React Native
 
 ### Key Management
 - **Secure Generation**: Cryptographically secure random key generation
@@ -958,8 +1107,8 @@ Generate a cryptographically secure key.
 
 **Parameters:**
 - \`options\` (optional): Configuration options
-  - \`algorithm\`: 'aes-256-gcm' | 'xchacha20-poly1305'
-  - \`keySize\`: 256 | 512
+  - \`algorithm\`: 'aes-256-gcm' (currently supported)
+  - \`keySize\`: 256 (AES-256)
 
 **Returns:** Base64 encoded key string
 
@@ -995,7 +1144,7 @@ Decrypt previously encrypted data.
 ### SDK Configuration
 \`\`\`json
 {
-  "algorithms": ["aes-256-gcm", "xchacha20-poly1305"],
+  "algorithms": ["aes-256-gcm"],
   "keyRotation": {
     "enabled": true,
     "interval": 3600
@@ -1056,8 +1205,17 @@ sudo make install
 1. **Key Storage**: Never hardcode keys in source code
 2. **Key Transmission**: Use secure channels for key exchange
 3. **Memory Safety**: Keys are zeroed after use where possible
-4. **Side-Channel Protection**: Timing-safe operations implemented
-5. **Compliance**: FIPS 140-2, Common Criteria ready
+4. **IV Handling**: Uses 12-byte random IVs for optimal GCM security
+5. **Cross-Platform Consistency**: Identical AES-256-GCM implementation across all languages
+6. **Error Handling**: Comprehensive error codes for different failure modes
+7. **AAD Support**: Additional Authenticated Data support via \`*_aad\` functions
+
+## Known Limitations
+
+- **Current Implementation**: Only AES-256-GCM is implemented
+- **React Native iOS**: Not yet implemented (Android only)
+- **Post-Quantum**: Future roadmap item, not currently available
+- **Testing**: NIST test vectors and formal validation pending
 
 ## License
 
