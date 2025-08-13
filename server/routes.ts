@@ -722,7 +722,7 @@ export class AveroxSDK {
    * Get supported algorithms
    */
   static getSupportedAlgorithms(): string[] {
-    return ${JSON.stringify(selectedAlgorithms.map(alg => alg.name))};
+    return ${JSON.stringify(algorithms.map(alg => alg.name))};
   }
 }
 
@@ -1879,8 +1879,8 @@ except Exception as error:
         tenantId: user.tenantId,
         eventType: 'key_created',
         severity: 'medium',
-        description: `Encryption key created: ${key.name}`,
-        metadata: { keyId: key.id, algorithm: key.algorithm },
+        description: `Encryption key created: ${key.keyType}`,
+        metadata: { keyId: key.id, algorithmId: key.algorithmId },
       });
 
       res.status(201).json(key);
@@ -1907,14 +1907,9 @@ except Exception as error:
       }
 
       const { page = 1, limit = 50, severity, eventType } = req.query;
-      const options = {
-        page: parseInt(page as string),
-        limit: parseInt(limit as string),
-        severity: severity as string,
-        eventType: eventType as string
-      };
+      const limitNumber = parseInt(limit as string);
 
-      const events = await storage.getSecurityEvents(user.tenantId, options);
+      const events = await storage.getSecurityEvents(user.tenantId, limitNumber);
       res.json(events);
     } catch (error) {
       console.error("Error fetching security events:", error);
