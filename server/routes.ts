@@ -5,6 +5,7 @@ import { setupAuth, isAuthenticated } from "./replitAuth";
 import { insertSdkSchema, insertEncryptionKeySchema, insertSecurityEventSchema } from "@shared/schema";
 import { z } from "zod";
 import { randomUUID } from "crypto";
+import archiver from "archiver";
 
 // Helper functions for advanced SDK generation
 function generateSetupCommands(languages: string[]): Record<string, string[]> {
@@ -338,7 +339,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Generate actual ZIP content for the SDK
-      const archiver = require('archiver');
       const archive = archiver('zip', { zlib: { level: 9 } });
 
       // Set proper headers for ZIP download
