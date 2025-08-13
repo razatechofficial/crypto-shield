@@ -186,7 +186,7 @@ export default function SdkWizard() {
     mutationFn: async (data: any) => {
       return await apiRequest('POST', '/api/sdks/generate', data);
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       console.log('SDK generation response received:', data);
       console.log('downloadUrl in response:', data.downloadUrl);
       toast({
@@ -655,7 +655,7 @@ export default function SdkWizard() {
                   </div>
                   {algorithms && Array.isArray(algorithms) && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
-                      {algorithms.map((algorithm: EncryptionAlgorithm) => (
+                      {(algorithms as EncryptionAlgorithm[]).map((algorithm: EncryptionAlgorithm) => (
                         <Label 
                           key={algorithm.id}
                           className={`flex items-start space-x-3 border rounded-lg p-4 cursor-pointer hover:bg-secondary transition-colors ${
