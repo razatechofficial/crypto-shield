@@ -824,7 +824,7 @@ export default function SdkWizard() {
                   </div>
                   {algorithms && Array.isArray(algorithms) && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
-                      {algorithms.map((algorithm: any) => (
+                      {algorithms.map((algorithm: EncryptionAlgorithm) => (
                         <Label 
                           key={algorithm.id}
                           className={`flex items-start space-x-3 border rounded-lg p-4 cursor-pointer hover:bg-secondary transition-colors ${
