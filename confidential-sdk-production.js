@@ -13,7 +13,39 @@ class ConfidentialCrypto {
     this.teeEnabled = options.teeEnabled || false;
     this.homomorphicEnabled = options.homomorphicEnabled || false;
     this.mpcEnabled = options.mpcEnabled || false;
+    this.teeMode = options.teeMode || 'simulation'; // 'hardware' or 'simulation'
+    this.heOptimization = options.heOptimization || 'medium'; // 'low', 'medium', 'high'
     this.config = options;
+    
+    // Detect hardware capabilities
+    this.hardwareCapabilities = this.detectHardware();
+  }
+
+  detectHardware() {
+    const capabilities = {
+      sgxSupported: false,
+      virtualizationSupported: false,
+      totalRAM: 0,
+      recommendedMode: 'simulation'
+    };
+
+    // Simulate hardware detection (in real implementation, this would check actual hardware)
+    if (process.platform === 'linux') {
+      // Check for SGX in simulation
+      capabilities.sgxSupported = this.teeMode === 'hardware';
+    }
+
+    // Get system RAM
+    capabilities.totalRAM = Math.round(process.memoryUsage().heapTotal / (1024 * 1024));
+
+    // Determine recommended mode
+    if (capabilities.sgxSupported) {
+      capabilities.recommendedMode = 'hardware';
+    } else {
+      capabilities.recommendedMode = 'simulation';
+    }
+
+    return capabilities;
   }
 
   // TEE (Trusted Execution Environment) Operations
