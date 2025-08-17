@@ -34,7 +34,7 @@ const languages = [
   { id: 'xamarin', name: 'Xamarin', icon: '🔵', category: 'Mobile Development' },
 ];
 
-const applicationTypes = [
+const applicationTypeOptions = [
   { id: 'web', name: 'Web Application', description: 'Browser-based applications with client-server architecture' },
   { id: 'mobile', name: 'Mobile Application', description: 'Native or hybrid mobile apps for iOS/Android' },
   { id: 'desktop', name: 'Desktop Application', description: 'Native desktop applications for Windows/Mac/Linux' },
@@ -142,7 +142,7 @@ const features = [
 export default function SdkWizard() {
   const [step, setStep] = useState(1);
   const [sdkName, setSdkName] = useState('');
-  const [applicationType, setApplicationType] = useState('');
+  const [applicationTypes, setApplicationTypes] = useState<string[]>([]);
   const [deploymentEnvironment, setDeploymentEnvironment] = useState('');
   const [complianceRequirements, setComplianceRequirements] = useState<string[]>([]);
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
@@ -174,11 +174,11 @@ export default function SdkWizard() {
 
   // Fetch algorithm recommendations when application details are filled
   useEffect(() => {
-    if (step === 4 && applicationType && securityLevel) {
+    if (step === 4 && applicationTypes.length > 0 && securityLevel) {
       const fetchRecommendations = async () => {
         try {
           const response = await apiRequest('POST', '/api/algorithms/recommend', {
-            applicationType,
+            applicationTypes,
             securityLevel,
             complianceRequirements,
             deploymentEnvironment,
@@ -204,7 +204,7 @@ export default function SdkWizard() {
       };
       fetchRecommendations();
     }
-  }, [step, applicationType, securityLevel, complianceRequirements, deploymentEnvironment]);
+  }, [step, applicationTypes, securityLevel, complianceRequirements, deploymentEnvironment]);
 
   // Auto-select recommended algorithms when they change - ONLY if no algorithms are currently selected
   useEffect(() => {
@@ -254,7 +254,7 @@ export default function SdkWizard() {
 
   const handleNext = () => {
     // Step 1: Application Details
-    if (step === 1 && (!sdkName || !applicationType || !deploymentEnvironment || !securityLevel)) {
+    if (step === 1 && (!sdkName || applicationTypes.length === 0 || !deploymentEnvironment || !securityLevel)) {
       toast({
         title: "Missing Information",
         description: "Please fill in all required fields for your application.",
@@ -320,7 +320,7 @@ export default function SdkWizard() {
     // Generate single unified SDK with multiple languages and algorithms
     const unifiedSDK = {
       name: sdkName,
-      applicationType,
+      applicationTypes,
       deploymentEnvironment,
       securityLevel,
       dataTypes: dataTypesSelected,
@@ -442,6 +442,14 @@ export default function SdkWizard() {
     );
   };
 
+  const handleApplicationTypeToggle = (typeId: string) => {
+    setApplicationTypes(prev => 
+      prev.includes(typeId) 
+        ? prev.filter(id => id !== typeId)
+        : [...prev, typeId]
+    );
+  };
+
   const getLanguagesByCategory = () => {
     const grouped: { [key: string]: typeof languages } = {};
     languages.forEach(lang => {
@@ -525,19 +533,22 @@ export default function SdkWizard() {
                   />
                 </div>
 
-                {/* Application Type */}
+                {/* Application Type - Multiple Selection for Enterprise */}
                 <div>
-                  <Label className="text-foreground font-medium mb-4 block">Application Type *</Label>
+                  <Label className="text-foreground font-medium mb-2 block">Application Types *</Label>
+                  <p className="text-muted-foreground text-sm mb-4">
+                    Select all application types that apply to your system (e.g., enterprise systems often include messaging, file storage, APIs, etc.)
+                  </p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {applicationTypes.map((type) => (
+                    {applicationTypeOptions.map((type) => (
                       <Label 
                         key={type.id}
                         className="flex items-center space-x-3 bg-card border border-border rounded-lg p-4 cursor-pointer hover:bg-secondary transition-colors"
                         data-testid={`app-type-${type.id}`}
                       >
                         <Checkbox
-                          checked={applicationType === type.id}
-                          onCheckedChange={() => setApplicationType(type.id)}
+                          checked={applicationTypes.includes(type.id)}
+                          onCheckedChange={() => handleApplicationTypeToggle(type.id)}
                           className="border-border"
                         />
                         <div>
@@ -547,6 +558,13 @@ export default function SdkWizard() {
                       </Label>
                     ))}
                   </div>
+                  {applicationTypes.length === 0 && (
+                    <div className="text-center p-6 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg mt-4">
+                      <p className="text-amber-800 dark:text-amber-400 text-sm">
+                        Please select at least one application type to continue.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Deployment Environment */}
@@ -741,7 +759,7 @@ export default function SdkWizard() {
                       <Lightbulb className="w-5 h-5 text-yellow-500" />
                       <Label className="text-foreground font-medium">Recommended Algorithms</Label>
                       <Badge variant="secondary" className="text-xs">
-                        Based on your {applicationType} app with {securityLevel} security
+                        Based on your {applicationTypes.join(', ')} app with {securityLevel} security
                       </Badge>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -943,7 +961,7 @@ export default function SdkWizard() {
                       <h4 className="text-foreground font-semibold mb-3">Application Details</h4>
                       <div className="space-y-2 text-sm">
                         <p><strong>Name:</strong> {sdkName}</p>
-                        <p><strong>Type:</strong> {applicationTypes.find(t => t.id === applicationType)?.name}</p>
+                        <p><strong>Types:</strong> {applicationTypes.map(id => applicationTypeOptions.find(t => t.id === id)?.name).join(', ')}</p>
                         <p><strong>Environment:</strong> {deploymentEnvironments.find(e => e.id === deploymentEnvironment)?.name}</p>
                         <p><strong>Security Level:</strong> {securityLevels.find(s => s.id === securityLevel)?.name}</p>
                       </div>
