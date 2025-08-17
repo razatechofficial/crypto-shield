@@ -226,7 +226,7 @@ export default function SdkWizard() {
           } else {
             return alg.type === 'symmetric' && alg.isActive;
           }
-        }).slice(0, 6); // Limit to 6 algorithms
+        }); // Don't limit fallback algorithms
         
         const fallbackIds = fallbackAlgorithms.map(alg => alg.id);
         console.log('Using fallback algorithm selection for', securityLevel, 'security:', fallbackIds);
@@ -767,24 +767,47 @@ export default function SdkWizard() {
               <div className="space-y-8">
                 <div className="text-center mb-6">
                   <h3 className="text-lg font-semibold text-foreground mb-2">Encryption Algorithms</h3>
-                  <p className="text-muted-foreground text-sm">Based on your application requirements, we recommend these algorithms</p>
+                  <p className="text-muted-foreground text-sm">
+                    Select algorithms for your SDK. Recommended algorithms are pre-selected, but you can modify the selection.
+                  </p>
                 </div>
 
                 {/* Smart Recommendations */}
                 {Array.isArray(recommendedAlgorithms) && recommendedAlgorithms.length > 0 && (
                   <div className="mb-8">
-                    <div className="flex items-center gap-2 mb-4">
-                      <Lightbulb className="w-5 h-5 text-yellow-500" />
-                      <Label className="text-foreground font-medium">Recommended Algorithms</Label>
-                      <Badge variant="secondary" className="text-xs">
-                        {applicationTypes.length > 0 
-                          ? `Based on your ${applicationTypes.join(', ')} app with ${securityLevel} security`
-                          : `Based on ${securityLevel} security level`
-                        }
-                      </Badge>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <Lightbulb className="w-5 h-5 text-yellow-500" />
+                        <Label className="text-foreground font-medium">Recommended Algorithms</Label>
+                        <Badge variant="secondary" className="text-xs">
+                          {applicationTypes.length > 0 
+                            ? `Based on your ${applicationTypes.join(', ')} app with ${securityLevel} security`
+                            : `Based on ${securityLevel} security level`
+                          }
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const recommendedIds = recommendedAlgorithms.map(alg => alg.id);
+                            setSelectedAlgorithms(prev => {
+                              const newSelection = [...new Set([...prev, ...recommendedIds])];
+                              return newSelection;
+                            });
+                          }}
+                          className="text-xs"
+                        >
+                          Select All Recommended
+                        </Button>
+                        <span className="text-xs text-muted-foreground">
+                          {recommendedAlgorithms.length} algorithms
+                        </span>
+                      </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {Array.isArray(recommendedAlgorithms) && recommendedAlgorithms.slice(0, 4).map((algorithm: EncryptionAlgorithm) => (
+                      {Array.isArray(recommendedAlgorithms) && recommendedAlgorithms.map((algorithm: EncryptionAlgorithm) => (
                         <Label 
                           key={algorithm.id}
                           className="flex items-start space-x-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/20 transition-colors"
@@ -821,13 +844,23 @@ export default function SdkWizard() {
                   </div>
                 )}
 
-                {/* All Available Algorithms */}
+                {/* All Available Algorithms - Edit Selection */}
                 <div>
                   <div className="flex items-center justify-between mb-4">
-                    <Label className="text-foreground font-medium">All Available Algorithms</Label>
-                    <span className="text-muted-foreground text-sm">
-                      {selectedAlgorithms.length} selected
-                    </span>
+                    <Label className="text-foreground font-medium">All Available Algorithms - Edit Selection</Label>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSelectedAlgorithms([])}
+                        className="text-xs"
+                      >
+                        Clear All
+                      </Button>
+                      <span className="text-muted-foreground text-sm">
+                        {selectedAlgorithms.length} selected
+                      </span>
+                    </div>
                   </div>
                   {algorithms && Array.isArray(algorithms) && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
