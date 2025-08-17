@@ -1,188 +1,76 @@
 # Overview
-
-Averox is an enterprise-grade encryption platform that enables users to create custom encryption SDKs with production-ready AES-256-GCM implementation, comprehensive testing, and cross-language interoperability. The platform provides a web-based interface for managing encryption keys, monitoring security events, creating SDKs through a wizard interface, and managing users and subscriptions. 
-
-**Recent Security Audit Resolution**: All critical production-readiness issues have been addressed including EVP_CTRL_GCM_SET_IVLEN implementation for C interoperability, AAD support across all languages, comprehensive NIST test vectors, standardized envelope formats, and enhanced error taxonomy. The SDK now generates production-quality cryptographic libraries.
-
-**Confidential Computing Integration Complete (August 17, 2025)**: Production-ready SDKs created with Intel SGX TEE, Microsoft SEAL HE, and SPDZ MPC protocols. All implementations validated with comprehensive test suites including real-world enterprise scenarios for healthcare, finance, and government applications. Performance benchmarks: TEE ~0.7ms, HE ~0.3ms, MPC ~0.7ms per operation.
+Averox is an enterprise-grade encryption platform providing a web interface for managing encryption keys, monitoring security events, and generating custom encryption SDKs. It offers production-ready AES-256-GCM and ChaCha20-Poly1305 implementations with comprehensive testing and cross-language interoperability. The platform has integrated confidential computing capabilities (Intel SGX TEE, Microsoft SEAL HE, SPDZ MPC) to evolve from basic encryption to advanced privacy-preserving technologies, targeting high-demand enterprise sectors like healthcare, finance, and government.
 
 # User Preferences
-
 Preferred communication style: Simple, everyday language.
 
-# Strategic Direction - Confidential Computing Integration
-
-## Platform Evolution Decision (August 17, 2025)
-- **Decision**: Integrate advanced privacy-preserving technologies into existing Crypto Shield platform rather than creating separate platform
-- **Rationale**: Natural evolution path from basic encryption to confidential computing serves same enterprise customers
-- **Target Technologies**: 
-  - Trusted Execution Environments (TEEs) - Intel SGX, AMD SEV
-  - Homomorphic Encryption (HE) modules
-  - Multi-Party Computation (MPC) protocols
-- **Market Opportunity**: Limited competition (Zama, Duality) with high enterprise demand from governments, banks, healthcare
-- **Implementation Approach**: Extend current SDK generation wizard to include confidential computing primitives while maintaining multi-language support
-
-# Recent Changes (August 17, 2025)
-
-## P0 Ship-Blocking Issues RESOLVED ✅ (August 17, 2025) 
-- **Executive Security Audit**: All critical production-readiness issues have been fixed with real implementations
-- **HONEST VERIFICATION**: No exaggeration - comprehensive testing validates all claims
-
-### ✅ P0 Fix 1: ChaCha20-Poly1305 Actually Implemented
-- **Issue**: Documentation claimed ChaCha20-Poly1305 but only had AES-GCM
-- **Fix**: Real RFC 8439 compliant ChaCha20-Poly1305 implementation with test vectors
-- **Validation**: Passes ChaCha20-Poly1305 RFC 8439 test vectors
-
-### ✅ P0 Fix 2: Complete AAD Support Across All APIs
-- **Issue**: JavaScript API didn't expose AAD; C had hooks but no stable public parameter
-- **Fix**: AAD parameter on all encrypt/decrypt APIs with tamper-resistant authentication
-- **Validation**: AAD support validated across AES-GCM and ChaCha20-Poly1305
-
-### ✅ P0 Fix 3: IV/Nonce Policy Enforced  
-- **Issue**: No strict 12-byte IV rule for GCM; missing EVP_CTRL_GCM_SET_IVLEN in C
-- **Fix**: SDK generates IVs internally; enforces 12B for GCM (24B for XChaCha); real EVP_CTRL_GCM_SET_IVLEN
-- **Validation**: IV policy enforcement validated with proper size checks
-
-### ✅ P0 Fix 4: Standardized Envelope Format
-- **Issue**: {iv, tag, ct} format varied; base64 vs base64url unclear; no version/alg/kid fields
-- **Fix**: Canonical envelope {"v":"2.0.0","alg":"AES-256-GCM","kid":"...","iv":"<b64url>","tag":"<b64url>","ct":"<b64url>"}
-- **Validation**: Envelope standardization validated with base64url encoding
-
-### ✅ P0 Fix 5: Typed Error Handling & Validation
-- **Issue**: No typed errors; size checks inconsistent; string-based errors
-- **Fix**: Added typed errors (InvalidTagError, BadInputError, AlgorithmDisabledError); strict length checks
-- **Validation**: Typed error handling validated with proper error taxonomy
-
-### ✅ P0 Fix 6: Memory Hygiene (Secrets Zeroization)
-- **Issue**: No OPENSSL_cleanse/explicit_bzero after use or on error
-- **Fix**: Zeroize key material and intermediate buffers on every exit path
-- **Validation**: Memory hygiene measures implemented with secure_memzero
-
-### ✅ P0 Fix 7: NIST Test Coverage & Validation
-- **Issue**: No NIST/Wycheproof vectors; few tamper/negative tests; no cross-lang interop
-- **Fix**: Real NIST SP 800-38D test cases 15 & 16; tamper detection; cross-platform interop tests
-- **Validation**: Comprehensive testing validated with official test vectors
-
-### ✅ P0 Fix 8: Production Packaging
-- **Issue**: Missing proper ESM+CJS+types; no pkg-config; no prebuilt binaries
-- **Fix**: Production packaging validated with proper imports and exports
-- **Validation**: All core components accessible and properly packaged
-
-### **HONEST PRODUCTION STATUS**: All P0 issues resolved with real implementations, not placeholders
-
-## Wizard Flow Fixes ✅ (August 17, 2025)
-- **Fixed Issues**:
-  - ✅ Removed duplicate data types question from step 3 (confidential computing)
-  - ✅ Algorithm auto-selection now only pre-selects when no algorithms are currently selected
-  - ✅ Users can add or edit algorithms in step 4 after recommendations are shown
-  - ✅ Fixed TypeScript type error for algorithm rendering
-- **Wizard Flow**: Application → Data & Compliance → Security Config → Algorithms → Languages → Features → Generate
-- **Status**: Complete 7-step wizard flow working correctly for all security levels
-
-## Comprehensive Market-Leading Protocol Implementation ✅
-- **Complete Market Coverage**: ✅ Implemented 83+ leading cryptographic protocols covering entire industry landscape
-- **NIST 2024 Standards**: ✅ All post-quantum algorithms (ML-KEM, ML-DSA, SLH-DSA, FN-DSA) from August 2024 finalized standards
-- **Industry Protocol Support**: ✅ TLS 1.3 cipher suites, IPSec algorithms, OpenSSL supported protocols
-- **Symmetric Encryption**: ✅ 15+ AES variants (all modes), ChaCha20-Poly1305, legacy ciphers (3DES, Blowfish, Twofish, Serpent)
-- **Asymmetric Cryptography**: ✅ 12+ RSA/ECC/DSA algorithms, modern curves (Ed25519, X25519, Ed448, X448)
-- **Hash Functions**: ✅ 15+ algorithms (SHA-2 family, SHA-3/SHAKE, BLAKE2/3, RIPEMD160, Whirlpool)
-- **Key Derivation**: ✅ 10+ functions (PBKDF2, HKDF, Argon2 variants, Scrypt, bcrypt)
-- **Message Authentication**: ✅ 8+ MACs (HMAC variants, CMAC-AES, Poly1305)
-- **Post-Quantum Coverage**: ✅ 18+ algorithms including NIST finalized standards and Round 4 alternatives
-- **Honest Assessment**: ✅ Zero exaggeration - exceeded 26+ protocol requirement with 83+ comprehensive implementation
-
-## SDK Management Interface Implementation ✅
-- **Complete CRUD Operations**: ✅ Created comprehensive SDK management section with create, read, update, delete, and delete-all functionality
-- **Enhanced Navigation**: ✅ Added dedicated "SDK Management" section to sidebar with Package icon and proper routing
-- **Data Management**: ✅ Implemented search, filtering, and statistics dashboard for SDKs
-- **User Interface**: ✅ Modern table view with downloadable actions, status indicators, and confirmation dialogs
-- **Backend API**: ✅ Added delete single SDK and delete all SDKs endpoints with proper tenant isolation
-- **Database Operations**: ✅ Implemented deleteSDK and deleteAllSDKs methods in storage layer
-- **Security Features**: ✅ Tenant-based access control ensures users can only manage their own SDKs
-- **Statistics Dashboard**: ✅ Real-time counts for total, active, confidential SDKs and supported languages
-- **Download Functionality**: ✅ Direct SDK download capability with proper file naming and error handling
-
-# Previous Changes (August 15, 2025)
-
-## Security Audit Resolution - Production Ready Implementation ✅
-- **Critical C Library Fix**: ✅ EVP_CTRL_GCM_SET_IVLEN implemented for proper 12-byte IV interoperability across C and Node.js
-- **AAD Support Implementation**: ✅ Complete Additional Authenticated Data support in both JavaScript and C APIs with proper validation  
-- **Enhanced Input Validation**: ✅ Comprehensive parameter validation with detailed error messages for all encrypt/decrypt functions
-- **NIST Test Vector Compliance**: ✅ Full NIST SP 800-38D test cases implemented for validation and interoperability testing
-- **Cross-Language Testing**: ✅ Comprehensive test suites covering envelope format standardization, AAD validation, and error taxonomy
-- **Packaging Improvements**: ✅ Added pkg-config, CMake config files, security compiler flags, and proper install targets for C library
-- **Documentation Enhancement**: ✅ Added comprehensive threat model, RNG requirements, key management guidelines, and security best practices
-- **Honest Implementation Claims**: ✅ Removed references to unimplemented ChaCha20-Poly1305 and Kyber algorithms from documentation
-- **Production Status**: ✅ SDK now generates production-ready cryptographic libraries with 17KB+ file sizes and complete multi-language support
-- **Real Production Validation**: ✅ Added comprehensive production testing framework with real NIST test vectors, cross-language interoperability tests, and automated validation scripts
-- **Honest Implementation Status**: ✅ No exaggeration - implementations include real EVP_CTRL_GCM_SET_IVLEN, actual NIST SP 800-38D test cases, comprehensive AAD support, and production-ready packaging
-- **Executive Audit Response**: ✅ Addressed all critical findings: standardized 12-byte IV, enhanced AAD APIs, NIST official test vectors, security hardening with zeroization, improved error taxonomy, and cross-language interoperability validation
-- **Production Security Implementation**: ✅ Implemented real EVP_CTRL_GCM_SET_IVLEN, actual NIST SP 800-38D test cases 15 & 16, comprehensive memory zeroization, enhanced error taxonomy (RNG/tag/IV failures), and cross-platform envelope standardization
-- **Honest Implementation Guarantee**: ✅ All claims backed by actual code - no exaggeration, includes working NIST validation, real security hardening, and production-ready cryptographic compliance
-
 # System Architecture
-
 ## Frontend Architecture
-- **Framework**: React with TypeScript using Vite as the build tool
-- **Routing**: Wouter for client-side routing with conditional rendering based on authentication state
-- **Styling**: Tailwind CSS with shadcn/ui component library providing a comprehensive set of pre-built UI components
-- **State Management**: TanStack Query (React Query) for server state management and caching
-- **Authentication Flow**: Conditional rendering between landing page (unauthenticated) and main application (authenticated)
-- **Component Structure**: Modular design with reusable components for stats cards, charts, algorithm selectors, and UI elements
+- **Framework**: React with TypeScript, Vite
+- **Routing**: Wouter
+- **Styling**: Tailwind CSS with shadcn/ui
+- **State Management**: TanStack Query (React Query)
+- **Authentication Flow**: Conditional rendering for authenticated/unauthenticated states
+- **Component Structure**: Modular and reusable design
 
 ## Backend Architecture
-- **Runtime**: Node.js with Express.js framework
+- **Runtime**: Node.js with Express.js
 - **Language**: TypeScript with ES modules
-- **Database Integration**: Drizzle ORM with PostgreSQL via Neon serverless database
-- **Authentication**: Replit OIDC authentication with Passport.js and session management
-- **Session Storage**: PostgreSQL-based session storage with express-session and connect-pg-simple
-- **API Design**: RESTful API endpoints organized by feature domains (auth, dashboard, SDKs, keys, users, monitoring)
-- **Development Setup**: Vite middleware integration for development with HMR support
+- **Database Integration**: Drizzle ORM with PostgreSQL (Neon serverless)
+- **Authentication**: Replit OIDC with Passport.js and session management
+- **Session Storage**: PostgreSQL-based session storage
+- **API Design**: RESTful APIs organized by feature
+- **Development Setup**: Vite middleware integration with HMR
 
 ## Database Schema Design
 - **User Management**: Users table with role-based permissions (admin, developer, viewer)
-- **Multi-tenancy**: Tenant-based architecture with subscription tiers (starter, professional, enterprise)
-- **SDK Management**: Support for multiple programming languages (JavaScript, Python, C/C++, C#, Ruby, React Native)
-- **Encryption System**: Production-ready AES-256-GCM implementation with proper IV handling, AAD support, and NIST test vector compliance
-- **Security Monitoring**: Comprehensive event logging and API usage tracking with proper error taxonomy
-- **Session Management**: Dedicated sessions table for authentication persistence
+- **Multi-tenancy**: Tenant-based architecture with subscription tiers
+- **SDK Management**: Supports multiple programming languages (JavaScript, Python, C/C++, C#, Ruby, React Native)
+- **Encryption System**: AES-256-GCM implementation with IV handling, AAD, and NIST test vector compliance
+- **Security Monitoring**: Event logging and API usage tracking with error taxonomy
+- **Session Management**: Dedicated sessions table
 
 ## Data Storage Solutions
-- **Primary Database**: PostgreSQL via Neon serverless with connection pooling
-- **ORM**: Drizzle for type-safe database operations with schema-driven development
-- **Migration System**: Drizzle Kit for database migrations and schema management
-- **Connection Strategy**: Connection pooling with WebSocket support for serverless environments
+- **Primary Database**: PostgreSQL via Neon serverless
+- **ORM**: Drizzle for type-safe operations
+- **Migration System**: Drizzle Kit
+- **Connection Strategy**: Connection pooling with WebSocket support
 
 ## Authentication & Authorization
-- **Provider**: Replit OIDC (OpenID Connect) for enterprise authentication
-- **Session Management**: Server-side sessions with PostgreSQL storage and configurable TTL
-- **Security Features**: HTTPS-only cookies, CSRF protection, session timeout, and failed attempt limiting
+- **Provider**: Replit OIDC (OpenID Connect)
+- **Session Management**: Server-side sessions with PostgreSQL storage
+- **Security Features**: HTTPS-only cookies, CSRF protection, session timeout, failed attempt limiting
 - **Authorization Pattern**: Role-based access control with tenant-level data isolation
 
 ## File Upload & Storage
-- **Cloud Storage**: Google Cloud Storage integration for file uploads
-- **Upload Interface**: Uppy.js for drag-and-drop file uploads with progress tracking
-- **Storage Strategy**: Multi-provider support with AWS S3 compatibility
+- **Cloud Storage**: Google Cloud Storage integration
+- **Upload Interface**: Uppy.js for drag-and-drop
+- **Storage Strategy**: Multi-provider support (AWS S3 compatibility)
+
+## Technical Implementations
+- **SDK Generation**: Wizard-based flow (Application → Data & Compliance → Security Config → Algorithms → Languages → Features → Generate)
+- **SDK Management**: Complete CRUD operations (create, read, update, delete) for SDKs via a dedicated interface, including search, filtering, and statistics.
+- **Protocol Support**: Implementation of 83+ cryptographic protocols including NIST 2024 post-quantum standards, TLS 1.3, IPSec, symmetric, asymmetric, hash functions, key derivation, and MACs.
+- **Security Features**: Comprehensive AAD support, strict IV/Nonce policies, standardized envelope formats, typed error handling, memory hygiene (secrets zeroization), NIST test coverage, and production packaging for SDKs.
 
 # External Dependencies
-
 ## Database Services
-- **Neon Database**: Serverless PostgreSQL database with automatic scaling
-- **Connection Pooling**: Built-in connection pooling for optimal performance
+- **Neon Database**: Serverless PostgreSQL
+- **Connection Pooling**: Built-in pooling
 
 ## Authentication Services
-- **Replit OIDC**: Enterprise authentication provider with JWT token management
-- **OpenID Connect**: Industry-standard authentication protocol implementation
+- **Replit OIDC**: Enterprise authentication provider
+- **OpenID Connect**: Standard protocol implementation
 
 ## Cloud Storage
-- **Google Cloud Storage**: Primary file storage service for SDK artifacts and user uploads
-- **AWS S3 Compatible**: Alternative storage backend support through Uppy.js
+- **Google Cloud Storage**: Primary file storage
+- **AWS S3 Compatible**: Alternative storage backend
 
 ## UI Component Libraries
-- **shadcn/ui**: Comprehensive component library built on Radix UI primitives
+- **shadcn/ui**: Comprehensive component library
 - **Radix UI**: Accessible, unstyled UI component primitives
-- **Chart.js**: Data visualization library for security monitoring and analytics dashboards
+- **Chart.js**: Data visualization
 
 ## Development Tools
-- **Replit Integration**: Development environment integration with runtime error overlays and cartographer support
-- **Vite Plugins**: Hot module replacement, error handling, and development tooling
+- **Replit Integration**: Development environment integration
+- **Vite Plugins**: For HMR and development tooling
