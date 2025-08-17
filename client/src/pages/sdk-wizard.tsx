@@ -208,9 +208,9 @@ export default function SdkWizard() {
 
   // Auto-select recommended algorithms when they change
   useEffect(() => {
-    if (Array.isArray(recommendedAlgorithms) && recommendedAlgorithms.length > 0 && step === 3) {
+    if (Array.isArray(recommendedAlgorithms) && recommendedAlgorithms.length > 0 && (step === 3 || step === 4)) {
       const algorithmIds = recommendedAlgorithms.map((alg: EncryptionAlgorithm) => alg.id);
-      console.log('Auto-selecting recommended algorithms on step 3:', algorithmIds);
+      console.log('Auto-selecting recommended algorithms on step', step, ':', algorithmIds);
       console.log('Recommended algorithms:', recommendedAlgorithms);
       // Always pre-select ALL recommended algorithms immediately
       console.log('Auto-selecting all recommended algorithms');
@@ -241,9 +241,9 @@ export default function SdkWizard() {
     if (currentStep === 2 && securityLevel && ['confidential', 'privacy-preserving'].includes(securityLevel)) {
       return 3; // Go to confidential computing config
     }
-    // If we're at step 3 and we're in confidential computing mode, skip standard algorithm selection
+    // If we're at step 3 and we're in confidential computing mode, go to algorithm selection
     if (currentStep === 3 && securityLevel && ['confidential', 'privacy-preserving'].includes(securityLevel)) {
-      return 5; // Skip algorithm selection (step 4) and go to languages (step 5)
+      return 4; // Go to algorithm selection (don't skip it)
     }
     // If we're at step 2 and standard security, skip confidential computing
     if (currentStep === 2 && (!securityLevel || !['confidential', 'privacy-preserving'].includes(securityLevel))) {
@@ -284,8 +284,8 @@ export default function SdkWizard() {
       return;
     }
     
-    // Step 3: Algorithm Selection (for standard security levels)
-    if (step === 3 && (!securityLevel || !['confidential', 'privacy-preserving'].includes(securityLevel)) && selectedAlgorithms.length === 0) {
+    // Step 4: Algorithm Selection (for all security levels)
+    if (step === 4 && selectedAlgorithms.length === 0 && recommendedAlgorithms.length === 0) {
       toast({
         title: "Missing Information",
         description: "Please select at least one encryption algorithm.",
@@ -294,8 +294,8 @@ export default function SdkWizard() {
       return;
     }
     
-    // Step 4/5: Languages (step varies based on security level)
-    if ((step === 4 || step === 5) && selectedLanguages.length === 0) {
+    // Step 5: Languages (after algorithm selection)
+    if (step === 5 && selectedLanguages.length === 0) {
       toast({
         title: "Missing Information",
         description: "Please select at least one programming language.",
@@ -304,8 +304,7 @@ export default function SdkWizard() {
       return;
     }
     
-    if ((step === 6 && (!securityLevel || !['confidential', 'privacy-preserving'].includes(securityLevel))) ||
-        (step === 7 && securityLevel && ['confidential', 'privacy-preserving'].includes(securityLevel))) {
+    if (step === 6) {
       handleGenerateSDK();
       return;
     }
@@ -328,7 +327,7 @@ export default function SdkWizard() {
       confidentialFeatures,
       complianceRequirements,
       languages: selectedLanguages, // Array of selected languages
-      algorithms: selectedAlgorithms, // Array of selected algorithms
+      algorithms: selectedAlgorithms.length > 0 ? selectedAlgorithms : recommendedAlgorithms.map(alg => alg.id), // Array of selected algorithms
       configuration: {
         // Zero Configuration - Auto Setup
         autoSetup: true,
@@ -475,9 +474,9 @@ export default function SdkWizard() {
             {[
               { num: 1, title: 'Application', subtitle: 'Basic details' },
               { num: 2, title: 'Data & Compliance', subtitle: 'Requirements' },
-              { num: 3, title: 'Algorithm', subtitle: 'Encryption type' },
-              { num: 4, title: 'Languages', subtitle: 'Programming' },
-              { num: 5, title: 'Features', subtitle: 'Advanced options' },
+              { num: 3, title: 'Security Config', subtitle: 'Advanced features' },
+              { num: 4, title: 'Algorithms', subtitle: 'Encryption type' },
+              { num: 5, title: 'Languages', subtitle: 'Programming' },
               { num: 6, title: 'Generate', subtitle: 'Create SDK' },
             ].map(({ num, title, subtitle }, index) => (
               <div key={num} className="flex flex-col items-center text-center">
