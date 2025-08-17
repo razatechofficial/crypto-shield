@@ -174,7 +174,7 @@ export default function SdkWizard() {
 
   // Fetch algorithm recommendations when application details are filled
   useEffect(() => {
-    if (step === 3 && applicationType && securityLevel) {
+    if (step === 4 && applicationType && securityLevel) {
       const fetchRecommendations = async () => {
         try {
           const response = await apiRequest('POST', '/api/algorithms/recommend', {
@@ -208,7 +208,7 @@ export default function SdkWizard() {
 
   // Auto-select recommended algorithms when they change
   useEffect(() => {
-    if (Array.isArray(recommendedAlgorithms) && recommendedAlgorithms.length > 0 && (step === 3 || step === 4)) {
+    if (Array.isArray(recommendedAlgorithms) && recommendedAlgorithms.length > 0 && step === 4) {
       const algorithmIds = recommendedAlgorithms.map((alg: EncryptionAlgorithm) => alg.id);
       console.log('Auto-selecting recommended algorithms on step', step, ':', algorithmIds);
       console.log('Recommended algorithms:', recommendedAlgorithms);
@@ -232,7 +232,7 @@ export default function SdkWizard() {
       });
       queryClient.invalidateQueries({ queryKey: ["/api/sdks"] });
       setGeneratedSDK(data);
-      setStep(7); // Go to download step
+      setStep(8); // Go to download step
     },
   });
 
@@ -304,7 +304,7 @@ export default function SdkWizard() {
       return;
     }
     
-    if (step === 6) {
+    if (step === 7) {
       handleGenerateSDK();
       return;
     }
@@ -470,14 +470,15 @@ export default function SdkWizard() {
       <div className="max-w-4xl mx-auto">
         {/* Progress Steps */}
         <div className="mb-8">
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
             {[
               { num: 1, title: 'Application', subtitle: 'Basic details' },
               { num: 2, title: 'Data & Compliance', subtitle: 'Requirements' },
               { num: 3, title: 'Security Config', subtitle: 'Advanced features' },
               { num: 4, title: 'Algorithms', subtitle: 'Encryption type' },
               { num: 5, title: 'Languages', subtitle: 'Programming' },
-              { num: 6, title: 'Generate', subtitle: 'Create SDK' },
+              { num: 6, title: 'Features', subtitle: 'Security options' },
+              { num: 7, title: 'Generate', subtitle: 'Create SDK' },
             ].map(({ num, title, subtitle }, index) => (
               <div key={num} className="flex flex-col items-center text-center">
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold mb-2 ${
@@ -491,7 +492,7 @@ export default function SdkWizard() {
                 <span className={`text-xs ${step >= num ? 'text-muted-foreground' : 'text-muted-foreground'}`}>
                   {subtitle}
                 </span>
-                {index < 5 && <div className="hidden md:block w-full h-px bg-border mt-2 absolute translate-x-12"></div>}
+                {index < 6 && <div className="hidden md:block w-full h-px bg-border mt-2 absolute translate-x-12"></div>}
               </div>
             ))}
           </div>
@@ -758,7 +759,7 @@ export default function SdkWizard() {
               </div>
             )}
 
-            {step === 3 && (!securityLevel || !['confidential', 'privacy-preserving'].includes(securityLevel)) && (
+            {step === 4 && (
               <div className="space-y-8">
                 <div className="text-center mb-6">
                   <h3 className="text-lg font-semibold text-foreground mb-2">Encryption Algorithms</h3>
@@ -879,7 +880,7 @@ export default function SdkWizard() {
               </div>
             )}
 
-            {step === 4 && (
+            {step === 5 && (
               <div className="space-y-8">
                 <div className="text-center mb-6">
                   <h3 className="text-lg font-semibold text-foreground mb-2">Programming Languages</h3>
@@ -928,7 +929,7 @@ export default function SdkWizard() {
               </div>
             )}
 
-            {step === 5 && (
+            {step === 6 && (
               <div className="space-y-8">
                 <div className="text-center mb-6">
                   <h3 className="text-lg font-semibold text-foreground mb-2">Advanced Features</h3>
@@ -961,7 +962,7 @@ export default function SdkWizard() {
               </div>
             )}
 
-            {step === 6 && (
+            {step === 7 && (
               <div className="space-y-8">
                 <div className="text-center mb-6">
                   <h3 className="text-lg font-semibold text-foreground mb-2">Review & Generate</h3>
@@ -1028,8 +1029,7 @@ export default function SdkWizard() {
                   className="bg-blue-500 hover:bg-blue-600 text-white"
                   data-testid="button-next"
                 >
-                  {((step === 6 && (!securityLevel || !['confidential', 'privacy-preserving'].includes(securityLevel))) ||
-                    (step === 7 && securityLevel && ['confidential', 'privacy-preserving'].includes(securityLevel))) ? 
+                  {step === 7 ? 
                     (generateSDKMutation.isPending ? 'Generating...' : 'Generate SDK') : 'Next'}
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
@@ -1037,7 +1037,7 @@ export default function SdkWizard() {
             )}
 
             {/* Success/Download Step */}
-            {step === 7 && generatedSDK && (
+            {step === 8 && generatedSDK && (
               <div className="text-center space-y-6 mt-8">
                 <div className="w-16 h-16 bg-green-500 bg-opacity-20 rounded-full flex items-center justify-center mx-auto">
                   <Download className="w-8 h-8 text-green-500" />
