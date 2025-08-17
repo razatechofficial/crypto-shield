@@ -3096,10 +3096,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         algorithms: JSON.stringify(req.body.algorithms || []),
         dataTypes: JSON.stringify(req.body.dataTypes || []),
         complianceRequirements: JSON.stringify(req.body.complianceRequirements || []),
+        confidentialFeatures: JSON.stringify(req.body.confidentialFeatures || []),
         // Ensure configuration and features are objects
         configuration: req.body.configuration || {},
-        features: req.body.features || {}
+        features: req.body.features || {},
+        // Set defaults for required fields
+        version: req.body.version || '2.0.0',
+        isActive: true
       };
+
+      console.log('Request data before validation:', JSON.stringify(requestData, null, 2));
 
       const validatedData = insertSdkSchema.parse(requestData);
 
@@ -3117,6 +3123,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(sdk);
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.error("Validation errors:", error.errors);
         return res.status(400).json({ 
           message: "Invalid request data",
           errors: error.errors 

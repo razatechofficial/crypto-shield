@@ -777,7 +777,7 @@ export default function SdkWizard() {
                       </Badge>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {Array.isArray(recommendedAlgorithms) && recommendedAlgorithms.slice(0, 4).map((algorithm) => (
+                      {Array.isArray(recommendedAlgorithms) && recommendedAlgorithms.slice(0, 4).map((algorithm: EncryptionAlgorithm) => (
                         <Label 
                           key={algorithm.id}
                           className="flex items-start space-x-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/20 transition-colors"
