@@ -8,6 +8,18 @@ Averox is an enterprise-grade encryption platform that enables users to create c
 
 Preferred communication style: Simple, everyday language.
 
+# Strategic Direction - Confidential Computing Integration
+
+## Platform Evolution Decision (August 17, 2025)
+- **Decision**: Integrate advanced privacy-preserving technologies into existing Crypto Shield platform rather than creating separate platform
+- **Rationale**: Natural evolution path from basic encryption to confidential computing serves same enterprise customers
+- **Target Technologies**: 
+  - Trusted Execution Environments (TEEs) - Intel SGX, AMD SEV
+  - Homomorphic Encryption (HE) modules
+  - Multi-Party Computation (MPC) protocols
+- **Market Opportunity**: Limited competition (Zama, Duality) with high enterprise demand from governments, banks, healthcare
+- **Implementation Approach**: Extend current SDK generation wizard to include confidential computing primitives while maintaining multi-language support
+
 # Recent Changes (August 15, 2025)
 
 ## Security Audit Resolution - Production Ready Implementation ✅
