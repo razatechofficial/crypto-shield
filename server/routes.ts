@@ -3515,6 +3515,98 @@ do {
     }
   });
 
+  // Algorithm recommendation endpoint with confidential computing support
+  app.post("/api/algorithms/recommend", isAuthenticated, async (req, res) => {
+    try {
+      const { applicationType, securityLevel, complianceRequirements, deploymentEnvironment } = req.body;
+      
+      console.log('Algorithm recommendation request:', { applicationType, securityLevel, complianceRequirements, deploymentEnvironment });
+      
+      // Get all algorithms first
+      const allAlgorithms = await storage.getEncryptionAlgorithms();
+      console.log('All available algorithms:', allAlgorithms.length);
+      
+      let recommendedAlgorithms: any[] = [];
+      
+      // Confidential computing security levels
+      if (securityLevel === 'confidential' || securityLevel === 'privacy_preserving') {
+        // Recommend confidential computing algorithms based on deployment environment
+        if (deploymentEnvironment === 'sgx-enclave') {
+          recommendedAlgorithms = allAlgorithms.filter(alg => 
+            alg.name === 'intel-sgx' || alg.type === 'tee'
+          );
+        } else if (deploymentEnvironment === 'sev-secure') {
+          recommendedAlgorithms = allAlgorithms.filter(alg => 
+            alg.name === 'amd-sev' || alg.type === 'tee'
+          );
+        } else if (securityLevel === 'privacy_preserving') {
+          // Privacy-preserving applications prefer HE and MPC
+          recommendedAlgorithms = allAlgorithms.filter(alg => 
+            alg.type === 'homomorphic' || alg.type === 'mpc' || alg.type === 'zero_knowledge'
+          );
+        } else {
+          // General confidential computing - show all confidential technologies
+          recommendedAlgorithms = allAlgorithms.filter(alg => 
+            alg.type === 'tee' || alg.type === 'homomorphic' || alg.type === 'mpc'
+          );
+        }
+      } else if (securityLevel === 'maximum') {
+        // Maximum security: prefer post-quantum and high-key-size algorithms
+        recommendedAlgorithms = allAlgorithms.filter(alg => 
+          alg.isPostQuantum || alg.keySize >= 256
+        );
+      } else if (securityLevel === 'enhanced') {
+        // Enhanced: balanced security and performance
+        recommendedAlgorithms = allAlgorithms.filter(alg => 
+          alg.type === 'symmetric' && alg.keySize >= 256
+        );
+      } else {
+        // Standard: focus on performance while maintaining security
+        recommendedAlgorithms = allAlgorithms.filter(alg => 
+          alg.type === 'symmetric' && alg.isActive
+        );
+      }
+
+      // Add compliance-specific recommendations
+      if (complianceRequirements && complianceRequirements.includes('fips')) {
+        const fipsAlgorithms = allAlgorithms.filter(alg => 
+          ['aes-256-gcm', 'rsa-4096', 'ecdsa-p256'].includes(alg.name)
+        );
+        recommendedAlgorithms = [...new Set([...recommendedAlgorithms, ...fipsAlgorithms])];
+      }
+
+      if (complianceRequirements && (complianceRequirements.includes('hipaa') || complianceRequirements.includes('gdpr'))) {
+        const privacyAlgorithms = allAlgorithms.filter(alg => 
+          alg.keySize >= 256 || alg.type === 'homomorphic' || alg.type === 'zero_knowledge'
+        );
+        recommendedAlgorithms = [...new Set([...recommendedAlgorithms, ...privacyAlgorithms])];
+      }
+
+      // Sort by recommendation relevance
+      recommendedAlgorithms.sort((a, b) => {
+        // Prioritize algorithms that match security level exactly
+        const aMatches = (securityLevel === 'confidential' && ['tee', 'homomorphic', 'mpc'].includes(a.type)) ||
+                        (securityLevel === 'maximum' && a.isPostQuantum) ||
+                        (securityLevel === 'enhanced' && a.type === 'symmetric' && a.keySize >= 256);
+        const bMatches = (securityLevel === 'confidential' && ['tee', 'homomorphic', 'mpc'].includes(b.type)) ||
+                        (securityLevel === 'maximum' && b.isPostQuantum) ||
+                        (securityLevel === 'enhanced' && b.type === 'symmetric' && b.keySize >= 256);
+        
+        if (aMatches && !bMatches) return -1;
+        if (!aMatches && bMatches) return 1;
+        
+        // Then by key size (higher is better)
+        return (b.keySize || 0) - (a.keySize || 0);
+      });
+
+      console.log(`Recommended ${recommendedAlgorithms.length} algorithms for ${securityLevel} security level`);
+      res.json(recommendedAlgorithms.slice(0, 10)); // Limit to top 10 recommendations
+    } catch (error) {
+      console.error("Error recommending algorithms:", error);
+      res.status(500).json({ message: "Failed to recommend algorithms" });
+    }
+  });
+
   // Key management routes
   app.get('/api/keys', isAuthenticated, async (req: any, res) => {
     try {

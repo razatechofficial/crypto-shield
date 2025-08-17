@@ -53,26 +53,17 @@ const applicationTypes = [
   { id: 'blockchain', name: 'Blockchain/Crypto', description: 'Cryptocurrency and blockchain applications' },
 ];
 
-const deploymentEnvironments = [
-  { id: 'cloud', name: 'Cloud (AWS/Azure/GCP)', description: 'Public cloud environments' },
-  { id: 'onpremise', name: 'On-Premise', description: 'Private data centers and servers' },
-  { id: 'hybrid', name: 'Hybrid Cloud', description: 'Mix of cloud and on-premise' },
-  { id: 'edge', name: 'Edge Computing', description: 'Edge devices and distributed computing' },
-];
-
-const complianceStandards = [
-  { id: 'gdpr', name: 'GDPR', description: 'European data protection regulation' },
-  { id: 'hipaa', name: 'HIPAA', description: 'Healthcare data protection (US)' },
-  { id: 'pci', name: 'PCI DSS', description: 'Payment card industry standards' },
-  { id: 'sox', name: 'SOX', description: 'Sarbanes-Oxley financial compliance' },
-  { id: 'fips', name: 'FIPS 140-2', description: 'US government cryptographic standards' },
-  { id: 'iso27001', name: 'ISO 27001', description: 'International security management standards' },
-];
-
-const securityLevels = [
-  { id: 'standard', name: 'Standard Security', description: 'Basic encryption for general use cases' },
-  { id: 'enhanced', name: 'Enhanced Security', description: 'Strong encryption for sensitive data' },
-  { id: 'maximum', name: 'Maximum Security', description: 'Military-grade encryption for critical systems' },
+const dataTypes = [
+  { id: 'personal', name: 'Personal Information', description: 'Names, addresses, contact details' },
+  { id: 'financial', name: 'Financial Data', description: 'Payment information, banking records' },
+  { id: 'medical', name: 'Medical Records', description: 'Healthcare and patient information' },
+  { id: 'business', name: 'Business Data', description: 'Proprietary business information' },
+  { id: 'government', name: 'Government/Defense', description: 'Classified or sensitive government data' },
+  { id: 'biometric', name: 'Biometric Data', description: 'Fingerprints, facial recognition, DNA' },
+  { id: 'location', name: 'Location Data', description: 'GPS coordinates, tracking information' },
+  { id: 'communication', name: 'Communications', description: 'Messages, emails, call records' },
+  { id: 'behavioral', name: 'Behavioral Analytics', description: 'User behavior and preference data' },
+  { id: 'intellectual', name: 'Intellectual Property', description: 'Patents, trade secrets, research data' },
 ];
 
 const dataTypeOptions = [
@@ -92,6 +83,45 @@ const dataTypeOptions = [
   { id: 'blockchain', name: 'Blockchain/Crypto', description: 'Wallet data, transactions, smart contracts' },
 ];
 
+const deploymentEnvironments = [
+  { id: 'cloud', name: 'Cloud (AWS/Azure/GCP)', description: 'Public cloud environments' },
+  { id: 'onpremise', name: 'On-Premise', description: 'Private data centers and servers' },
+  { id: 'hybrid', name: 'Hybrid Cloud', description: 'Mix of cloud and on-premise' },
+  { id: 'edge', name: 'Edge Computing', description: 'Edge devices and distributed computing' },
+  { id: 'tee-cloud', name: 'TEE Cloud (Confidential VMs)', description: 'Cloud with trusted execution environments' },
+  { id: 'sgx-enclave', name: 'Intel SGX Enclave', description: 'Hardware-based trusted execution environments' },
+  { id: 'sev-secure', name: 'AMD SEV Secure Memory', description: 'Secure encrypted virtualization environments' },
+];
+
+const complianceStandards = [
+  { id: 'gdpr', name: 'GDPR', description: 'European data protection regulation' },
+  { id: 'hipaa', name: 'HIPAA', description: 'Healthcare data protection (US)' },
+  { id: 'pci', name: 'PCI DSS', description: 'Payment card industry standards' },
+  { id: 'sox', name: 'SOX', description: 'Sarbanes-Oxley financial compliance' },
+  { id: 'fips', name: 'FIPS 140-2', description: 'US government cryptographic standards' },
+  { id: 'iso27001', name: 'ISO 27001', description: 'International security management standards' },
+  { id: 'fedramp', name: 'FedRAMP', description: 'US federal cloud security standards' },
+  { id: 'cccs', name: 'Common Criteria', description: 'International IT security evaluation standards' },
+];
+
+const securityLevels = [
+  { id: 'standard', name: 'Standard Security', description: 'Basic encryption for general use cases' },
+  { id: 'enhanced', name: 'Enhanced Security', description: 'Strong encryption for sensitive data' },
+  { id: 'maximum', name: 'Maximum Security', description: 'Military-grade encryption for critical systems' },
+  { id: 'confidential', name: 'Confidential Computing', description: 'TEE-based protection with encrypted computation' },
+  { id: 'privacy-preserving', name: 'Privacy-Preserving', description: 'Homomorphic encryption and secure multi-party computation' },
+];
+
+// Enhanced features for confidential computing
+const confidentialComputingFeatures = [
+  { id: 'teeEncryption', name: 'TEE Encryption', description: 'Hardware-based trusted execution environments' },
+  { id: 'homomorphicEncryption', name: 'Homomorphic Encryption', description: 'Compute on encrypted data without decryption' },
+  { id: 'multiPartyComputation', name: 'Multi-Party Computation', description: 'Joint computation without revealing private inputs' },
+  { id: 'zeroKnowledgeProofs', name: 'Zero-Knowledge Proofs', description: 'Prove knowledge without revealing the information' },
+  { id: 'differentialPrivacy', name: 'Differential Privacy', description: 'Privacy-preserving data analytics' },
+  { id: 'secureAggregation', name: 'Secure Aggregation', description: 'Aggregate data without exposing individual inputs' },
+];
+
 const features = [
   { id: 'autoRotation', name: 'Auto Key Rotation', description: 'Intelligent key rotation with zero downtime' },
   { id: 'selfHealing', name: 'Self-Healing Security', description: 'AI-powered threat detection and auto-response' },
@@ -103,6 +133,10 @@ const features = [
   { id: 'adaptiveEncryption', name: 'Adaptive Encryption', description: 'Dynamic algorithm selection based on threat level' },
   { id: 'quantumShield', name: 'Quantum Shield', description: 'Future-proof protection against quantum attacks' },
   { id: 'aiThreatDetection', name: 'AI Threat Detection', description: 'Machine learning-based anomaly detection' },
+  { id: 'teeProtection', name: 'TEE Protection', description: 'Hardware-based secure enclaves for sensitive computation' },
+  { id: 'homomorphicCompute', name: 'Homomorphic Computing', description: 'Encrypted computation capabilities' },
+  { id: 'secureMPC', name: 'Secure MPC', description: 'Multi-party computation protocols' },
+  { id: 'attestationVerify', name: 'Remote Attestation', description: 'Verify trusted execution environment integrity' },
 ];
 
 export default function SdkWizard() {
@@ -124,7 +158,9 @@ export default function SdkWizard() {
     'aiThreatDetection'
   ]);
   const [securityLevel, setSecurityLevel] = useState('');
-  const [dataTypes, setDataTypes] = useState<string[]>([]);
+  const [selectedDataTypes, setSelectedDataTypes] = useState<string[]>([]);
+  const [confidentialFeatures, setConfidentialFeatures] = useState<string[]>([]);
+  const [dataTypesSelected, setDataTypesSelected] = useState<string[]>([]);
   const [recommendedAlgorithms, setRecommendedAlgorithms] = useState<EncryptionAlgorithm[]>([]);
   const [generatedSDK, setGeneratedSDK] = useState<any>(null);
   
@@ -200,6 +236,22 @@ export default function SdkWizard() {
     },
   });
 
+  const getNextStep = (currentStep: number) => {
+    // If we're at step 2 and user selected confidential computing security levels
+    if (currentStep === 2 && securityLevel && ['confidential', 'privacy-preserving'].includes(securityLevel)) {
+      return 3; // Go to confidential computing config
+    }
+    // If we're at step 3 and we're in confidential computing mode, skip standard algorithm selection
+    if (currentStep === 3 && securityLevel && ['confidential', 'privacy-preserving'].includes(securityLevel)) {
+      return 5; // Skip algorithm selection (step 4) and go to languages (step 5)
+    }
+    // If we're at step 2 and standard security, skip confidential computing
+    if (currentStep === 2 && (!securityLevel || !['confidential', 'privacy-preserving'].includes(securityLevel))) {
+      return 4; // Go to algorithm selection (step 4)
+    }
+    return currentStep + 1;
+  };
+
   const handleNext = () => {
     // Step 1: Application Details
     if (step === 1 && (!sdkName || !applicationType || !deploymentEnvironment || !securityLevel)) {
@@ -212,7 +264,7 @@ export default function SdkWizard() {
     }
     
     // Step 2: Data & Compliance
-    if (step === 2 && dataTypes.length === 0) {
+    if (step === 2 && dataTypesSelected.length === 0) {
       toast({
         title: "Missing Information", 
         description: "Please select at least one type of data you'll be encrypting.",
@@ -221,8 +273,19 @@ export default function SdkWizard() {
       return;
     }
     
-    // Step 3: Algorithm Selection
-    if (step === 3 && selectedAlgorithms.length === 0) {
+    // Step 3: Confidential Computing or Algorithm Selection
+    if (step === 3 && securityLevel && ['confidential', 'privacy-preserving'].includes(securityLevel) && 
+        (selectedDataTypes.length === 0 || confidentialFeatures.length === 0)) {
+      toast({
+        title: "Missing Information",
+        description: "Please select data types and confidential computing technologies.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Step 3: Algorithm Selection (for standard security levels)
+    if (step === 3 && (!securityLevel || !['confidential', 'privacy-preserving'].includes(securityLevel)) && selectedAlgorithms.length === 0) {
       toast({
         title: "Missing Information",
         description: "Please select at least one encryption algorithm.",
@@ -231,8 +294,8 @@ export default function SdkWizard() {
       return;
     }
     
-    // Step 4: Languages 
-    if (step === 4 && selectedLanguages.length === 0) {
+    // Step 4/5: Languages (step varies based on security level)
+    if ((step === 4 || step === 5) && selectedLanguages.length === 0) {
       toast({
         title: "Missing Information",
         description: "Please select at least one programming language.",
@@ -241,12 +304,13 @@ export default function SdkWizard() {
       return;
     }
     
-    if (step === 6) {
+    if ((step === 6 && (!securityLevel || !['confidential', 'privacy-preserving'].includes(securityLevel))) ||
+        (step === 7 && securityLevel && ['confidential', 'privacy-preserving'].includes(securityLevel))) {
       handleGenerateSDK();
       return;
     }
     
-    setStep(step + 1);
+    setStep(getNextStep(step));
   };
 
   const handlePrevious = () => {
@@ -260,7 +324,8 @@ export default function SdkWizard() {
       applicationType,
       deploymentEnvironment,
       securityLevel,
-      dataTypes,
+      dataTypes: dataTypesSelected,
+      confidentialFeatures,
       complianceRequirements,
       languages: selectedLanguages, // Array of selected languages
       algorithms: selectedAlgorithms, // Array of selected algorithms
@@ -363,7 +428,7 @@ export default function SdkWizard() {
   };
 
   const handleDataTypeToggle = (dataTypeId: string) => {
-    setDataTypes(prev => 
+    setDataTypesSelected(prev => 
       prev.includes(dataTypeId) 
         ? prev.filter(id => id !== dataTypeId)
         : [...prev, dataTypeId]
@@ -552,7 +617,7 @@ export default function SdkWizard() {
                         data-testid={`data-type-${dataType.id}`}
                       >
                         <Checkbox
-                          checked={dataTypes.includes(dataType.id)}
+                          checked={dataTypesSelected.includes(dataType.id)}
                           onCheckedChange={() => handleDataTypeToggle(dataType.id)}
                           className="border-border"
                         />
@@ -591,7 +656,110 @@ export default function SdkWizard() {
               </div>
             )}
 
-            {step === 3 && (
+            {step === 3 && securityLevel && ['confidential', 'privacy-preserving'].includes(securityLevel) && (
+              <div className="space-y-8">
+                <div className="text-center mb-6">
+                  <h3 className="text-lg font-semibold text-foreground mb-2">Confidential Computing Configuration</h3>
+                  <p className="text-muted-foreground text-sm">Configure advanced privacy-preserving technologies</p>
+                </div>
+
+                {/* Data Types to Protect */}
+                <div>
+                  <Label className="text-foreground font-medium block mb-4">
+                    What types of data will you be protecting? *
+                  </Label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {dataTypes.map((dataType) => (
+                      <Label 
+                        key={dataType.id}
+                        className="flex items-start space-x-3 border rounded-lg p-4 cursor-pointer hover:bg-secondary transition-colors border-border"
+                        data-testid={`data-type-${dataType.id}`}
+                      >
+                        <Checkbox
+                          checked={selectedDataTypes.includes(dataType.id)}
+                          onCheckedChange={() => {
+                            setSelectedDataTypes(prev => 
+                              prev.includes(dataType.id)
+                                ? prev.filter(id => id !== dataType.id)
+                                : [...prev, dataType.id]
+                            );
+                          }}
+                          className="border-border mt-0.5"
+                        />
+                        <div className="flex-1">
+                          <h4 className="text-foreground font-medium">{dataType.name}</h4>
+                          <p className="text-muted-foreground text-sm">{dataType.description}</p>
+                        </div>
+                      </Label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Confidential Computing Features */}
+                <div>
+                  <Label className="text-foreground font-medium block mb-4">
+                    Select Confidential Computing Technologies *
+                  </Label>
+                  <div className="grid grid-cols-1 gap-3">
+                    {confidentialComputingFeatures.map((feature) => (
+                      <Label 
+                        key={feature.id}
+                        className="flex items-start space-x-3 border rounded-lg p-4 cursor-pointer hover:bg-secondary transition-colors border-border"
+                        data-testid={`confidential-feature-${feature.id}`}
+                      >
+                        <Checkbox
+                          checked={confidentialFeatures.includes(feature.id)}
+                          onCheckedChange={() => {
+                            setConfidentialFeatures(prev => 
+                              prev.includes(feature.id)
+                                ? prev.filter(id => id !== feature.id)
+                                : [...prev, feature.id]
+                            );
+                          }}
+                          className="border-border mt-0.5"
+                        />
+                        <div className="flex-1">
+                          <h4 className="text-foreground font-medium">{feature.name}</h4>
+                          <p className="text-muted-foreground text-sm">{feature.description}</p>
+                        </div>
+                      </Label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* TEE Platform Selection (if TEE selected) */}
+                {confidentialFeatures.includes('teeEncryption') && (
+                  <div>
+                    <Label className="text-foreground font-medium block mb-4">
+                      Trusted Execution Environment Platform
+                    </Label>
+                    <RadioGroup value={deploymentEnvironment} onValueChange={setDeploymentEnvironment}>
+                      {deploymentEnvironments.filter(env => env.id.includes('tee') || env.id.includes('sgx') || env.id.includes('sev')).map((env) => (
+                        <div key={env.id} className="flex items-center space-x-2">
+                          <RadioGroupItem value={env.id} id={env.id} />
+                          <Label htmlFor={env.id} className="flex-1 cursor-pointer">
+                            <div>
+                              <h4 className="font-medium">{env.name}</h4>
+                              <p className="text-sm text-muted-foreground">{env.description}</p>
+                            </div>
+                          </Label>
+                        </div>
+                      ))}
+                    </RadioGroup>
+                  </div>
+                )}
+
+                {(selectedDataTypes.length === 0 || confidentialFeatures.length === 0) && (
+                  <div className="text-center p-6 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                    <p className="text-amber-800 dark:text-amber-400 text-sm">
+                      Please select data types and confidential computing technologies to continue.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {step === 3 && (!securityLevel || !['confidential', 'privacy-preserving'].includes(securityLevel)) && (
               <div className="space-y-8">
                 <div className="text-center mb-6">
                   <h3 className="text-lg font-semibold text-foreground mb-2">Encryption Algorithms</h3>
@@ -843,7 +1011,7 @@ export default function SdkWizard() {
             )}
 
             {/* Action Buttons */}
-            {step <= 6 && (
+            {step <= 7 && !generatedSDK && (
               <div className="flex justify-between mt-8">
                 <Button 
                   onClick={handlePrevious}
@@ -861,7 +1029,9 @@ export default function SdkWizard() {
                   className="bg-blue-500 hover:bg-blue-600 text-white"
                   data-testid="button-next"
                 >
-                  {step === 6 ? (generateSDKMutation.isPending ? 'Generating...' : 'Generate SDK') : 'Next'}
+                  {((step === 6 && (!securityLevel || !['confidential', 'privacy-preserving'].includes(securityLevel))) ||
+                    (step === 7 && securityLevel && ['confidential', 'privacy-preserving'].includes(securityLevel))) ? 
+                    (generateSDKMutation.isPending ? 'Generating...' : 'Generate SDK') : 'Next'}
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
               </div>

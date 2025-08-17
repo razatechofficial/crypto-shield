@@ -32,13 +32,19 @@ export const userRoleEnum = pgEnum('user_role', ['admin', 'developer', 'viewer']
 export const subscriptionTierEnum = pgEnum('subscription_tier', ['starter', 'professional', 'enterprise']);
 
 // Algorithm types enum
-export const algorithmTypeEnum = pgEnum('algorithm_type', ['symmetric', 'asymmetric', 'hash', 'post_quantum']);
+export const algorithmTypeEnum = pgEnum('algorithm_type', ['symmetric', 'asymmetric', 'hash', 'post_quantum', 'tee', 'homomorphic', 'mpc', 'zero_knowledge']);
 
 // Key status enum
 export const keyStatusEnum = pgEnum('key_status', ['active', 'rotating', 'revoked', 'expired']);
 
 // SDK language enum
 export const sdkLanguageEnum = pgEnum('sdk_language', ['javascript', 'python', 'java', 'csharp', 'go', 'rust', 'dart', 'swift', 'kotlin', 'php', 'ruby', 'cpp']);
+
+// Security levels enum
+export const securityLevelEnum = pgEnum('security_level', ['standard', 'enhanced', 'maximum', 'confidential', 'privacy_preserving']);
+
+// Confidential computing features enum
+export const confidentialFeatureEnum = pgEnum('confidential_feature', ['teeEncryption', 'homomorphicEncryption', 'multiPartyComputation', 'zeroKnowledgeProofs', 'differentialPrivacy', 'secureAggregation']);
 
 // User storage table for Replit Auth
 export const users = pgTable("users", {
@@ -89,9 +95,10 @@ export const sdks = pgTable("sdks", {
   algorithms: text("algorithms").notNull(), // JSON array of algorithm IDs
   applicationType: varchar("application_type"),
   deploymentEnvironment: varchar("deployment_environment"),
-  securityLevel: varchar("security_level"),
+  securityLevel: securityLevelEnum("security_level"),
   dataTypes: text("data_types"), // JSON array
   complianceRequirements: text("compliance_requirements"), // JSON array
+  confidentialFeatures: text("confidential_features"), // JSON array of confidential computing features
   configuration: jsonb("configuration").notNull().default({}),
   features: jsonb("features").notNull().default({}),
   downloadUrl: varchar("download_url"),
