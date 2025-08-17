@@ -21,12 +21,12 @@ export default function Landing() {
             </div>
             
             <h2 className="text-5xl font-bold text-white mb-6">
-              Enterprise Encryption Platform
+              Confidential Computing Platform
             </h2>
             <p className="text-xl text-slate-300 mb-8 max-w-3xl mx-auto">
-              Create world-class encryption SDKs in seconds with quantum-safe algorithms, 
-              auto-healing capabilities, and comprehensive monitoring. Sleep peacefully knowing 
-              your data is protected by Averox.
+              Create production-ready SDKs with Intel SGX TEE, Microsoft SEAL homomorphic encryption, 
+              and SPDZ multi-party computation. Enterprise-grade confidential computing for government, 
+              banking, and healthcare applications.
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
