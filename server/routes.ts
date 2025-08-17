@@ -6,6 +6,7 @@ import { insertSdkSchema, insertEncryptionKeySchema, insertSecurityEventSchema }
 import { z } from "zod";
 import { randomUUID } from "crypto";
 import archiver from "archiver";
+import { generateProductionSDKFiles } from "../production-sdk-generator.js";
 
 // Working SDK Code Generation
 async function generateLanguageFiles(archive: any, languages: string[], algorithms: any[], sdk: any, features: any) {
@@ -3348,10 +3349,15 @@ setup(
         archive.append(setupPy, { name: 'setup.py' });
       }
 
-      // Generate actual working source files for each language
-      console.log('Generating files for languages:', languages);
-      await generateLanguageFiles(archive, languages, selectedAlgorithms, sdk, features);
-      console.log('Language files generation completed');
+      // Generate production-ready SDK files addressing all audit findings
+      console.log('Generating production-ready SDK files for languages:', languages);
+      const productionFiles = await generateProductionSDKFiles(languages, sdk);
+      
+      // Add production files to archive
+      productionFiles.forEach(file => {
+        archive.append(file.content, { name: file.name });
+      });
+      console.log('Production SDK generation completed');
 
       // Generate configuration file
       const config = generateAdvancedConfiguration(sdk, features, selectedAlgorithms);

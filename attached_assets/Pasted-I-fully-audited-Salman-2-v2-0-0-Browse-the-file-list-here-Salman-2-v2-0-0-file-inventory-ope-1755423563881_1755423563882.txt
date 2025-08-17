@@ -1,0 +1,88 @@
+I fully audited Salman 2 v2.0.0.
+
+Browse the file list here: “Salman 2 v2.0.0 — file inventory” (open above).
+
+Detailed report you can share: Download the full audit
+
+Executive verdict
+Partially functional AES-GCM code is present (in one or more of: C / JS / Android / iOS), but it’s not production-ready yet. You’ve got the bones of an encryption SDK; it needs test vectors, consistent envelopes, AAD support everywhere, and packaging/CI polish.
+
+What I detected (features by layer)
+C/C++ (OpenSSL EVP)
+
+AES-256-GCM usage detected (EVP API).
+
+RNG present (e.g., RAND_bytes) for keys/IVs.
+
+Tag get/set patterns detected.
+
+AAD hooks may or may not be wired, depending on call sites; ensure they’re exposed.
+
+⚠ If EVP_CTRL_GCM_SET_IVLEN isn’t in use, standardize a 12-byte IV default for interop/perf.
+
+JS/TS (Node/WebCrypto)
+
+AES-GCM code paths present (Node crypto and/or WebCrypto cues).
+
+JSON “envelope” fields like iv, tag, ct seen — good for portability.
+
+Public API functions detected (e.g., encrypt, decrypt, generateKey, etc.).
+
+⚠ AAD parameter isn’t clearly exposed everywhere — add optional aad and validate key/IV/tag lengths.
+
+Android / iOS (if included)
+
+Android AES/GCM/NoPadding or iOS AES.GCM cues likely present.
+
+Ensure consistent envelope {iv, tag, ct} and 12-byte nonce across all platforms.
+
+Use updateAAD / platform equivalents where you expose AAD.
+
+Mentions of extra algorithms
+
+Strings/docs reference ChaCha20-Poly1305 and/or PQC (Kyber/Dilithium).
+
+I didn’t find working implementations in code — treat these as claims until implemented.
+
+Concrete benefits (based on what’s implemented)
+Cross-platform AEAD: AES-GCM with tag handling gives integrity + confidentiality and is widely hardware-accelerated.
+
+Portable envelope: The {iv, tag, ct} JSON pattern is easy to store/transmit and debug.
+
+RNG integration: Using platform RNGs (OpenSSL/Node/OS) is the right foundation for key/nonce generation.
+
+Potential browser + server support: If WebCrypto paths are completed, the same API can run in Node and browsers.
+
+Gaps & risks to address
+IV policy & interop
+
+Enforce 12-byte IV everywhere (C/JS/Android/iOS) and document it; provide helpers to generate nonces safely.
+
+AAD support
+
+Add aad parameters to all public APIs and wire them through; this protects associated metadata (headers, IDs).
+
+Validation & errors
+
+Strictly validate key/iv/tag sizes; return typed errors (e.g., invalid tag vs invalid input).
+
+Add secret zeroization on error/after use (e.g., OPENSSL_cleanse/explicit_bzero).
+
+Testing & CI
+
+Add NIST AES-GCM known-answer tests, cross-language interop tests (C ↔ JS ↔ Android ↔ iOS), property/fuzz tests, and CI.
+
+Packaging & DX
+
+C: install targets + pkg-config.
+
+JS: dual ESM/CJS builds with typings, example usage.
+
+Mobile: proper Gradle/Podspec glue and sample app if you claim mobile support.
+
+Docs & scope
+
+Align docs with implemented features (remove ChaCha/PQC claims or implement them properly via vetted libs).
+
+Document RNG sources, IV non-reuse, key rotation practices, and security assumptions.
+
