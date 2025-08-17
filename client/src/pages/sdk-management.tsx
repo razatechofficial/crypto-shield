@@ -48,7 +48,7 @@ export default function SDKManagement() {
   const queryClient = useQueryClient();
 
   // Fetch SDKs
-  const { data: sdks = [], isLoading, error } = useQuery({
+  const { data: sdks = [], isLoading, error } = useQuery<Sdk[]>({
     queryKey: ['/api/sdks'],
     retry: (failureCount, error) => {
       if (isUnauthorizedError(error)) return false;
@@ -58,8 +58,18 @@ export default function SDKManagement() {
 
   // Delete single SDK mutation
   const deleteSDKMutation = useMutation({
-    mutationFn: (sdkId: string) => apiRequest(`/api/sdks/${sdkId}`, {
+    mutationFn: (sdkId: string) => fetch(`/api/sdks/${sdkId}`, {
       method: 'DELETE',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    }).then(async (res) => {
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || 'Failed to delete SDK');
+      }
+      return res.json();
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/sdks'] });
@@ -81,8 +91,18 @@ export default function SDKManagement() {
 
   // Delete all SDKs mutation
   const deleteAllSDKsMutation = useMutation({
-    mutationFn: () => apiRequest('/api/sdks/delete-all', {
+    mutationFn: () => fetch('/api/sdks/delete-all', {
       method: 'DELETE',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    }).then(async (res) => {
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || 'Failed to delete all SDKs');
+      }
+      return res.json();
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/sdks'] });
@@ -150,7 +170,7 @@ export default function SDKManagement() {
   };
 
   // Filter SDKs based on search term
-  const filteredSDKs = sdks.filter((sdk: Sdk) =>
+  const filteredSDKs = (sdks as Sdk[]).filter((sdk: Sdk) =>
     sdk.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     sdk.applicationType?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     sdk.securityLevel?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -235,7 +255,7 @@ export default function SDKManagement() {
                 <Package className="w-4 h-4 mr-2" />
                 Create New SDK
               </Button>
-              {sdks.length > 0 && (
+              {(sdks as Sdk[]).length > 0 && (
                 <Button
                   variant="destructive"
                   onClick={() => setDeleteAllDialogOpen(true)}
@@ -260,7 +280,7 @@ export default function SDKManagement() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Total SDKs</p>
-                  <p className="text-2xl font-bold" data-testid="total-sdks-count">{sdks.length}</p>
+                  <p className="text-2xl font-bold" data-testid="total-sdks-count">{(sdks as Sdk[]).length}</p>
                 </div>
               </div>
             </CardContent>
@@ -275,7 +295,7 @@ export default function SDKManagement() {
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Active SDKs</p>
                   <p className="text-2xl font-bold" data-testid="active-sdks-count">
-                    {sdks.filter((sdk: Sdk) => sdk.isActive).length}
+                    {(sdks as Sdk[]).filter((sdk: Sdk) => sdk.isActive).length}
                   </p>
                 </div>
               </div>
@@ -291,7 +311,7 @@ export default function SDKManagement() {
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Confidential</p>
                   <p className="text-2xl font-bold" data-testid="confidential-sdks-count">
-                    {sdks.filter((sdk: Sdk) => 
+                    {(sdks as Sdk[]).filter((sdk: Sdk) => 
                       sdk.securityLevel === 'confidential' || sdk.securityLevel === 'privacy_preserving'
                     ).length}
                   </p>
@@ -309,7 +329,7 @@ export default function SDKManagement() {
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Languages</p>
                   <p className="text-2xl font-bold" data-testid="total-languages-count">
-                    {new Set(sdks.flatMap((sdk: Sdk) => parseJSON(sdk.languages))).size}
+                    {new Set((sdks as Sdk[]).flatMap((sdk: Sdk) => parseJSON(sdk.languages))).size}
                   </p>
                 </div>
               </div>
@@ -332,7 +352,7 @@ export default function SDKManagement() {
                 />
               </div>
               <Badge variant="outline" className="text-sm">
-                {filteredSDKs.length} of {sdks.length} SDKs
+                {filteredSDKs.length} of {(sdks as Sdk[]).length} SDKs
               </Badge>
             </div>
           </CardContent>
@@ -434,7 +454,7 @@ export default function SDKManagement() {
                           <TableCell>
                             <div className="flex items-center gap-1 text-sm text-muted-foreground">
                               <Calendar className="w-3 h-3" />
-                              {formatDate(sdk.createdAt)}
+                              {formatDate(sdk.createdAt || new Date().toISOString())}
                             </div>
                           </TableCell>
                           <TableCell>
@@ -519,7 +539,7 @@ export default function SDKManagement() {
                 Delete All SDKs
               </AlertDialogTitle>
               <AlertDialogDescription>
-                Are you sure you want to delete ALL {sdks.length} SDKs? This action cannot be undone.
+                Are you sure you want to delete ALL {(sdks as Sdk[]).length} SDKs? This action cannot be undone.
                 All SDK files and associated data will be permanently removed from your account.
               </AlertDialogDescription>
             </AlertDialogHeader>
