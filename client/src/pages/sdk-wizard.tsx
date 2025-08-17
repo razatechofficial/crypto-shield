@@ -206,17 +206,17 @@ export default function SdkWizard() {
     }
   }, [step, applicationType, securityLevel, complianceRequirements, deploymentEnvironment]);
 
-  // Auto-select recommended algorithms when they change
+  // Auto-select recommended algorithms when they change - ONLY if no algorithms are currently selected
   useEffect(() => {
-    if (Array.isArray(recommendedAlgorithms) && recommendedAlgorithms.length > 0 && step === 4) {
+    if (Array.isArray(recommendedAlgorithms) && recommendedAlgorithms.length > 0 && step === 4 && selectedAlgorithms.length === 0) {
       const algorithmIds = recommendedAlgorithms.map((alg: EncryptionAlgorithm) => alg.id);
       console.log('Auto-selecting recommended algorithms on step', step, ':', algorithmIds);
       console.log('Recommended algorithms:', recommendedAlgorithms);
-      // Always pre-select ALL recommended algorithms immediately
+      // Pre-select ALL recommended algorithms immediately (only if none selected)
       console.log('Auto-selecting all recommended algorithms');
       setSelectedAlgorithms(algorithmIds);
     }
-  }, [recommendedAlgorithms, step]);
+  }, [recommendedAlgorithms, step, selectedAlgorithms.length]);
 
   const generateSDKMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -273,12 +273,12 @@ export default function SdkWizard() {
       return;
     }
     
-    // Step 3: Confidential Computing or Algorithm Selection
+    // Step 3: Confidential Computing configuration
     if (step === 3 && securityLevel && ['confidential', 'privacy-preserving'].includes(securityLevel) && 
-        (selectedDataTypes.length === 0 || confidentialFeatures.length === 0)) {
+        confidentialFeatures.length === 0) {
       toast({
         title: "Missing Information",
-        description: "Please select data types and confidential computing technologies.",
+        description: "Please select confidential computing technologies.",
         variant: "destructive",
       });
       return;
@@ -663,38 +663,6 @@ export default function SdkWizard() {
                   <p className="text-muted-foreground text-sm">Configure advanced privacy-preserving technologies</p>
                 </div>
 
-                {/* Data Types to Protect */}
-                <div>
-                  <Label className="text-foreground font-medium block mb-4">
-                    What types of data will you be protecting? *
-                  </Label>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {dataTypes.map((dataType) => (
-                      <Label 
-                        key={dataType.id}
-                        className="flex items-start space-x-3 border rounded-lg p-4 cursor-pointer hover:bg-secondary transition-colors border-border"
-                        data-testid={`data-type-${dataType.id}`}
-                      >
-                        <Checkbox
-                          checked={selectedDataTypes.includes(dataType.id)}
-                          onCheckedChange={() => {
-                            setSelectedDataTypes(prev => 
-                              prev.includes(dataType.id)
-                                ? prev.filter(id => id !== dataType.id)
-                                : [...prev, dataType.id]
-                            );
-                          }}
-                          className="border-border mt-0.5"
-                        />
-                        <div className="flex-1">
-                          <h4 className="text-foreground font-medium">{dataType.name}</h4>
-                          <p className="text-muted-foreground text-sm">{dataType.description}</p>
-                        </div>
-                      </Label>
-                    ))}
-                  </div>
-                </div>
-
                 {/* Confidential Computing Features */}
                 <div>
                   <Label className="text-foreground font-medium block mb-4">
@@ -749,10 +717,10 @@ export default function SdkWizard() {
                   </div>
                 )}
 
-                {(selectedDataTypes.length === 0 || confidentialFeatures.length === 0) && (
+                {confidentialFeatures.length === 0 && (
                   <div className="text-center p-6 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
                     <p className="text-amber-800 dark:text-amber-400 text-sm">
-                      Please select data types and confidential computing technologies to continue.
+                      Please select confidential computing technologies to continue.
                     </p>
                   </div>
                 )}
@@ -824,7 +792,7 @@ export default function SdkWizard() {
                   </div>
                   {algorithms && Array.isArray(algorithms) && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
-                      {algorithms.map((algorithm: EncryptionAlgorithm) => (
+                      {(algorithms as EncryptionAlgorithm[]).map((algorithm: EncryptionAlgorithm) => (
                         <Label 
                           key={algorithm.id}
                           className={`flex items-start space-x-3 border rounded-lg p-4 cursor-pointer hover:bg-secondary transition-colors ${
