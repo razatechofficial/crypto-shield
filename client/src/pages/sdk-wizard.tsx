@@ -206,17 +206,18 @@ export default function SdkWizard() {
     }
   }, [step, applicationTypes, securityLevel, complianceRequirements, deploymentEnvironment]);
 
-  // Auto-select recommended algorithms when they change - ONLY if no algorithms are currently selected
+  // Auto-select recommended algorithms when they change
   useEffect(() => {
-    if (Array.isArray(recommendedAlgorithms) && recommendedAlgorithms.length > 0 && step === 4 && selectedAlgorithms.length === 0) {
+    if (Array.isArray(recommendedAlgorithms) && recommendedAlgorithms.length > 0 && step === 4) {
       const algorithmIds = recommendedAlgorithms.map((alg: EncryptionAlgorithm) => alg.id);
       console.log('Auto-selecting recommended algorithms on step', step, ':', algorithmIds);
       console.log('Recommended algorithms:', recommendedAlgorithms);
-      // Pre-select ALL recommended algorithms immediately (only if none selected)
+      
+      // Pre-select ALL recommended algorithms immediately
       console.log('Auto-selecting all recommended algorithms');
       setSelectedAlgorithms(algorithmIds);
     }
-  }, [recommendedAlgorithms, step, selectedAlgorithms.length]);
+  }, [recommendedAlgorithms, step]);
 
   const generateSDKMutation = useMutation({
     mutationFn: async (data: any) => {

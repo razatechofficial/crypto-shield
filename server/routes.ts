@@ -3531,9 +3531,9 @@ do {
   // Algorithm recommendation endpoint with confidential computing support
   app.post("/api/algorithms/recommend", isAuthenticated, async (req, res) => {
     try {
-      const { applicationType, securityLevel, complianceRequirements, deploymentEnvironment } = req.body;
+      const { applicationTypes, securityLevel, complianceRequirements, deploymentEnvironment } = req.body;
       
-      console.log('Algorithm recommendation request:', { applicationType, securityLevel, complianceRequirements, deploymentEnvironment });
+      console.log('Algorithm recommendation request:', { applicationTypes, securityLevel, complianceRequirements, deploymentEnvironment });
       
       // Get all algorithms first
       const allAlgorithms = await storage.getEncryptionAlgorithms();
@@ -3580,6 +3580,33 @@ do {
         );
       }
 
+      // Add application type-specific recommendations
+      if (applicationTypes && Array.isArray(applicationTypes)) {
+        for (const appType of applicationTypes) {
+          if (appType === 'messaging') {
+            const messagingAlgorithms = allAlgorithms.filter(alg => 
+              alg.type === 'symmetric' || alg.name.includes('aes') || alg.name.includes('signal')
+            );
+            recommendedAlgorithms = [...new Set([...recommendedAlgorithms, ...messagingAlgorithms])];
+          } else if (appType === 'file-storage') {
+            const storageAlgorithms = allAlgorithms.filter(alg => 
+              alg.type === 'symmetric' && alg.keySize >= 256
+            );
+            recommendedAlgorithms = [...new Set([...recommendedAlgorithms, ...storageAlgorithms])];
+          } else if (appType === 'api') {
+            const apiAlgorithms = allAlgorithms.filter(alg => 
+              alg.type === 'asymmetric' || alg.name.includes('rsa') || alg.name.includes('ecdsa')
+            );
+            recommendedAlgorithms = [...new Set([...recommendedAlgorithms, ...apiAlgorithms])];
+          } else if (appType === 'enterprise') {
+            const enterpriseAlgorithms = allAlgorithms.filter(alg => 
+              alg.isPostQuantum || alg.keySize >= 256 || alg.type === 'tee'
+            );
+            recommendedAlgorithms = [...new Set([...recommendedAlgorithms, ...enterpriseAlgorithms])];
+          }
+        }
+      }
+
       // Add compliance-specific recommendations
       if (complianceRequirements && complianceRequirements.includes('fips')) {
         const fipsAlgorithms = allAlgorithms.filter(alg => 
@@ -3612,7 +3639,7 @@ do {
         return (b.keySize || 0) - (a.keySize || 0);
       });
 
-      console.log(`Recommended ${recommendedAlgorithms.length} algorithms for ${securityLevel} security level`);
+      console.log(`Recommended ${recommendedAlgorithms.length} algorithms for ${securityLevel} security level with application types: ${applicationTypes?.join(', ')}`);
       res.json(recommendedAlgorithms.slice(0, 10)); // Limit to top 10 recommendations
     } catch (error) {
       console.error("Error recommending algorithms:", error);
