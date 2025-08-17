@@ -8,6 +8,7 @@ import Landing from "@/pages/landing";
 import Layout from "@/components/Layout";
 import Dashboard from "@/pages/dashboard";
 import SdkWizard from "@/pages/sdk-wizard";
+import SdkManagement from "@/pages/sdk-management";
 import Monitoring from "@/pages/monitoring";
 import KeyManagement from "@/pages/key-management";
 import UserManagement from "@/pages/user-management";
@@ -34,6 +35,7 @@ function Router() {
         <Layout>
           <Route path="/" component={Dashboard} />
           <Route path="/wizard" component={SdkWizard} />
+          <Route path="/sdks" component={SdkManagement} />
           <Route path="/monitoring" component={Monitoring} />
           <Route path="/keys" component={KeyManagement} />
           <Route path="/users" component={UserManagement} />

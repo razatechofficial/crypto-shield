@@ -3614,6 +3614,54 @@ do {
     }
   });
 
+  // Delete all SDKs route
+  app.delete('/api/sdks/delete-all', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user?.tenantId) {
+        return res.status(400).json({ message: "User not associated with a tenant" });
+      }
+
+      // Delete all SDKs for the tenant
+      await storage.deleteAllSDKs(user.tenantId);
+      
+      res.json({ message: "All SDKs deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting all SDKs:", error);
+      res.status(500).json({ message: "Failed to delete all SDKs" });
+    }
+  });
+
+  // Delete single SDK route
+  app.delete('/api/sdks/:sdkId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { sdkId } = req.params;
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user?.tenantId) {
+        return res.status(400).json({ message: "User not associated with a tenant" });
+      }
+
+      // Verify SDK belongs to user's tenant
+      const sdks = await storage.getSDKs(user.tenantId);
+      const sdk = sdks.find(s => s.id === sdkId);
+      
+      if (!sdk) {
+        return res.status(404).json({ message: "SDK not found" });
+      }
+
+      await storage.deleteSDK(sdkId);
+      
+      res.json({ message: "SDK deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting SDK:", error);
+      res.status(500).json({ message: "Failed to delete SDK" });
+    }
+  });
+
   // Key management routes
   app.get('/api/keys', isAuthenticated, async (req: any, res) => {
     try {

@@ -39,6 +39,8 @@ export interface IStorage {
   getSDKs(tenantId: string): Promise<Sdk[]>;
   createSDK(sdk: InsertSdk): Promise<Sdk>;
   getSDK(id: string): Promise<Sdk | undefined>;
+  deleteSDK(id: string): Promise<void>;
+  deleteAllSDKs(tenantId: string): Promise<void>;
   
   // Algorithm operations
   getEncryptionAlgorithms(): Promise<EncryptionAlgorithm[]>;
@@ -152,6 +154,14 @@ export class DatabaseStorage implements IStorage {
   async getSDK(id: string): Promise<Sdk | undefined> {
     const [sdk] = await db.select().from(sdks).where(eq(sdks.id, id));
     return sdk;
+  }
+
+  async deleteSDK(id: string): Promise<void> {
+    await db.delete(sdks).where(eq(sdks.id, id));
+  }
+
+  async deleteAllSDKs(tenantId: string): Promise<void> {
+    await db.delete(sdks).where(eq(sdks.tenantId, tenantId));
   }
 
   // Algorithm operations

@@ -9,13 +9,15 @@ import {
   CreditCard, 
   Settings, 
   Shield,
-  LogOut 
+  LogOut,
+  Package
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: BarChart3 },
   { name: "SDK Wizard", href: "/wizard", icon: Wand2 },
+  { name: "SDK Management", href: "/sdks", icon: Package },
   { name: "Monitoring", href: "/monitoring", icon: Eye },
   { name: "Key Management", href: "/keys", icon: Key },
   { name: "User Management", href: "/users", icon: Users },
