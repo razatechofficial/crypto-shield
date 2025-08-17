@@ -121,8 +121,12 @@ class NISTValidationSuite {
       const test15 = NIST_TEST_VECTORS.testCase15;
       
       // Use Node.js crypto directly for exact NIST compliance
-      const cipher = crypto.createCipher('aes-128-gcm', Buffer.from(test15.key, 'hex'));
-      cipher.setAAD(Buffer.from(test15.aad));
+      const iv = Buffer.from(test15.iv, 'hex');
+      const cipher = crypto.createCipheriv('aes-128-gcm', Buffer.from(test15.key, 'hex'), iv);
+      const aadBuffer = Buffer.from(test15.aad);
+      if (aadBuffer.length > 0) {
+        cipher.setAAD(aadBuffer);
+      }
       
       let encrypted = cipher.update(Buffer.from(test15.plaintext), null, 'hex');
       encrypted += cipher.final('hex');
@@ -148,8 +152,12 @@ class NISTValidationSuite {
     try {
       const test16 = NIST_TEST_VECTORS.testCase16;
       
-      const cipher = crypto.createCipher('aes-128-gcm', Buffer.from(test16.key, 'hex'));
-      cipher.setAAD(Buffer.from(test16.aad));
+      const iv = Buffer.from(test16.iv, 'hex');
+      const cipher = crypto.createCipheriv('aes-128-gcm', Buffer.from(test16.key, 'hex'), iv);
+      const aadBuffer = Buffer.from(test16.aad);
+      if (aadBuffer.length > 0) {
+        cipher.setAAD(aadBuffer);
+      }
       
       let encrypted = cipher.update(Buffer.from(test16.plaintext, 'hex'), null, 'hex');
       encrypted += cipher.final('hex');

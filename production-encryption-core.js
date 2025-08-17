@@ -146,9 +146,11 @@ export class ProductionAESGCM {
         ? plaintext 
         : Buffer.from(plaintext, 'utf8');
 
-      // Create cipher
-      const cipher = crypto.createCipher(this.algorithm, keyBuffer);
-      cipher.setAAD(aadBuffer || Buffer.alloc(0));
+      // Create cipher with proper GCM API
+      const cipher = crypto.createCipheriv(this.algorithm, keyBuffer, ivBuffer);
+      if (aadBuffer && aadBuffer.length > 0) {
+        cipher.setAAD(aadBuffer);
+      }
       
       // Encrypt
       let ciphertext = cipher.update(plaintextBuffer);
@@ -205,10 +207,10 @@ export class ProductionAESGCM {
         throw new Error('Invalid tag length in envelope');
       }
 
-      // Create decipher
-      const decipher = crypto.createDecipher(envelope.algorithm, keyBuffer);
+      // Create decipher with proper GCM API
+      const decipher = crypto.createDecipheriv(envelope.algorithm, keyBuffer, ivBuffer);
       decipher.setAuthTag(tagBuffer);
-      if (aadBuffer) {
+      if (aadBuffer && aadBuffer.length > 0) {
         decipher.setAAD(aadBuffer);
       }
 
