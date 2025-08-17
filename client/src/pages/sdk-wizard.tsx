@@ -824,7 +824,7 @@ export default function SdkWizard() {
                   </div>
                   {algorithms && Array.isArray(algorithms) && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
-                      {(algorithms as EncryptionAlgorithm[]).map((algorithm: EncryptionAlgorithm) => (
+                      {algorithms.map((algorithm) => (
                         <Label 
                           key={algorithm.id}
                           className={`flex items-start space-x-3 border rounded-lg p-4 cursor-pointer hover:bg-secondary transition-colors ${
@@ -984,7 +984,7 @@ export default function SdkWizard() {
                     <div>
                       <h4 className="text-foreground font-semibold mb-3">Data & Compliance</h4>
                       <div className="space-y-2 text-sm">
-                        <p><strong>Data Types:</strong> {dataTypes.map(id => dataTypeOptions.find(d => d.id === id)?.name).join(', ')}</p>
+                        <p><strong>Data Types:</strong> {dataTypesSelected.map(id => dataTypeOptions.find(d => d.id === id)?.name).join(', ')}</p>
                         <p><strong>Compliance:</strong> {complianceRequirements.length > 0 ? complianceRequirements.map(id => complianceStandards.find(c => c.id === id)?.name).join(', ') : 'None specified'}</p>
                       </div>
                     </div>
