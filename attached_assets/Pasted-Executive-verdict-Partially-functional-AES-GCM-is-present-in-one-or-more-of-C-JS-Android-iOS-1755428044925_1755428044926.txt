@@ -1,0 +1,33 @@
+Executive verdict
+Partially functional AES-GCM is present (in one or more of: C / JS / Android / iOS), but it’s not production-ready. Core crypto is there, yet interop, testing, and security hardening need work.
+
+Key findings (succinct)
+C/C++ (OpenSSL EVP): AES-256-GCM usage detected; tag get/set appears wired; AAD support may be present. If EVP_CTRL_GCM_SET_IVLEN isn’t used, lock to a 12-byte IV by default and document it. Add secret zeroization after use and on errors. If there’s an example.c, ensure it generates IVs with a CSPRNG (no constant-zero or uninitialized IVs).
+
+JS/TS: AES-GCM (Node/WebCrypto) cues; envelope fields like iv, tag, ct. Add an AAD parameter and strict validation for key/IV/tag sizes and Base64 parsing.
+
+Android/iOS: If platform code is included, ensure Android uses GCMParameterSpec(tagLen, iv) and cipher.updateAAD(aad), and iOS (CryptoKit) uses a consistent 12-byte nonce and the same {iv, tag, ct} envelope as other platforms.
+
+Claims vs code: Mentions of ChaCha20-Poly1305 and/or PQC (Kyber/Dilithium) show up in strings/docs, but no working implementations were detected. Treat these as claims, not features, until code exists.
+
+Features & benefits (based on code present)
+AEAD with integrity: AES-GCM gives confidentiality + integrity via auth tags.
+
+Portable envelope: {iv, tag, ct} JSON pattern eases storage and transport across services and languages.
+
+Good RNG foundation: Platform RNG calls (OpenSSL/Node/Android/iOS) appear in use—correct starting point for safe IVs/keys.
+
+Potential cross-platform: With consistent IV size and envelope, the same ciphertexts can interoperate across C/JS/mobile.
+
+Critical gaps to fix before production
+Interop & IV policy — Enforce 12-byte IV across all stacks; provide helpers to generate and serialize {iv, tag, ct} consistently.
+
+AAD everywhere — Add aad to C, JS, and mobile APIs; wire it to updateAAD/EVP AAD calls; validate lengths strictly.
+
+Validation & errors — Enforce key/IV/tag sizes; return typed errors (e.g., invalid tag vs bad input); add secret zeroization.
+
+Testing & CI — Add NIST AES-GCM known-answer tests, cross-language interop tests (C ↔ JS ↔ Android ↔ iOS), property/fuzz tests, and CI.
+
+Packaging & DX — C install + pkg-config; JS dual ESM/CJS builds with typings; mobile build glue and sample apps; clear README + LICENSE.
+
+Docs vs reality — Remove or clearly flag unimplemented ChaCha/PQC claims, or implement them via vetted libraries.
