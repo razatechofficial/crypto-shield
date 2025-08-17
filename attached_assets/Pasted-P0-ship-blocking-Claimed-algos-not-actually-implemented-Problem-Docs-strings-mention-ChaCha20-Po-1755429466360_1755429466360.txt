@@ -1,0 +1,107 @@
+P0 (ship-blocking)
+Claimed algos not actually implemented
+
+Problem: Docs/strings mention ChaCha20-Poly1305 and PQC/Kyber; code only does AES-GCM.
+
+Why it matters: Misleads users; auditors will flag it.
+
+Change: Either remove all claims, or implement XChaCha20-Poly1305 and (optionally) HPKE/X25519 (+ hybrid Kyber via liboqs) with full tests.
+
+No usable AAD across the SDK
+
+Problem: JS API doesn’t expose aad; C has hooks but not a stable, public parameter.
+
+Why it matters: Associated metadata isn’t authenticated → tamper-resistance gap.
+
+Change: Add aad to every encrypt/decrypt API; pass it through to GCM/XChaCha; reject mismatched AAD.
+
+IV/nonce policy not enforced
+
+Problem: No strict 12-byte IV rule for GCM (and no EVP_CTRL_GCM_SET_IVLEN in C); examples may allow BYO-IV.
+
+Why it matters: IV reuse = catastrophic key compromise.
+
+Change: SDK generates IVs internally; enforce 12B for GCM (24B for XChaCha); reject external IVs by default.
+
+Envelope not standardized
+
+Problem: {iv, tag, ct} format varies; base64 vs base64url unclear; no version/alg/kid fields.
+
+Why it matters: Cross-platform decrypt breaks; migrations are painful.
+
+Change: Canonical envelope:
+
+json
+Copy
+Edit
+{"v":"2","alg":"AES-256-GCM","kid":"...","iv":"<b64url>","tag":"<b64url>","ct":"<b64url>"}
+Use base64url only; document sizes (iv=12B, tag=16B).
+
+Weak error handling & validation
+
+Problem: No typed errors; size checks for key/iv/tag are inconsistent; likely string-based errors.
+
+Why it matters: Impossible to distinguish user error vs integrity failure; unsafe fallbacks.
+
+Change: Add typed errors (InvalidTagError, BadInputError, AlgorithmDisabledError); strict length checks; timing-safe compares.
+
+Secrets not zeroized (C)
+
+Problem: No OPENSSL_cleanse/explicit_bzero after use or on error.
+
+Why it matters: Keys linger in memory → forensic risk.
+
+Change: Zeroize key material and intermediate buffers on every exit path.
+
+Tests & CI are insufficient
+
+Problem: No NIST/Wycheproof vectors; few tamper/negative tests; no cross-lang interop; no sanitizers/fuzzing.
+
+Why it matters: Regressions slip to production.
+
+Change: Add vector suites, interop (C↔JS↔Android↔iOS), tamper cases, and CI with ASan/UBSan/TSan + libFuzzer.
+
+Packaging isn’t plug-and-play
+
+Problem: JS lacks proper ESM+CJS+types; C lacks pkg-config + install targets; mobile bindings/samples missing; no prebuilt signed binaries.
+
+Why it matters: Friction → low adoption; build failures.
+
+Change: Ship turnkey packages for Node/C/Android/iOS + signed, reproducible builds (SBOM & provenance).
+
+Telemetry not wired
+
+Problem: No privacy-safe metrics/logs by default.
+
+Why it matters: No visibility in the field.
+
+Change: Add OpenTelemetry counters/histograms (never log keys/pt); env var to opt-out; zero-config defaults.
+
+P1 (soon after)
+Key derivation: Missing HKDF-SHA256 & Argon2id (for passphrases).
+
+Key IDs & rotation: Envelope lacks kid; no rotation guidance.
+
+Streaming/chunking: No large-file API.
+
+Docs: No threat model/misuse guide; marketing not aligned with code.
+
+Acceptance checklist (hand this to the dev)
+Algorithms: ✅ AES-256-GCM; ✅ XChaCha20-Poly1305; (optional) ✅ HPKE/X25519; (optional) ✅ hybrid PQC behind a flag.
+
+AAD: ✅ aad param on all encrypt/decrypt; tamper tests pass.
+
+IV policy: ✅ SDK-generated IVs; GCM 12B / XChaCha 24B; BYO-IV off by default.
+
+Envelope: ✅ {"v","alg","kid","iv","tag","ct"} base64url; consistent across C/JS/Android/iOS.
+
+Errors & validation: ✅ typed errors; strict size checks; constant-time compares.
+
+Memory hygiene: ✅ zeroization on error/after use (C).
+
+Tests/CI: ✅ NIST + Wycheproof; ✅ interop; ✅ tamper/negatives; ✅ sanitizers/fuzzers in CI.
+
+Packaging: ✅ Node (ESM+CJS+types); ✅ C (pkg-config, CMake install); ✅ Android/iOS bindings + samples; ✅ signed prebuilts + SBOM/provenance.
+
+Telemetry: ✅ OTEL metrics on by default; no sensitive data; easy to export.
+

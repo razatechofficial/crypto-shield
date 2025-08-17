@@ -127,19 +127,82 @@ export class ProductionAESGCM {
   }
 
   /**
-   * Encrypt data with AES-GCM
+   * Create standardized envelope format (RFC compliant)
+   */
+  createEnvelope(iv, tag, ciphertext, aad = null, keyId = null) {
+    const envelope = {
+      v: "2.0.0",
+      alg: this.algorithm === 'aes-256-gcm' ? "AES-256-GCM" : 
+           this.algorithm === 'aes-192-gcm' ? "AES-192-GCM" : "AES-128-GCM",
+      iv: iv.toString('base64url'),
+      tag: tag.toString('base64url'),
+      ct: ciphertext.toString('base64url')
+    };
+
+    if (keyId) {
+      envelope.kid = keyId;
+    }
+
+    if (aad && aad.length > 0) {
+      envelope.aad = aad.toString('base64url');
+    }
+
+    envelope.ts = Date.now();
+    return envelope;
+  }
+
+  /**
+   * Parse standardized envelope format
+   */
+  parseEnvelope(envelopeData) {
+    let envelope;
+    
+    if (typeof envelopeData === 'string') {
+      try {
+        envelope = JSON.parse(envelopeData);
+      } catch (e) {
+        throw new Error('Invalid envelope JSON format');
+      }
+    } else if (typeof envelopeData === 'object') {
+      envelope = envelopeData;
+    } else {
+      throw new Error('Envelope must be JSON string or object');
+    }
+
+    // Validate envelope structure
+    if (!envelope.v || !envelope.alg || !envelope.iv || !envelope.tag || !envelope.ct) {
+      throw new Error('Missing required envelope fields');
+    }
+
+    if (!envelope.alg.includes('AES') || !envelope.alg.includes('GCM')) {
+      throw new Error(`Unsupported algorithm: ${envelope.alg}`);
+    }
+
+    return {
+      version: envelope.v,
+      algorithm: envelope.alg,
+      iv: Buffer.from(envelope.iv, 'base64url'),
+      tag: Buffer.from(envelope.tag, 'base64url'),
+      ciphertext: Buffer.from(envelope.ct, 'base64url'),
+      aad: envelope.aad ? Buffer.from(envelope.aad, 'base64url') : null,
+      keyId: envelope.kid || null,
+      timestamp: envelope.ts || null
+    };
+  }
+
+  /**
+   * Encrypt data with AES-GCM and comprehensive AAD support
    * @param {Buffer|string} plaintext - Data to encrypt
    * @param {Buffer|string} key - Encryption key
-   * @param {Buffer|string|null} iv - Initialization vector (auto-generated if null)
-   * @param {Buffer|string|null} aad - Additional Authenticated Data (optional)
-   * @returns {Object} Encryption result with standardized envelope
+   * @param {Object} options - Encryption options with AAD support
+   * @returns {Object} Encryption result with envelope format
    */
-  encrypt(plaintext, key, iv = null, aad = null) {
+  encrypt(plaintext, key, options = {}) {
     try {
       // Validate inputs
       const keyBuffer = this.validateKey(key);
-      const ivBuffer = iv ? this.validateIV(iv) : this.generateIV();
-      const aadBuffer = this.validateAAD(aad);
+      const ivBuffer = options.iv ? this.validateIV(options.iv) : this.generateIV();
+      const aadBuffer = this.validateAAD(options.aad);
       
       // Convert plaintext to buffer
       const plaintextBuffer = Buffer.isBuffer(plaintext) 
@@ -160,18 +223,16 @@ export class ProductionAESGCM {
       const tag = cipher.getAuthTag();
 
       // Create standardized envelope
-      const envelope = {
-        version: '1.0',
-        algorithm: this.algorithm,
-        iv: ivBuffer.toString('base64'),
-        tag: tag.toString('base64'),
-        ciphertext: ciphertext.length > 0 ? ciphertext.toString('base64') : '',
-        aad: aadBuffer && aadBuffer.length > 0 ? aadBuffer.toString('base64') : null,
-        timestamp: Date.now(),
-        keySize: keyBuffer.length
-      };
+      const envelope = this.createEnvelope(ivBuffer, tag, ciphertext, aadBuffer, options.keyId);
 
-      return envelope;
+      return {
+        envelope,
+        envelopeString: JSON.stringify(envelope),
+        ciphertext,
+        iv: ivBuffer,
+        tag,
+        aad: aadBuffer
+      };
     } catch (error) {
       // Clear sensitive data on error
       this.secureClear(arguments);
@@ -180,49 +241,54 @@ export class ProductionAESGCM {
   }
 
   /**
-   * Decrypt data with AES-GCM
-   * @param {Object} envelope - Encrypted data envelope
-   * @param {Buffer|string} key - Decryption key
-   * @returns {Buffer} Decrypted plaintext
+   * Decrypt data with AES-GCM and comprehensive validation
    */
-  decrypt(envelope, key) {
+  decrypt(envelopeData, key, options = {}) {
     try {
-      // Validate envelope structure
-      this.validateEnvelope(envelope);
-      
       // Validate key
       const keyBuffer = this.validateKey(key);
       
-      // Extract components from envelope
-      const ivBuffer = Buffer.from(envelope.iv, 'base64');
-      const tagBuffer = Buffer.from(envelope.tag, 'base64');
-      const ciphertextBuffer = Buffer.from(envelope.ciphertext, 'base64');
-      const aadBuffer = envelope.aad ? Buffer.from(envelope.aad, 'base64') : null;
+      // Parse envelope
+      const { iv, tag, ciphertext, aad } = this.parseEnvelope(envelopeData);
 
-      // Validate extracted components
-      if (ivBuffer.length !== 12) {
-        throw new Error('Invalid IV length in envelope');
-      }
-      if (tagBuffer.length !== 16) {
-        throw new Error('Invalid tag length in envelope');
+      // Validate tag size
+      if (tag.length !== this.tagSize) {
+        throw new Error(`Invalid tag size. Expected ${this.tagSize} bytes, got ${tag.length}`);
       }
 
-      // Create decipher with proper GCM API
-      const decipher = crypto.createDecipheriv(envelope.algorithm, keyBuffer, ivBuffer);
-      decipher.setAuthTag(tagBuffer);
-      if (aadBuffer && aadBuffer.length > 0) {
-        decipher.setAAD(aadBuffer);
+      // Create decipher
+      const decipher = crypto.createDecipheriv(this.algorithm, keyBuffer, iv);
+      
+      // Set authentication tag
+      decipher.setAuthTag(tag);
+      
+      // Set AAD if present
+      if (aad && aad.length > 0) {
+        decipher.setAAD(aad);
       }
 
       // Decrypt
-      let plaintext = decipher.update(ciphertextBuffer);
-      plaintext = Buffer.concat([plaintext, decipher.final()]);
+      let plaintext = decipher.update(ciphertext);
+      
+      try {
+        plaintext = Buffer.concat([plaintext, decipher.final()]);
+      } catch (error) {
+        throw new Error('Authentication verification failed - data may be tampered');
+      }
 
-      return plaintext;
+      return {
+        plaintext,
+        plaintextString: plaintext.toString('utf8'),
+        iv,
+        aad
+      };
+
     } catch (error) {
-      // Clear sensitive data on error
-      this.secureClear(arguments);
-      throw new Error(`Decryption failed: ${error.message}`);
+      // Zero out sensitive data on error
+      if (key && Buffer.isBuffer(key)) {
+        key.fill(0);
+      }
+      throw new Error(`AES-GCM decryption failed: ${error.message}`);
     }
   }
 

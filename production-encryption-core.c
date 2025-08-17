@@ -2,6 +2,7 @@
  * Production-Ready AES-GCM Encryption Core (C Implementation)
  * Compliant with NIST SP 800-38D standards
  * Features: Standardized 12-byte IV, AAD support, EVP_CTRL_GCM_SET_IVLEN implementation
+ * Fixed: Proper EVP_CTRL_GCM_SET_IVLEN implementation for cross-platform compatibility
  */
 
 #include <stdio.h>
@@ -69,6 +70,233 @@ crypto_result_t generate_random_bytes(unsigned char *buffer, size_t size) {
     }
     
     return CRYPTO_SUCCESS;
+}
+
+/**
+ * Production AES-GCM Encryption with proper EVP_CTRL_GCM_SET_IVLEN
+ */
+crypto_result_t aes_gcm_encrypt_with_aad(
+    const unsigned char *plaintext, size_t plaintext_len,
+    const unsigned char *key, size_t key_len,
+    const unsigned char *iv, size_t iv_len,
+    const unsigned char *aad, size_t aad_len,
+    unsigned char *ciphertext, size_t *ciphertext_len,
+    unsigned char *tag, size_t tag_len
+) {
+    EVP_CIPHER_CTX *ctx = NULL;
+    int len;
+    int ret = CRYPTO_ERROR_ENCRYPTION;
+    
+    // Validate inputs
+    if (!plaintext || !key || !iv || !ciphertext || !ciphertext_len || !tag) {
+        return CRYPTO_ERROR_INVALID_PARAM;
+    }
+    
+    // Validate key size
+    if (key_len != AES_128_KEY_SIZE && key_len != AES_192_KEY_SIZE && key_len != AES_256_KEY_SIZE) {
+        return CRYPTO_ERROR_KEY_LENGTH;
+    }
+    
+    // CRITICAL FIX: Enforce 12-byte IV for optimal GCM performance
+    if (iv_len != AES_GCM_IV_SIZE) {
+        return CRYPTO_ERROR_IV_LENGTH;
+    }
+    
+    // Validate tag size
+    if (tag_len != AES_GCM_TAG_SIZE) {
+        return CRYPTO_ERROR_TAG_VERIFICATION;
+    }
+    
+    // Create and initialize context
+    ctx = EVP_CIPHER_CTX_new();
+    if (!ctx) {
+        return CRYPTO_ERROR_MEMORY;
+    }
+    
+    // Select cipher based on key length
+    const EVP_CIPHER *cipher;
+    switch (key_len) {
+        case AES_128_KEY_SIZE:
+            cipher = EVP_aes_128_gcm();
+            break;
+        case AES_192_KEY_SIZE:
+            cipher = EVP_aes_192_gcm();
+            break;
+        case AES_256_KEY_SIZE:
+            cipher = EVP_aes_256_gcm();
+            break;
+        default:
+            EVP_CIPHER_CTX_free(ctx);
+            return CRYPTO_ERROR_KEY_LENGTH;
+    }
+    
+    // Initialize encryption operation
+    if (EVP_EncryptInit_ex(ctx, cipher, NULL, NULL, NULL) != 1) {
+        goto cleanup;
+    }
+    
+    // CRITICAL FIX: Set IV length using EVP_CTRL_GCM_SET_IVLEN
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, iv_len, NULL) != 1) {
+        goto cleanup;
+    }
+    
+    // Initialize key and IV
+    if (EVP_EncryptInit_ex(ctx, NULL, NULL, key, iv) != 1) {
+        goto cleanup;
+    }
+    
+    // Set AAD if provided
+    if (aad && aad_len > 0) {
+        if (EVP_EncryptUpdate(ctx, NULL, &len, aad, aad_len) != 1) {
+            goto cleanup;
+        }
+    }
+    
+    // Encrypt plaintext
+    if (EVP_EncryptUpdate(ctx, ciphertext, &len, plaintext, plaintext_len) != 1) {
+        goto cleanup;
+    }
+    *ciphertext_len = len;
+    
+    // Finalize encryption
+    if (EVP_EncryptFinal_ex(ctx, ciphertext + len, &len) != 1) {
+        goto cleanup;
+    }
+    *ciphertext_len += len;
+    
+    // Get authentication tag
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, tag_len, tag) != 1) {
+        goto cleanup;
+    }
+    
+    ret = CRYPTO_SUCCESS;
+    
+cleanup:
+    if (ctx) {
+        EVP_CIPHER_CTX_free(ctx);
+    }
+    
+    // Zero out sensitive data on error
+    if (ret != CRYPTO_SUCCESS) {
+        secure_memzero(ciphertext, *ciphertext_len);
+        secure_memzero(tag, tag_len);
+    }
+    
+    return ret;
+}
+
+/**
+ * Production AES-GCM Decryption with proper EVP_CTRL_GCM_SET_IVLEN
+ */
+crypto_result_t aes_gcm_decrypt_with_aad(
+    const unsigned char *ciphertext, size_t ciphertext_len,
+    const unsigned char *key, size_t key_len,
+    const unsigned char *iv, size_t iv_len,
+    const unsigned char *aad, size_t aad_len,
+    const unsigned char *tag, size_t tag_len,
+    unsigned char *plaintext, size_t *plaintext_len
+) {
+    EVP_CIPHER_CTX *ctx = NULL;
+    int len;
+    int ret = CRYPTO_ERROR_DECRYPTION;
+    
+    // Validate inputs
+    if (!ciphertext || !key || !iv || !tag || !plaintext || !plaintext_len) {
+        return CRYPTO_ERROR_INVALID_PARAM;
+    }
+    
+    // Validate key size
+    if (key_len != AES_128_KEY_SIZE && key_len != AES_192_KEY_SIZE && key_len != AES_256_KEY_SIZE) {
+        return CRYPTO_ERROR_KEY_LENGTH;
+    }
+    
+    // CRITICAL FIX: Enforce 12-byte IV
+    if (iv_len != AES_GCM_IV_SIZE) {
+        return CRYPTO_ERROR_IV_LENGTH;
+    }
+    
+    // Validate tag size
+    if (tag_len != AES_GCM_TAG_SIZE) {
+        return CRYPTO_ERROR_TAG_VERIFICATION;
+    }
+    
+    // Create and initialize context
+    ctx = EVP_CIPHER_CTX_new();
+    if (!ctx) {
+        return CRYPTO_ERROR_MEMORY;
+    }
+    
+    // Select cipher based on key length
+    const EVP_CIPHER *cipher;
+    switch (key_len) {
+        case AES_128_KEY_SIZE:
+            cipher = EVP_aes_128_gcm();
+            break;
+        case AES_192_KEY_SIZE:
+            cipher = EVP_aes_192_gcm();
+            break;
+        case AES_256_KEY_SIZE:
+            cipher = EVP_aes_256_gcm();
+            break;
+        default:
+            EVP_CIPHER_CTX_free(ctx);
+            return CRYPTO_ERROR_KEY_LENGTH;
+    }
+    
+    // Initialize decryption operation
+    if (EVP_DecryptInit_ex(ctx, cipher, NULL, NULL, NULL) != 1) {
+        goto cleanup;
+    }
+    
+    // CRITICAL FIX: Set IV length using EVP_CTRL_GCM_SET_IVLEN
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, iv_len, NULL) != 1) {
+        goto cleanup;
+    }
+    
+    // Initialize key and IV
+    if (EVP_DecryptInit_ex(ctx, NULL, NULL, key, iv) != 1) {
+        goto cleanup;
+    }
+    
+    // Set AAD if provided
+    if (aad && aad_len > 0) {
+        if (EVP_DecryptUpdate(ctx, NULL, &len, aad, aad_len) != 1) {
+            goto cleanup;
+        }
+    }
+    
+    // Decrypt ciphertext
+    if (EVP_DecryptUpdate(ctx, plaintext, &len, ciphertext, ciphertext_len) != 1) {
+        goto cleanup;
+    }
+    *plaintext_len = len;
+    
+    // Set expected authentication tag
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, tag_len, (unsigned char*)tag) != 1) {
+        goto cleanup;
+    }
+    
+    // Finalize decryption and verify tag
+    int final_result = EVP_DecryptFinal_ex(ctx, plaintext + len, &len);
+    if (final_result != 1) {
+        ret = CRYPTO_ERROR_TAG_VERIFICATION;
+        goto cleanup;
+    }
+    *plaintext_len += len;
+    
+    ret = CRYPTO_SUCCESS;
+    
+cleanup:
+    if (ctx) {
+        EVP_CIPHER_CTX_free(ctx);
+    }
+    
+    // Zero out sensitive data on error
+    if (ret != CRYPTO_SUCCESS) {
+        secure_memzero(plaintext, *plaintext_len);
+    }
+    
+    return ret;
 }
 
 /**
