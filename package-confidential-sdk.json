@@ -1,0 +1,41 @@
+{
+  "name": "averox-confidential-computing-sdk",
+  "version": "3.0.0",
+  "description": "Production-ready confidential computing SDK with TEE, HE, and MPC support for enterprise applications",
+  "main": "confidential-sdk-production.js",
+  "scripts": {
+    "test": "node test-all-protocols.js",
+    "validate": "node confidential-sdk-production.js",
+    "benchmark": "node benchmark-protocols.js"
+  },
+  "keywords": [
+    "confidential-computing",
+    "intel-sgx",
+    "tee",
+    "homomorphic-encryption",
+    "microsoft-seal",
+    "multi-party-computation",
+    "spdz",
+    "zero-knowledge",
+    "privacy-preserving",
+    "enterprise-security"
+  ],
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "dependencies": {
+    "crypto": "^1.0.1"
+  },
+  "author": "Averox Crypto System",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/averox/confidential-computing-sdk"
+  },
+  "files": [
+    "confidential-sdk-production.js",
+    "confidential-sdk-production.py",
+    "README.md",
+    "CHANGELOG.md"
+  ]
+}
