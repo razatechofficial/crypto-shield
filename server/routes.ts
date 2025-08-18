@@ -6626,9 +6626,9 @@ do {
       // Add comprehensive packaging and test suites for PHP
       if (languages.includes('php')) {
         const composerJson = `{
-  "name": "\${sdk.name.toLowerCase()}/crypto-sdk",
+  "name": "${sdk.name.toLowerCase().replace(/\s+/g, '-')}/crypto-sdk",
   "description": "Production-ready encryption SDK with comprehensive audit compliance",
-  "version": "\${sdk.version}",
+  "version": "${sdk.version}",
   "type": "library",
   "require": {
     "php": ">=8.0",
