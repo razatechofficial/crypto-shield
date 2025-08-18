@@ -165,56 +165,18 @@ class AveroxCrypto:
         except InvalidTag:
             raise InvalidTagError('Authentication tag verification failed')
     
-    def encrypt_aes_gcm(self, plaintext: str, key: str, aad: str) -> str:
-        """AES-GCM encryption with mandatory AAD"""
-        if not aad:
-            raise InvalidInputError('AAD is required for AES-GCM encryption')
-        
-        key_bytes = base64.b64decode(key)
-        if len(key_bytes) != 32:
-            raise BadInputError('Key must be 256 bits (32 bytes)')
-        
-        # Enforce 12-byte IV policy
-        iv = os.urandom(12)
-        
-        cipher = Cipher(
-            crypto_algs.AES(key_bytes),
-            modes.GCM(iv),
-            backend=default_backend()
-        )
-        encryptor = cipher.encryptor()
-        encryptor.authenticate_additional_data(aad.encode('utf-8'))
-        
-        ciphertext = encryptor.update(plaintext.encode('utf-8')) + encryptor.finalize()
-        
-        envelope = self.create_envelope('aes-256-gcm', None, iv, encryptor.tag, ciphertext)
-        return json.dumps(envelope)
-    
-    def decrypt_aes_gcm(self, envelope_str: str, key: str, aad: str) -> str:
-        """AES-GCM decryption with mandatory AAD"""
-        if not aad:
-            raise InvalidInputError('AAD is required for AES-GCM decryption')
-        
-        envelope_data = self.parse_envelope(json.loads(envelope_str))
-        
-        if envelope_data['algorithm'] != 'aes-256-gcm':
-            raise InvalidInputError('Algorithm mismatch')
-        
-        key_bytes = base64.b64decode(key)
-        
-        cipher = Cipher(
-            crypto_algs.AES(key_bytes),
-            modes.GCM(envelope_data['iv'], envelope_data['tag']),
-            backend=default_backend()
-        )
-        decryptor = cipher.decryptor()
-        decryptor.authenticate_additional_data(aad.encode('utf-8'))
-        
-        try:
-            plaintext = decryptor.update(envelope_data['ciphertext']) + decryptor.finalize()
-            return plaintext.decode('utf-8')
-        except InvalidTag:
-            raise InvalidTagError('Authentication tag verification failed')
+    def track_operation(self, operation: str, algorithm: str, success: bool, duration: float) -> None:
+        """OpenTelemetry telemetry tracking"""
+        if os.getenv('AVEROX_TELEMETRY_ENABLED') == 'true':
+            telemetry_data = {
+                'timestamp': datetime.now().isoformat(),
+                'operation': operation,
+                'algorithm': algorithm,
+                'success': success,
+                'duration': duration,
+                'sdk_version': '\${sdk.version}'
+            }
+            print(json.dumps(telemetry_data))
 
 # Export functions
 def encrypt(plaintext: str, key: str, aad: str = 'default') -> str:
@@ -453,25 +415,126 @@ public:
     
 private:
     std::string base64url_encode(const std::vector<uint8_t>& input) {
-        // Simple base64url implementation (production would use proper library)
         static const char* chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
         std::string result;
-        // Implementation details omitted for brevity
+        
+        for (size_t i = 0; i < input.size(); i += 3) {
+            uint32_t value = 0;
+            int count = 0;
+            
+            for (int j = 0; j < 3 && i + j < input.size(); ++j) {
+                value = (value << 8) | input[i + j];
+                ++count;
+            }
+            
+            value <<= (3 - count) * 8;
+            
+            for (int j = 0; j < 4; ++j) {
+                if (j <= count) {
+                    result += chars[(value >> (18 - j * 6)) & 0x3F];
+                }
+            }
+        }
+        
+        // Remove padding for base64url
+        while (!result.empty() && result.back() == '=') {
+            result.pop_back();
+        }
+        
         return result;
     }
     
     std::vector<uint8_t> base64url_decode(const std::string& input) {
-        // Simple base64url decode implementation
+        static const uint8_t decode_table[256] = {
+            64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,
+            64,64,64,64,64,64,64,64,64,64,64,64,64,62,64,64,52,53,54,55,56,57,58,59,60,61,64,64,64,64,64,64,
+            64,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,64,64,64,64,63,
+            64,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,64,64,64,64,64,
+            64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,
+            64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,
+            64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,
+            64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64
+        };
+        
         std::vector<uint8_t> result;
-        // Implementation details omitted for brevity
+        std::string padded = input;
+        
+        // Add padding for base64url
+        while (padded.length() % 4) {
+            padded += '=';
+        }
+        
+        for (size_t i = 0; i < padded.length(); i += 4) {
+            uint32_t value = 0;
+            
+            for (int j = 0; j < 4 && i + j < padded.length(); ++j) {
+                uint8_t c = padded[i + j];
+                if (decode_table[c] == 64) break;
+                value = (value << 6) | decode_table[c];
+            }
+            
+            for (int j = 2; j >= 0; --j) {
+                if (i + j < input.length()) {
+                    result.push_back((value >> (j * 8)) & 0xFF);
+                }
+            }
+        }
+        
         return result;
     }
     
     std::map<std::string, std::string> parseJSONEnvelope(const std::string& json) {
-        // Simple JSON parser for envelope (production would use proper JSON library)
         std::map<std::string, std::string> result;
-        // Implementation details omitted for brevity
+        
+        // Simple JSON parser for envelope format
+        size_t pos = 0;
+        while ((pos = json.find('"', pos)) != std::string::npos) {
+            size_t key_start = pos + 1;
+            size_t key_end = json.find('"', key_start);
+            if (key_end == std::string::npos) break;
+            
+            std::string key = json.substr(key_start, key_end - key_start);
+            
+            pos = json.find('"', key_end + 1);
+            if (pos == std::string::npos) break;
+            
+            size_t value_start = pos + 1;
+            size_t value_end = json.find('"', value_start);
+            if (value_end == std::string::npos) break;
+            
+            std::string value = json.substr(value_start, value_end - value_start);
+            result[key] = value;
+            
+            pos = value_end + 1;
+        }
+        
         return result;
+    }
+    
+    bool timing_safe_equal(const std::vector<uint8_t>& a, const std::vector<uint8_t>& b) {
+        if (a.size() != b.size()) return false;
+        
+        uint8_t result = 0;
+        for (size_t i = 0; i < a.size(); ++i) {
+            result |= a[i] ^ b[i];
+        }
+        return result == 0;
+    }
+    
+    std::vector<uint8_t> hkdf_derive(const std::vector<uint8_t>& salt, 
+                                    const std::vector<uint8_t>& ikm,
+                                    const std::vector<uint8_t>& info, 
+                                    size_t length) {
+        std::vector<uint8_t> okm(length);
+        
+        if (HKDF(okm.data(), length, EVP_sha256(),
+                ikm.data(), ikm.size(),
+                salt.data(), salt.size(),
+                info.data(), info.size()) != 1) {
+            throw std::runtime_error("HKDF failed");
+        }
+        
+        return okm;
     }
 };
 
@@ -594,6 +657,10 @@ class AveroxCrypto {
         }
         
         $envelope = json_decode($envelopeStr, true);
+        if (!$envelope) {
+            throw new BadInputError('Invalid JSON envelope');
+        }
+        
         $parsed = $this->parseEnvelope($envelope);
         
         if ($parsed['algorithm'] !== 'aes-256-gcm') {
@@ -616,7 +683,24 @@ class AveroxCrypto {
             throw new InvalidTagError('Authentication tag verification failed');
         }
         
+        // Zeroize sensitive data
+        sodium_memzero($keyBytes);
+        
         return $plaintext;
+    }
+    
+    public function trackOperation(string $operation, string $algorithm, bool $success, float $duration): void {
+        if (getenv('AVEROX_TELEMETRY_ENABLED') === 'true') {
+            $telemetryData = [
+                'timestamp' => date('c'),
+                'operation' => $operation,
+                'algorithm' => $algorithm,
+                'success' => $success,
+                'duration' => $duration,
+                'sdk_version' => '\${sdk.version}'
+            ];
+            error_log(json_encode($telemetryData));
+        }
     }
 }
 
