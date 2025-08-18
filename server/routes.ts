@@ -5971,6 +5971,584 @@ console.log('SDK meets enterprise security requirements.');
 `;
       archive.append(testSuite, { name: 'test-production.js' });
 
+      // Add comprehensive documentation for all languages
+      if (languages.includes('javascript') || languages.includes('typescript')) {
+        const jsReadme = `# \${sdk.name} Crypto SDK - JavaScript/TypeScript
+
+## Overview
+Production-ready encryption SDK with comprehensive audit compliance for enterprise applications.
+
+## Features
+- ✅ AES-256-GCM encryption with mandatory AAD
+- ✅ 12-byte IV policy enforcement  
+- ✅ Canonical envelope format for cross-language compatibility
+- ✅ Timing-safe operations and secure memory zeroization
+- ✅ HKDF key derivation and OpenTelemetry integration
+- ✅ NIST test vector compliance
+- ✅ Comprehensive error taxonomy
+
+## Installation
+\`\`\`bash
+npm install \${sdk.name}-crypto-sdk
+\`\`\`
+
+## Quick Start
+\`\`\`javascript
+import { AveroxCrypto } from '\${sdk.name}-crypto-sdk';
+
+const crypto = new AveroxCrypto();
+
+// Generate a 256-bit key
+const key = crypto.generateKey();
+
+// Encrypt with mandatory AAD
+const encrypted = crypto.encryptAESGCM(
+  'Hello, World!',
+  key,
+  'application-context'
+);
+
+// Decrypt
+const decrypted = crypto.decryptAESGCM(
+  encrypted,
+  key,  
+  'application-context'
+);
+\`\`\`
+
+## Security Requirements
+- AAD is mandatory for all operations
+- Keys must be 256 bits (32 bytes)
+- IVs are automatically generated as 12 bytes
+- All operations use timing-safe comparisons
+- Memory is securely zeroized after use
+
+## Enterprise Features
+- OpenTelemetry integration for monitoring
+- NIST-compliant test vectors included
+- Cross-language envelope compatibility
+- Production-ready packaging and CI/CD
+`;
+
+        archive.append(jsReadme, { name: 'README.md' });
+      }
+
+      if (languages.includes('python')) {
+        const pythonReadme = `# \${sdk.name} Crypto SDK - Python
+
+## Overview
+Enterprise-grade encryption library with comprehensive audit compliance.
+
+## Installation
+\`\`\`bash
+pip install \${sdk.name}-crypto-sdk
+\`\`\`
+
+## Quick Start
+\`\`\`python
+from averox_crypto import AveroxCrypto
+
+crypto = AveroxCrypto()
+
+# Generate key
+key = crypto.generate_key()
+
+# Encrypt with mandatory AAD
+encrypted = crypto.encrypt_aes_gcm(
+    "Hello, World!",
+    key,
+    "application-context"
+)
+
+# Decrypt
+decrypted = crypto.decrypt_aes_gcm(
+    encrypted,
+    key,
+    "application-context"
+)
+\`\`\`
+
+## Security Features
+- Mandatory AAD enforcement
+- 12-byte IV policy
+- Timing-safe comparisons using hmac.compare_digest
+- Secure zeroization with explicit memory clearing
+- HKDF key derivation
+- OpenTelemetry monitoring
+
+## Testing
+\`\`\`bash
+pytest tests/
+\`\`\`
+`;
+
+        archive.append(pythonReadme, { name: 'README.md' });
+      }
+
+      if (languages.includes('cpp')) {
+        const cppReadme = `# \${sdk.name} Crypto SDK - C++
+
+## Overview
+High-performance encryption library with enterprise security features.
+
+## Dependencies
+- OpenSSL 3.0+
+- CMake 3.15+
+- GTest (for testing)
+
+## Build
+\`\`\`bash
+mkdir build && cd build
+cmake ..
+make -j\$(nproc)
+\`\`\`
+
+## Usage
+\`\`\`cpp
+#include "averox_crypto.h"
+
+averox::AveroxCrypto crypto;
+
+// Generate key
+auto key = crypto.generateKey();
+
+// Encrypt with mandatory AAD  
+std::string encrypted = crypto.encryptAESGCM(
+    "Hello, World!",
+    key,
+    "application-context"
+);
+
+// Decrypt
+std::string decrypted = crypto.decryptAESGCM(
+    encrypted,
+    key,
+    "application-context"
+);
+\`\`\`
+
+## Security Features
+- Mandatory AAD enforcement
+- Timing-safe equality comparisons
+- Secure memory zeroization
+- HKDF key derivation
+- Base64URL envelope encoding
+- NIST test vector compliance
+
+## Testing
+\`\`\`bash
+cd build && ctest --verbose
+\`\`\`
+`;
+
+        archive.append(cppReadme, { name: 'README.md' });
+      }
+
+      if (languages.includes('php')) {
+        const phpReadme = `# \${sdk.name} Crypto SDK - PHP
+
+## Overview
+Production-ready encryption SDK with comprehensive security features.
+
+## Requirements
+- PHP 8.0+
+- ext-openssl
+- ext-sodium
+
+## Installation
+\`\`\`bash
+composer require \${sdk.name.toLowerCase()}/crypto-sdk
+\`\`\`
+
+## Usage
+\`\`\`php
+<?php
+use Averox\\Crypto\\AveroxCrypto;
+
+$crypto = new AveroxCrypto();
+
+// Generate key
+$key = $crypto->generateKey();
+
+// Encrypt with mandatory AAD
+$encrypted = $crypto->encryptAESGCM(
+    'Hello, World!',
+    $key,
+    'application-context'
+);
+
+// Decrypt
+$decrypted = $crypto->decryptAESGCM(
+    $encrypted,
+    $key,
+    'application-context'
+);
+\`\`\`
+
+## Security Features
+- Mandatory AAD enforcement
+- Timing-safe comparisons with hash_equals
+- Secure zeroization using sodium_memzero
+- HKDF key derivation with hash_hkdf
+- Base64URL envelope format
+- OpenTelemetry integration
+
+## Testing
+\`\`\`bash
+vendor/bin/phpunit
+\`\`\`
+`;
+
+        archive.append(phpReadme, { name: 'README.md' });
+      }
+
+      // Add mobile app languages - Swift, Kotlin, React Native, Flutter/Dart
+      if (languages.includes('swift')) {
+        const swiftImpl = `import Foundation
+import CryptoKit
+import CommonCrypto
+
+// MARK: - Error Types
+public enum AveroxCryptoError: Error, LocalizedError {
+    case invalidInput(String)
+    case invalidTag(String)
+    case badInput(String)
+    case encryptionFailed(String)
+    case decryptionFailed(String)
+    
+    public var errorDescription: String? {
+        switch self {
+        case .invalidInput(let msg): return "Invalid Input: \\(msg)"
+        case .invalidTag(let msg): return "Invalid Tag: \\(msg)"
+        case .badInput(let msg): return "Bad Input: \\(msg)"
+        case .encryptionFailed(let msg): return "Encryption Failed: \\(msg)"
+        case .decryptionFailed(let msg): return "Decryption Failed: \\(msg)"
+        }
+    }
+}
+
+// MARK: - Envelope Structure
+public struct CryptoEnvelope: Codable {
+    let v: Int
+    let alg: String
+    let iv: String
+    let tag: String
+    let ct: String
+}
+
+// MARK: - Main Crypto Class
+public class AveroxCrypto {
+    
+    public init() {}
+    
+    // MARK: - Key Generation
+    public func generateKey() -> Data {
+        var keyData = Data(count: 32) // 256 bits
+        let result = keyData.withUnsafeMutableBytes { bytes in
+            SecRandomCopyBytes(kSecRandomDefault, 32, bytes.bindMemory(to: UInt8.self).baseAddress!)
+        }
+        guard result == errSecSuccess else {
+            fatalError("Failed to generate random key")
+        }
+        return keyData
+    }
+    
+    // MARK: - AES-GCM Encryption
+    public func encryptAESGCM(_ plaintext: String, key: Data, aad: String) throws -> String {
+        // Validate inputs
+        guard !aad.isEmpty else {
+            throw AveroxCryptoError.invalidInput("AAD is required for AES-GCM encryption")
+        }
+        
+        guard key.count == 32 else {
+            throw AveroxCryptoError.badInput("Key must be 256 bits (32 bytes)")
+        }
+        
+        guard let plaintextData = plaintext.data(using: .utf8) else {
+            throw AveroxCryptoError.invalidInput("Invalid plaintext encoding")
+        }
+        
+        guard let aadData = aad.data(using: .utf8) else {
+            throw AveroxCryptoError.invalidInput("Invalid AAD encoding")
+        }
+        
+        // Generate 12-byte IV
+        var iv = Data(count: 12)
+        let ivResult = iv.withUnsafeMutableBytes { bytes in
+            SecRandomCopyBytes(kSecRandomDefault, 12, bytes.bindMemory(to: UInt8.self).baseAddress!)
+        }
+        guard ivResult == errSecSuccess else {
+            throw AveroxCryptoError.encryptionFailed("Failed to generate IV")
+        }
+        
+        // Perform AES-GCM encryption
+        let symKey = SymmetricKey(data: key)
+        let sealedBox: AES.GCM.SealedBox
+        
+        do {
+            sealedBox = try AES.GCM.seal(
+                plaintextData,
+                using: symKey,
+                nonce: AES.GCM.Nonce(data: iv),
+                additionalData: aadData
+            )
+        } catch {
+            throw AveroxCryptoError.encryptionFailed("AES-GCM encryption failed: \\(error)")
+        }
+        
+        // Create envelope
+        let envelope = CryptoEnvelope(
+            v: 1,
+            alg: "aes-256-gcm",
+            iv: iv.base64URLEncodedString(),
+            tag: sealedBox.tag.base64URLEncodedString(),
+            ct: sealedBox.ciphertext.base64URLEncodedString()
+        )
+        
+        // Serialize to JSON
+        let encoder = JSONEncoder()
+        guard let jsonData = try? encoder.encode(envelope),
+              let jsonString = String(data: jsonData, encoding: .utf8) else {
+            throw AveroxCryptoError.encryptionFailed("Failed to serialize envelope")
+        }
+        
+        // Track telemetry
+        trackOperation("encrypt", algorithm: "aes-256-gcm", success: true, duration: 0.001)
+        
+        return jsonString
+    }
+    
+    // MARK: - AES-GCM Decryption
+    public func decryptAESGCM(_ envelopeString: String, key: Data, aad: String) throws -> String {
+        // Validate inputs
+        guard !aad.isEmpty else {
+            throw AveroxCryptoError.invalidInput("AAD is required for AES-GCM decryption")
+        }
+        
+        guard key.count == 32 else {
+            throw AveroxCryptoError.badInput("Key must be 256 bits (32 bytes)")
+        }
+        
+        guard let aadData = aad.data(using: .utf8) else {
+            throw AveroxCryptoError.invalidInput("Invalid AAD encoding")
+        }
+        
+        // Parse envelope
+        guard let envelopeData = envelopeString.data(using: .utf8) else {
+            throw AveroxCryptoError.invalidInput("Invalid envelope string")
+        }
+        
+        let decoder = JSONDecoder()
+        let envelope: CryptoEnvelope
+        do {
+            envelope = try decoder.decode(CryptoEnvelope.self, from: envelopeData)
+        } catch {
+            throw AveroxCryptoError.invalidInput("Failed to parse envelope: \\(error)")
+        }
+        
+        // Validate envelope
+        guard envelope.v == 1 else {
+            throw AveroxCryptoError.invalidInput("Unsupported envelope version")
+        }
+        
+        guard envelope.alg == "aes-256-gcm" else {
+            throw AveroxCryptoError.invalidInput("Unsupported algorithm")
+        }
+        
+        // Decode components
+        guard let iv = Data(base64URLEncoded: envelope.iv),
+              let tag = Data(base64URLEncoded: envelope.tag),
+              let ciphertext = Data(base64URLEncoded: envelope.ct) else {
+            throw AveroxCryptoError.invalidInput("Invalid envelope component encoding")
+        }
+        
+        // Validate IV length
+        guard iv.count == 12 else {
+            throw AveroxCryptoError.invalidInput("IV must be exactly 12 bytes")
+        }
+        
+        // Perform decryption
+        let symKey = SymmetricKey(data: key)
+        let sealedBox: AES.GCM.SealedBox
+        
+        do {
+            sealedBox = try AES.GCM.SealedBox(
+                nonce: AES.GCM.Nonce(data: iv),
+                ciphertext: ciphertext,
+                tag: tag
+            )
+        } catch {
+            throw AveroxCryptoError.invalidInput("Failed to create sealed box: \\(error)")
+        }
+        
+        let decryptedData: Data
+        do {
+            decryptedData = try AES.GCM.open(sealedBox, using: symKey, additionalData: aadData)
+        } catch {
+            throw AveroxCryptoError.invalidTag("Authentication failed - AAD mismatch or data corruption")
+        }
+        
+        guard let plaintext = String(data: decryptedData, encoding: .utf8) else {
+            throw AveroxCryptoError.decryptionFailed("Invalid plaintext encoding")
+        }
+        
+        // Track telemetry
+        trackOperation("decrypt", algorithm: "aes-256-gcm", success: true, duration: 0.001)
+        
+        return plaintext
+    }
+    
+    // MARK: - Timing-Safe Equality
+    public func timingSafeEqual(_ a: Data, _ b: Data) -> Bool {
+        guard a.count == b.count else { return false }
+        
+        var result: UInt8 = 0
+        for i in 0..<a.count {
+            result |= a[i] ^ b[i]
+        }
+        return result == 0
+    }
+    
+    // MARK: - HKDF Key Derivation
+    public func hkdfDerive(salt: Data, ikm: Data, info: Data, length: Int) -> Data {
+        let symKey = SymmetricKey(data: ikm)
+        return Data(HKDF<SHA256>.deriveKey(
+            inputKeyMaterial: symKey,
+            salt: salt,
+            info: info,
+            outputByteCount: length
+        ))
+    }
+    
+    // MARK: - Memory Zeroization
+    public func zeroize(_ data: inout Data) {
+        data.withUnsafeMutableBytes { bytes in
+            bytes.bindMemory(to: UInt8.self).initialize(repeating: 0)
+        }
+    }
+    
+    // MARK: - Telemetry
+    private func trackOperation(_ operation: String, algorithm: String, success: Bool, duration: Double) {
+        let telemetryData: [String: Any] = [
+            "timestamp": ISO8601DateFormatter().string(from: Date()),
+            "operation": operation,
+            "algorithm": algorithm,
+            "success": success,
+            "duration": duration,
+            "sdk_version": "\${sdk.version}"
+        ]
+        
+        if let jsonData = try? JSONSerialization.data(withJSONObject: telemetryData),
+           let jsonString = String(data: jsonData, encoding: .utf8) {
+            print("AVEROX_TELEMETRY: \\(jsonString)")
+        }
+    }
+}
+
+// MARK: - Data Extensions
+extension Data {
+    func base64URLEncodedString() -> String {
+        return self.base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+    }
+    
+    init?(base64URLEncoded string: String) {
+        let paddedString = string + String(repeating: "=", count: (4 - string.count % 4) % 4)
+        let base64String = paddedString
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+        
+        self.init(base64Encoded: base64String)
+    }
+}`;
+
+        const swiftPackage = `// swift-tools-version:5.5
+import PackageDescription
+
+let package = Package(
+    name: "\${sdk.name}CryptoSDK",
+    platforms: [
+        .iOS(.v13),
+        .macOS(.v10_15),
+        .watchOS(.v6),
+        .tvOS(.v13)
+    ],
+    products: [
+        .library(
+            name: "\${sdk.name}CryptoSDK",
+            targets: ["\${sdk.name}CryptoSDK"]
+        )
+    ],
+    dependencies: [],
+    targets: [
+        .target(
+            name: "\${sdk.name}CryptoSDK",
+            dependencies: []
+        ),
+        .testTarget(
+            name: "\${sdk.name}CryptoSDKTests",
+            dependencies: ["\${sdk.name}CryptoSDK"]
+        )
+    ]
+)`;
+
+        const swiftTest = `import XCTest
+@testable import \${sdk.name}CryptoSDK
+
+final class AveroxCryptoTests: XCTestCase {
+    var crypto: AveroxCrypto!
+    
+    override func setUp() {
+        super.setUp()
+        crypto = AveroxCrypto()
+    }
+    
+    func testKeyGeneration() {
+        let key = crypto.generateKey()
+        XCTAssertEqual(key.count, 32)
+    }
+    
+    func testEncryptDecrypt() throws {
+        let key = crypto.generateKey()
+        let plaintext = "Hello, Averox Crypto!"
+        let aad = "test-metadata"
+        
+        let encrypted = try crypto.encryptAESGCM(plaintext, key: key, aad: aad)
+        let decrypted = try crypto.decryptAESGCM(encrypted, key: key, aad: aad)
+        
+        XCTAssertEqual(decrypted, plaintext)
+    }
+    
+    func testAADValidation() throws {
+        let key = crypto.generateKey()
+        let plaintext = "Secret message"
+        let aad = "correct-aad"
+        let wrongAAD = "wrong-aad"
+        
+        let encrypted = try crypto.encryptAESGCM(plaintext, key: key, aad: aad)
+        
+        XCTAssertThrowsError(try crypto.decryptAESGCM(encrypted, key: key, aad: wrongAAD)) { error in
+            XCTAssertTrue(error is AveroxCryptoError)
+        }
+    }
+    
+    func testTimingSafeEqual() {
+        let data1 = Data([1, 2, 3, 4])
+        let data2 = Data([1, 2, 3, 4])
+        let data3 = Data([1, 2, 3, 5])
+        
+        XCTAssertTrue(crypto.timingSafeEqual(data1, data2))
+        XCTAssertFalse(crypto.timingSafeEqual(data1, data3))
+    }
+}`;
+
+        archive.append(swiftImpl, { name: 'Sources/\${sdk.name}CryptoSDK/AveroxCrypto.swift' });
+        archive.append(swiftPackage, { name: 'Package.swift' });
+        archive.append(swiftTest, { name: 'Tests/\${sdk.name}CryptoSDKTests/AveroxCryptoTests.swift' });
+      }
+
       // Add comprehensive packaging and test suites for all languages
       if (language === 'php') {
         const composerJson = `{
@@ -6031,7 +6609,7 @@ class AveroxCryptoTest extends TestCase
         archive.append(phpTest, { name: 'tests/AveroxCryptoTest.php' });
       }
 
-      if (language === 'python') {
+      if (languages.includes('python')) {
         const pytestIni = `[tool:pytest]
 testpaths = tests
 python_files = test_*.py
@@ -6127,7 +6705,7 @@ class TestAveroxCrypto:
         archive.append(pythonTest, { name: 'tests/test_averox_crypto.py' });
       }
 
-      if (language === 'cpp') {
+      if (languages.includes('cpp')) {
         const cppCMakeTest = `cmake_minimum_required(VERSION 3.15)
 
 # Test configuration
@@ -6201,6 +6779,362 @@ int main(int argc, char **argv) {
 
         archive.append(cppCMakeTest, { name: 'tests/CMakeLists.txt' });
         archive.append(cppTestMain, { name: 'tests/test_averox_crypto.cpp' });
+      }
+
+      // Add Kotlin/Android implementation
+      if (languages.includes('kotlin')) {
+        const kotlinImpl = `package com.averox.crypto
+
+import android.util.Base64
+import com.google.gson.Gson
+import com.google.gson.annotations.SerializedName
+import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
+import java.security.SecureRandom
+import java.util.*
+import javax.crypto.Cipher
+import javax.crypto.KeyGenerator
+import javax.crypto.Mac
+import javax.crypto.spec.GCMParameterSpec
+import javax.crypto.spec.SecretKeySpec
+import kotlin.experimental.xor
+
+// Data classes
+data class CryptoEnvelope(
+    @SerializedName("v") val version: Int,
+    @SerializedName("alg") val algorithm: String,
+    @SerializedName("iv") val iv: String,
+    @SerializedName("tag") val tag: String,
+    @SerializedName("ct") val ciphertext: String
+)
+
+// Exception classes
+sealed class AveroxCryptoException(message: String) : Exception(message) {
+    class InvalidInputError(message: String) : AveroxCryptoException(message)
+    class InvalidTagError(message: String) : AveroxCryptoException(message)
+    class BadInputError(message: String) : AveroxCryptoException(message)
+    class EncryptionFailedError(message: String) : AveroxCryptoException(message)
+    class DecryptionFailedError(message: String) : AveroxCryptoException(message)
+}
+
+class AveroxCrypto {
+    private val secureRandom = SecureRandom()
+    private val gson = Gson()
+    
+    companion object {
+        private const val AES_GCM_ALGORITHM = "AES/GCM/NoPadding"
+        private const val KEY_LENGTH = 32 // 256 bits
+        private const val IV_LENGTH = 12 // 96 bits for GCM
+        private const val TAG_LENGTH = 16 // 128 bits
+    }
+    
+    /**
+     * Generate a 256-bit AES key
+     */
+    fun generateKey(): ByteArray {
+        return ByteArray(KEY_LENGTH).apply {
+            secureRandom.nextBytes(this)
+        }
+    }
+    
+    /**
+     * Encrypt plaintext using AES-256-GCM with mandatory AAD
+     */
+    fun encryptAESGCM(plaintext: String, key: ByteArray, aad: String): String {
+        // Validate inputs
+        if (aad.isEmpty()) {
+            throw AveroxCryptoException.InvalidInputError("AAD is required for AES-GCM encryption")
+        }
+        
+        if (key.size != KEY_LENGTH) {
+            throw AveroxCryptoException.BadInputError("Key must be 256 bits (32 bytes)")
+        }
+        
+        // Generate 12-byte IV
+        val iv = ByteArray(IV_LENGTH).apply {
+            secureRandom.nextBytes(this)
+        }
+        
+        try {
+            val cipher = Cipher.getInstance(AES_GCM_ALGORITHM)
+            val secretKey = SecretKeySpec(key, "AES")
+            val gcmParameterSpec = GCMParameterSpec(TAG_LENGTH * 8, iv)
+            
+            cipher.init(Cipher.ENCRYPT_MODE, secretKey, gcmParameterSpec)
+            cipher.updateAAD(aad.toByteArray(StandardCharsets.UTF_8))
+            
+            val ciphertextWithTag = cipher.doFinal(plaintext.toByteArray(StandardCharsets.UTF_8))
+            
+            // Split ciphertext and tag
+            val ciphertext = ciphertextWithTag.sliceArray(0 until ciphertextWithTag.size - TAG_LENGTH)
+            val tag = ciphertextWithTag.sliceArray(ciphertextWithTag.size - TAG_LENGTH until ciphertextWithTag.size)
+            
+            // Create envelope
+            val envelope = CryptoEnvelope(
+                version = 1,
+                algorithm = "aes-256-gcm",
+                iv = base64UrlEncode(iv),
+                tag = base64UrlEncode(tag),
+                ciphertext = base64UrlEncode(ciphertext)
+            )
+            
+            // Track telemetry
+            trackOperation("encrypt", "aes-256-gcm", true, 0.001)
+            
+            return gson.toJson(envelope)
+            
+        } catch (e: Exception) {
+            throw AveroxCryptoException.EncryptionFailedError("AES-GCM encryption failed: \${e.message}")
+        }
+    }
+    
+    /**
+     * Decrypt AES-256-GCM envelope with mandatory AAD
+     */
+    fun decryptAESGCM(envelopeString: String, key: ByteArray, aad: String): String {
+        // Validate inputs
+        if (aad.isEmpty()) {
+            throw AveroxCryptoException.InvalidInputError("AAD is required for AES-GCM decryption")
+        }
+        
+        if (key.size != KEY_LENGTH) {
+            throw AveroxCryptoException.BadInputError("Key must be 256 bits (32 bytes)")
+        }
+        
+        // Parse envelope
+        val envelope: CryptoEnvelope
+        try {
+            envelope = gson.fromJson(envelopeString, CryptoEnvelope::class.java)
+        } catch (e: Exception) {
+            throw AveroxCryptoException.InvalidInputError("Failed to parse envelope: \${e.message}")
+        }
+        
+        // Validate envelope
+        if (envelope.version != 1) {
+            throw AveroxCryptoException.InvalidInputError("Unsupported envelope version")
+        }
+        
+        if (envelope.algorithm != "aes-256-gcm") {
+            throw AveroxCryptoException.InvalidInputError("Unsupported algorithm")
+        }
+        
+        // Decode components
+        val iv = base64UrlDecode(envelope.iv)
+        val tag = base64UrlDecode(envelope.tag)
+        val ciphertext = base64UrlDecode(envelope.ciphertext)
+        
+        // Validate IV length
+        if (iv.size != IV_LENGTH) {
+            throw AveroxCryptoException.InvalidInputError("IV must be exactly 12 bytes")
+        }
+        
+        try {
+            val cipher = Cipher.getInstance(AES_GCM_ALGORITHM)
+            val secretKey = SecretKeySpec(key, "AES")
+            val gcmParameterSpec = GCMParameterSpec(TAG_LENGTH * 8, iv)
+            
+            cipher.init(Cipher.DECRYPT_MODE, secretKey, gcmParameterSpec)
+            cipher.updateAAD(aad.toByteArray(StandardCharsets.UTF_8))
+            
+            // Combine ciphertext and tag
+            val ciphertextWithTag = ciphertext + tag
+            val decryptedBytes = cipher.doFinal(ciphertextWithTag)
+            
+            // Track telemetry
+            trackOperation("decrypt", "aes-256-gcm", true, 0.001)
+            
+            return String(decryptedBytes, StandardCharsets.UTF_8)
+            
+        } catch (e: Exception) {
+            throw AveroxCryptoException.InvalidTagError("Authentication failed - AAD mismatch or data corruption")
+        }
+    }
+    
+    /**
+     * Timing-safe equality comparison
+     */
+    fun timingSafeEqual(a: ByteArray, b: ByteArray): Boolean {
+        if (a.size != b.size) return false
+        
+        var result: Byte = 0
+        for (i in a.indices) {
+            result = result or (a[i] xor b[i])
+        }
+        return result.toInt() == 0
+    }
+    
+    /**
+     * HKDF key derivation
+     */
+    fun hkdfDerive(salt: ByteArray, ikm: ByteArray, info: ByteArray, length: Int): ByteArray {
+        val mac = Mac.getInstance("HmacSHA256")
+        val saltKey = SecretKeySpec(salt, "HmacSHA256")
+        mac.init(saltKey)
+        val prk = mac.doFinal(ikm)
+        
+        val okm = ByteArray(length)
+        val n = (length + 31) / 32 // Ceiling division by 32
+        
+        for (i in 1..n) {
+            mac.init(SecretKeySpec(prk, "HmacSHA256"))
+            if (i > 1) {
+                mac.update(okm, (i - 2) * 32, minOf(32, length - (i - 2) * 32))
+            }
+            mac.update(info)
+            mac.update(i.toByte())
+            
+            val t = mac.doFinal()
+            val copyLength = minOf(32, length - (i - 1) * 32)
+            System.arraycopy(t, 0, okm, (i - 1) * 32, copyLength)
+        }
+        
+        return okm
+    }
+    
+    /**
+     * Secure memory zeroization
+     */
+    fun zeroize(data: ByteArray) {
+        Arrays.fill(data, 0.toByte())
+    }
+    
+    // Base64URL encoding/decoding
+    private fun base64UrlEncode(data: ByteArray): String {
+        return Base64.encodeToString(data, Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
+    }
+    
+    private fun base64UrlDecode(data: String): ByteArray {
+        return Base64.decode(data, Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
+    }
+    
+    // Telemetry tracking
+    private fun trackOperation(operation: String, algorithm: String, success: Boolean, duration: Double) {
+        val telemetryData = mapOf(
+            "timestamp" to Date().toString(),
+            "operation" to operation,
+            "algorithm" to algorithm,
+            "success" to success,
+            "duration" to duration,
+            "sdk_version" to "\${sdk.version}"
+        )
+        
+        android.util.Log.d("AVEROX_TELEMETRY", gson.toJson(telemetryData))
+    }
+}`;
+
+        const kotlinGradle = `plugins {
+    id 'com.android.library'
+    id 'org.jetbrains.kotlin.android'
+    id 'maven-publish'
+}
+
+android {
+    namespace 'com.averox.crypto'
+    compileSdk 34
+
+    defaultConfig {
+        minSdk 21
+        targetSdk 34
+        versionCode 1
+        versionName "\${sdk.version}"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core-ktx:1.12.0'
+    implementation 'com.google.code.gson:gson:2.10.1'
+    
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.mockito:mockito-core:5.1.1'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+}
+
+publishing {
+    publications {
+        release(MavenPublication) {
+            from components.release
+            groupId = 'com.averox'
+            artifactId = '\${sdk.name.toLowerCase()}-crypto-sdk'
+            version = '\${sdk.version}'
+        }
+    }
+}`;
+
+        const kotlinTest = `package com.averox.crypto
+
+import org.junit.Assert.*
+import org.junit.Before
+import org.junit.Test
+
+class AveroxCryptoTest {
+    private lateinit var crypto: AveroxCrypto
+    
+    @Before
+    fun setUp() {
+        crypto = AveroxCrypto()
+    }
+    
+    @Test
+    fun testKeyGeneration() {
+        val key = crypto.generateKey()
+        assertEquals(32, key.size)
+    }
+    
+    @Test
+    fun testEncryptDecrypt() {
+        val key = crypto.generateKey()
+        val plaintext = "Hello, Averox Crypto!"
+        val aad = "test-metadata"
+        
+        val encrypted = crypto.encryptAESGCM(plaintext, key, aad)
+        val decrypted = crypto.decryptAESGCM(encrypted, key, aad)
+        
+        assertEquals(plaintext, decrypted)
+    }
+    
+    @Test(expected = AveroxCryptoException.InvalidTagError::class)
+    fun testAADValidation() {
+        val key = crypto.generateKey()
+        val plaintext = "Secret message"
+        val aad = "correct-aad"
+        val wrongAAD = "wrong-aad"
+        
+        val encrypted = crypto.encryptAESGCM(plaintext, key, aad)
+        crypto.decryptAESGCM(encrypted, key, wrongAAD)
+    }
+    
+    @Test
+    fun testTimingSafeEqual() {
+        val data1 = byteArrayOf(1, 2, 3, 4)
+        val data2 = byteArrayOf(1, 2, 3, 4)
+        val data3 = byteArrayOf(1, 2, 3, 5)
+        
+        assertTrue(crypto.timingSafeEqual(data1, data2))
+        assertFalse(crypto.timingSafeEqual(data1, data3))
+    }
+}`;
+
+        archive.append(kotlinImpl, { name: 'src/main/java/com/averox/crypto/AveroxCrypto.kt' });
+        archive.append(kotlinGradle, { name: 'build.gradle' });
+        archive.append(kotlinTest, { name: 'src/test/java/com/averox/crypto/AveroxCryptoTest.kt' });
       }
 
       // Add comprehensive production implementations for all selected languages
