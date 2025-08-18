@@ -6547,6 +6547,80 @@ final class AveroxCryptoTests: XCTestCase {
         archive.append(swiftImpl, { name: 'Sources/\${sdk.name}CryptoSDK/AveroxCrypto.swift' });
         archive.append(swiftPackage, { name: 'Package.swift' });
         archive.append(swiftTest, { name: 'Tests/\${sdk.name}CryptoSDKTests/AveroxCryptoTests.swift' });
+        
+        const swiftReadme = `# \${sdk.name} Crypto SDK - Swift
+
+## Overview
+Native iOS/macOS encryption library with comprehensive audit compliance using CryptoKit.
+
+## Installation
+
+### Swift Package Manager
+Add to your \`Package.swift\`:
+\`\`\`swift
+.package(url: "https://github.com/yourdomain/\${sdk.name.toLowerCase()}-crypto-sdk", from: "\${sdk.version}")
+\`\`\`
+
+Or in Xcode: File → Add Package Dependencies
+
+## Quick Start
+\`\`\`swift
+import \${sdk.name}CryptoSDK
+
+let crypto = AveroxCrypto()
+
+// Generate key
+let key = crypto.generateKey()
+
+// Encrypt with mandatory AAD
+let encrypted = try crypto.encryptAESGCM(
+    "Hello, World!",
+    key: key,
+    aad: "application-context"
+)
+
+// Decrypt
+let decrypted = try crypto.decryptAESGCM(
+    encrypted,
+    key: key,
+    aad: "application-context"
+)
+\`\`\`
+
+## Security Features
+- Mandatory AAD enforcement for all operations
+- 12-byte IV policy with SecRandomCopyBytes
+- Timing-safe comparisons to prevent side-channel attacks
+- Secure memory zeroization for sensitive data
+- HKDF key derivation using CryptoKit
+- Native CryptoKit integration for optimal performance
+- Complete XCTest test suite included
+
+## Platform Support
+- iOS 13.0+
+- macOS 10.15+
+- watchOS 6.0+
+- tvOS 13.0+
+
+## Testing
+\`\`\`bash
+swift test
+\`\`\`
+
+## Error Handling
+\`\`\`swift
+do {
+    let encrypted = try crypto.encryptAESGCM(plaintext, key: key, aad: aad)
+    let decrypted = try crypto.decryptAESGCM(encrypted, key: key, aad: aad)
+} catch AveroxCryptoError.invalidInput(let message) {
+    print("Invalid input: \\(message)")
+} catch AveroxCryptoError.invalidTag(let message) {
+    print("Authentication failed: \\(message)")
+}
+\`\`\`
+`;
+
+        archive.append(swiftReadme, { name: 'README.md' });
       }
 
       // Add comprehensive packaging and test suites for all languages
@@ -7135,6 +7209,63 @@ class AveroxCryptoTest {
         archive.append(kotlinImpl, { name: 'src/main/java/com/averox/crypto/AveroxCrypto.kt' });
         archive.append(kotlinGradle, { name: 'build.gradle' });
         archive.append(kotlinTest, { name: 'src/test/java/com/averox/crypto/AveroxCryptoTest.kt' });
+        
+        const kotlinReadme = `# \${sdk.name} Crypto SDK - Kotlin/Android
+
+## Overview
+Enterprise-grade encryption library for Android applications with comprehensive audit compliance.
+
+## Installation
+Add to your \`build.gradle\`:
+\`\`\`gradle
+implementation 'com.averox:\${sdk.name.toLowerCase()}-crypto-sdk:\${sdk.version}'
+\`\`\`
+
+## Quick Start
+\`\`\`kotlin
+import com.averox.crypto.AveroxCrypto
+
+val crypto = AveroxCrypto()
+
+// Generate key
+val key = crypto.generateKey()
+
+// Encrypt with mandatory AAD
+val encrypted = crypto.encryptAESGCM(
+    "Hello, World!",
+    key,
+    "application-context"
+)
+
+// Decrypt
+val decrypted = crypto.decryptAESGCM(
+    encrypted,
+    key,
+    "application-context"
+)
+\`\`\`
+
+## Security Features
+- Mandatory AAD enforcement for all operations
+- 12-byte IV policy with secure random generation
+- Timing-safe XOR comparisons to prevent side-channel attacks
+- Secure Arrays.fill zeroization for memory cleanup
+- HKDF key derivation with HmacSHA256
+- Android Log telemetry integration
+- Complete JUnit test suite included
+
+## Testing
+\`\`\`bash
+./gradlew test
+\`\`\`
+
+## Requirements
+- Android minSdk 21+
+- compileSdk 34
+- Java 8+ compatibility
+`;
+
+        archive.append(kotlinReadme, { name: 'README.md' });
       }
 
       // Add comprehensive production implementations for all selected languages
