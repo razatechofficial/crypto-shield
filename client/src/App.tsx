@@ -14,6 +14,8 @@ import KeyManagement from "@/pages/key-management";
 import UserManagement from "@/pages/user-management";
 import Subscription from "@/pages/subscription";
 import Settings from "@/pages/settings";
+import QuantumSecurity from "@/pages/quantum-security";
+import AdvancedAnalytics from "@/pages/advanced-analytics";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -41,6 +43,8 @@ function Router() {
           <Route path="/key-management" component={KeyManagement} />
           <Route path="/users" component={UserManagement} />
           <Route path="/subscription" component={Subscription} />
+          <Route path="/quantum" component={QuantumSecurity} />
+          <Route path="/analytics" component={AdvancedAnalytics} />
           <Route path="/settings" component={Settings} />
         </Layout>
       )}

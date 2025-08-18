@@ -10,7 +10,9 @@ import {
   Settings, 
   Shield,
   LogOut,
-  Package
+  Package,
+  Zap,
+  TrendingUp
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +22,8 @@ const navigation = [
   { name: "SDK Management", href: "/sdks", icon: Package },
   { name: "Monitoring", href: "/monitoring", icon: Eye },
   { name: "Key Management", href: "/keys", icon: Key },
+  { name: "Quantum Security", href: "/quantum", icon: Zap },
+  { name: "Advanced Analytics", href: "/analytics", icon: TrendingUp },
   { name: "User Management", href: "/users", icon: Users },
   { name: "Subscription", href: "/subscription", icon: CreditCard },
   { name: "Settings", href: "/settings", icon: Settings },
