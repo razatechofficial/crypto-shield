@@ -7,6 +7,28 @@
 
 import crypto from 'crypto';
 
+// AUDIT FIX: Typed error classes
+export class InvalidInputError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'InvalidInputError';
+  }
+}
+
+export class InvalidTagError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'InvalidTagError';
+  }
+}
+
+export class BadInputError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'BadInputError';
+  }
+}
+
 export class ProductionAESGCM {
   constructor(options = {}) {
     this.keySize = options.keySize || 32; // 256-bit default
@@ -52,29 +74,30 @@ export class ProductionAESGCM {
   }
 
   /**
-   * Validate key format and size
-   * @param {Buffer|string} key - Key to validate
-   * @returns {Buffer} Validated key as Buffer
+   * Validate key format and size with strict checking
    */
   validateKey(key) {
+    if (!key) {
+      throw new BadInputError('Key is required');
+    }
+
     let keyBuffer;
     
     if (typeof key === 'string') {
-      // Handle hex-encoded keys
       if (key.match(/^[0-9a-fA-F]+$/)) {
         keyBuffer = Buffer.from(key, 'hex');
       } else {
-        // Handle base64-encoded keys
         keyBuffer = Buffer.from(key, 'base64');
       }
     } else if (Buffer.isBuffer(key)) {
       keyBuffer = key;
     } else {
-      throw new TypeError('Key must be a Buffer, hex string, or base64 string');
+      throw new BadInputError('Key must be a Buffer, hex string, or base64 string');
     }
 
+    // AUDIT FIX: Strict key size validation with typed errors
     if (![16, 24, 32].includes(keyBuffer.length)) {
-      throw new Error(`Invalid key length: ${keyBuffer.length}. Must be 16, 24, or 32 bytes`);
+      throw new BadInputError(`Invalid key length: ${keyBuffer.length}. Must be 16, 24, or 32 bytes`);
     }
 
     return keyBuffer;
@@ -191,18 +214,24 @@ export class ProductionAESGCM {
   }
 
   /**
-   * Encrypt data with AES-GCM and comprehensive AAD support
+   * Encrypt data with AES-GCM - AAD parameter REQUIRED
    * @param {Buffer|string} plaintext - Data to encrypt
    * @param {Buffer|string} key - Encryption key
-   * @param {Object} options - Encryption options with AAD support
+   * @param {Object} options - Encryption options
+   * @param {Buffer|string} options.aad - Associated Additional Data (REQUIRED)
    * @returns {Object} Encryption result with envelope format
    */
   encrypt(plaintext, key, options = {}) {
+    // AUDIT FIX: AAD parameter required everywhere
+    if (!options.aad) {
+      throw new InvalidInputError('AAD (Associated Additional Data) is required for all encrypt operations');
+    }
+
     try {
-      // Validate inputs
+      // Strict input validation
       const keyBuffer = this.validateKey(key);
-      const ivBuffer = options.iv ? this.validateIV(options.iv) : this.generateIV();
-      const aadBuffer = this.validateAAD(options.aad);
+      const ivBuffer = crypto.randomBytes(12); // AUDIT FIX: SDK generates 12-byte IVs internally
+      const aadBuffer = Buffer.isBuffer(options.aad) ? options.aad : Buffer.from(options.aad, 'utf8');
       
       // Convert plaintext to buffer
       const plaintextBuffer = Buffer.isBuffer(plaintext) 
