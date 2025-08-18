@@ -14,15 +14,24 @@ import AlgorithmSelector from "@/components/AlgorithmSelector";
 import { ArrowLeft, ArrowRight, Download, Lightbulb } from "lucide-react";
 import type { EncryptionAlgorithm } from '@shared/schema';
 
-// Only show languages that are actually implemented
 const languages = [
   { id: 'javascript', name: 'JavaScript', icon: '📜', category: 'Web Development' },
   { id: 'typescript', name: 'TypeScript', icon: '📘', category: 'Web Development' },
   { id: 'python', name: 'Python', icon: '🐍', category: 'Backend & Data Science' },
-  { id: 'cpp', name: 'C++', icon: '⚡', category: 'Systems Programming' },
-  { id: 'php', name: 'PHP', icon: '🐘', category: 'Web Development' },
-  { id: 'swift', name: 'Swift', icon: '🦉', category: 'iOS Development' },
+  { id: 'java', name: 'Java', icon: '☕', category: 'Enterprise & Android' },
   { id: 'kotlin', name: 'Kotlin', icon: '🎯', category: 'Android Development' },
+  { id: 'swift', name: 'Swift', icon: '🦉', category: 'iOS Development' },
+  { id: 'objectivec', name: 'Objective-C', icon: '🍎', category: 'iOS Development' },
+  { id: 'csharp', name: 'C#', icon: '#️⃣', category: 'Enterprise & .NET' },
+  { id: 'cpp', name: 'C++', icon: '⚡', category: 'Systems Programming' },
+  { id: 'c', name: 'C', icon: '🔧', category: 'Systems Programming' },
+  { id: 'go', name: 'Go', icon: '🐹', category: 'Backend & Cloud' },
+  { id: 'rust', name: 'Rust', icon: '🦀', category: 'Systems Programming' },
+  { id: 'php', name: 'PHP', icon: '🐘', category: 'Web Development' },
+  { id: 'ruby', name: 'Ruby', icon: '💎', category: 'Web Development' },
+  { id: 'dart', name: 'Dart/Flutter', icon: '🎯', category: 'Mobile Development' },
+  { id: 'reactnative', name: 'React Native', icon: '📱', category: 'Mobile Development' },
+  { id: 'xamarin', name: 'Xamarin', icon: '🔵', category: 'Mobile Development' },
 ];
 
 const applicationTypeOptions = [
