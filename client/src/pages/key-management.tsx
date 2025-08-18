@@ -18,6 +18,46 @@ export default function KeyManagement() {
     retry: false,
   });
 
+  const generateKeyMutation = useMutation({
+    mutationFn: async () => {
+      const keyData = {
+        keyType: 'encryption',
+        algorithm: 'AES-256-GCM',
+        algorithmId: '9afbd303-2aee-4f9c-a23e-73edda7342e0', // Default AES-256-GCM algorithm ID
+        keySize: 256,
+        status: 'active',
+        purpose: 'encryption',
+        metadata: {}
+      };
+      return await apiRequest('POST', '/api/keys', keyData);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success", 
+        description: "New encryption key generated successfully!",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/keys"] });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to generate key. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const rotateKeyMutation = useMutation({
     mutationFn: async (keyId: string) => {
       return await apiRequest('PUT', `/api/keys/${keyId}/rotate`, {});
@@ -67,9 +107,14 @@ export default function KeyManagement() {
   return (
     <div className="p-6">
       <div className="mb-6">
-        <Button className="bg-blue-500 hover:bg-blue-600 text-white" data-testid="button-generate-key">
+        <Button 
+          className="bg-blue-500 hover:bg-blue-600 text-white" 
+          data-testid="button-generate-key"
+          onClick={() => generateKeyMutation.mutate()}
+          disabled={generateKeyMutation.isPending}
+        >
           <Plus className="w-4 h-4 mr-2" />
-          Generate New Key
+          {generateKeyMutation.isPending ? 'Generating...' : 'Generate New Key'}
         </Button>
       </div>
 
@@ -84,7 +129,7 @@ export default function KeyManagement() {
                 <div key={i} className="h-16 bg-muted rounded animate-pulse"></div>
               ))}
             </div>
-          ) : keys?.length ? (
+          ) : Array.isArray(keys) && keys.length ? (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -98,7 +143,7 @@ export default function KeyManagement() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {keys.map((key: any) => (
+                  {(keys as any[]).map((key: any) => (
                     <TableRow key={key.id} className="border-border">
                       <TableCell className="text-foreground font-mono text-sm" data-testid={`key-id-${key.id}`}>
                         {key.keyId}
