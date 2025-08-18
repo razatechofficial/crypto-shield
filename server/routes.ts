@@ -6623,8 +6623,8 @@ do {
         archive.append(swiftReadme, { name: 'README.md' });
       }
 
-      // Add comprehensive packaging and test suites for all languages
-      if (language === 'php') {
+      // Add comprehensive packaging and test suites for PHP
+      if (languages.includes('php')) {
         const composerJson = `{
   "name": "\${sdk.name.toLowerCase()}/crypto-sdk",
   "description": "Production-ready encryption SDK with comprehensive audit compliance",
