@@ -4825,16 +4825,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/sdks/generate', async (req: any, res) => {
+  app.post('/api/sdks/generate', isAuthenticated, async (req: any, res) => {
     try {
-      // Bypass auth for testing
-      const userId = "test-user";
-      const tenantId = "test-tenant";
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user?.tenantId) {
+        return res.status(400).json({ message: "User not associated with a tenant" });
+      }
 
       // Prepare and validate request body - convert arrays to JSON strings
       const requestData = {
         ...req.body,
-        tenantId: tenantId,
+        tenantId: user.tenantId,
         userId: userId,
         // Convert arrays to JSON strings as expected by schema
         languages: JSON.stringify(req.body.languages || []),
