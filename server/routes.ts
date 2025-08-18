@@ -6,7 +6,7 @@ import { insertSdkSchema, insertEncryptionKeySchema, insertSecurityEventSchema }
 import { z } from "zod";
 import { randomUUID } from "crypto";
 import archiver from "archiver";
-import { generateProductionSDKFiles } from "../production-sdk-generator.js";
+// Production SDK generation functions
 
 // Working SDK Code Generation
 async function generateLanguageFiles(archive: any, languages: string[], algorithms: any[], sdk: any, features: any) {
@@ -165,6 +165,126 @@ class AveroxCrypto {
       const duration = Date.now() - startTime;
       this.trackOperation('decrypt', 'chacha20-poly1305', false, duration);
       throw error;
+    }
+  }
+
+  // HKDF implementation - addresses audit requirement  
+  hkdf(salt, ikm, info, length) {
+    const crypto = require('crypto');
+    const hmac = crypto.createHmac('sha256', salt);
+    const prk = hmac.update(ikm).digest();
+    
+    const okm = Buffer.alloc(length);
+    const n = Math.ceil(length / 32);
+    
+    for (let i = 1; i <= n; i++) {
+      const t = crypto.createHmac('sha256', prk);
+      if (i > 1) {
+        t.update(Buffer.concat([okm.slice((i-2)*32, (i-1)*32), info, Buffer.from([i])]));
+      } else {
+        t.update(Buffer.concat([info, Buffer.from([i])]));
+      }
+      
+      const digest = t.digest();
+      okm.set(digest.slice(0, Math.min(32, length - (i-1)*32)), (i-1)*32);
+    }
+    
+    return okm;
+  }
+
+  // Secure zeroization - addresses audit requirement
+  zeroize(buffer) {
+    if (buffer && buffer.fill) {
+      buffer.fill(0);
+    }
+  }
+
+  // Timing-safe compare - addresses audit requirement
+  timingSafeEqual(a, b) {
+    const crypto = require('crypto');
+    return crypto.timingSafeEqual(a, b);
+  }
+
+  // Canonical envelope format - addresses audit requirement
+  createEnvelope(algorithm, keyId, iv, tag, ciphertext) {
+    return {
+      v: 1,                    // version
+      alg: algorithm,          // algorithm
+      kid: keyId || null,      // key ID  
+      iv: iv.toString('base64url'),
+      tag: tag.toString('base64url'),
+      ct: ciphertext.toString('base64url')
+    };
+  }
+
+  parseEnvelope(envelope) {
+    if (!envelope.v || !envelope.alg || !envelope.iv || !envelope.tag || !envelope.ct) {
+      throw new InvalidInputError('Invalid envelope format');
+    }
+    return {
+      version: envelope.v,
+      algorithm: envelope.alg,
+      keyId: envelope.kid,
+      iv: Buffer.from(envelope.iv, 'base64url'),
+      tag: Buffer.from(envelope.tag, 'base64url'),
+      ciphertext: Buffer.from(envelope.ct, 'base64url')
+    };
+  }
+
+  // AES-GCM with enforced 12-byte IV and mandatory AAD
+  encryptAESGCM(plaintext, key, aad) {
+    if (!aad) {
+      throw new InvalidInputError('AAD is required for AES-GCM encryption');
+    }
+    
+    const keyBuffer = Buffer.from(key, 'base64');
+    const iv = crypto.randomBytes(12); // Enforce 12-byte IV policy
+    const cipher = crypto.createCipheriv('aes-256-gcm', keyBuffer, iv);
+    cipher.setAAD(Buffer.from(aad, 'utf8'));
+    
+    try {
+      const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
+      const tag = cipher.getAuthTag();
+      
+      const envelope = this.createEnvelope('aes-256-gcm', null, iv, tag, encrypted);
+      
+      // Zeroize sensitive data
+      this.zeroize(iv);
+      
+      return JSON.stringify(envelope);
+    } catch (error) {
+      throw new BadInputError('Encryption failed: ' + error.message);
+    }
+  }
+
+  decryptAESGCM(envelopeStr, key, aad) {
+    if (!aad) {
+      throw new InvalidInputError('AAD is required for AES-GCM decryption');
+    }
+    
+    try {
+      const envelope = this.parseEnvelope(JSON.parse(envelopeStr));
+      
+      if (envelope.algorithm !== 'aes-256-gcm') {
+        throw new InvalidInputError('Algorithm mismatch');
+      }
+      
+      const keyBuffer = Buffer.from(key, 'base64');
+      const decipher = crypto.createDecipheriv('aes-256-gcm', keyBuffer, envelope.iv);
+      decipher.setAuthTag(envelope.tag);
+      decipher.setAAD(Buffer.from(aad, 'utf8'));
+      
+      const decrypted = Buffer.concat([
+        decipher.update(envelope.ciphertext), 
+        decipher.final()
+      ]);
+      
+      return decrypted.toString('utf8');
+    } catch (error) {
+      if (error.message.includes('auth')) {
+        throw new InvalidTagError('Authentication tag verification failed');
+      }
+      throw new BadInputError('Decryption failed: ' + error.message);
     }
   }
 
@@ -4791,12 +4911,12 @@ do {
       } else if (securityLevel === 'maximum') {
         // Maximum security: prefer post-quantum and high-key-size algorithms
         recommendedAlgorithms = allAlgorithms.filter(alg => 
-          alg.isPostQuantum || alg.keySize >= 256
+          alg.isPostQuantum || (alg.keySize && alg.keySize >= 256)
         );
       } else if (securityLevel === 'enhanced') {
         // Enhanced: balanced security and performance
         recommendedAlgorithms = allAlgorithms.filter(alg => 
-          alg.type === 'symmetric' && alg.keySize >= 256
+          alg.type === 'symmetric' && alg.keySize && alg.keySize >= 256
         );
       } else {
         // Standard: focus on performance while maintaining security
@@ -4812,22 +4932,22 @@ do {
             const messagingAlgorithms = allAlgorithms.filter(alg => 
               alg.type === 'symmetric' || alg.name.includes('aes') || alg.name.includes('signal')
             );
-            recommendedAlgorithms = [...new Set([...recommendedAlgorithms, ...messagingAlgorithms])];
+            recommendedAlgorithms = Array.from(new Set([...recommendedAlgorithms, ...messagingAlgorithms]));
           } else if (appType === 'file-storage') {
             const storageAlgorithms = allAlgorithms.filter(alg => 
-              alg.type === 'symmetric' && alg.keySize >= 256
+              alg.type === 'symmetric' && alg.keySize && alg.keySize >= 256
             );
-            recommendedAlgorithms = [...new Set([...recommendedAlgorithms, ...storageAlgorithms])];
+            recommendedAlgorithms = Array.from(new Set([...recommendedAlgorithms, ...storageAlgorithms]));
           } else if (appType === 'api') {
             const apiAlgorithms = allAlgorithms.filter(alg => 
               alg.type === 'asymmetric' || alg.name.includes('rsa') || alg.name.includes('ecdsa')
             );
-            recommendedAlgorithms = [...new Set([...recommendedAlgorithms, ...apiAlgorithms])];
+            recommendedAlgorithms = Array.from(new Set([...recommendedAlgorithms, ...apiAlgorithms]));
           } else if (appType === 'enterprise') {
             const enterpriseAlgorithms = allAlgorithms.filter(alg => 
-              alg.isPostQuantum || alg.keySize >= 256 || alg.type === 'tee'
+              alg.isPostQuantum || (alg.keySize && alg.keySize >= 256) || alg.type === 'tee'
             );
-            recommendedAlgorithms = [...new Set([...recommendedAlgorithms, ...enterpriseAlgorithms])];
+            recommendedAlgorithms = Array.from(new Set([...recommendedAlgorithms, ...enterpriseAlgorithms]));
           }
         }
       }
@@ -4837,14 +4957,14 @@ do {
         const fipsAlgorithms = allAlgorithms.filter(alg => 
           ['aes-256-gcm', 'rsa-4096', 'ecdsa-p256'].includes(alg.name)
         );
-        recommendedAlgorithms = [...new Set([...recommendedAlgorithms, ...fipsAlgorithms])];
+        recommendedAlgorithms = Array.from(new Set([...recommendedAlgorithms, ...fipsAlgorithms]));
       }
 
       if (complianceRequirements && (complianceRequirements.includes('hipaa') || complianceRequirements.includes('gdpr'))) {
         const privacyAlgorithms = allAlgorithms.filter(alg => 
-          alg.keySize >= 256 || alg.type === 'homomorphic' || alg.type === 'zero_knowledge'
+          (alg.keySize && alg.keySize >= 256) || alg.type === 'homomorphic' || alg.type === 'zero_knowledge'
         );
-        recommendedAlgorithms = [...new Set([...recommendedAlgorithms, ...privacyAlgorithms])];
+        recommendedAlgorithms = Array.from(new Set([...recommendedAlgorithms, ...privacyAlgorithms]));
       }
 
       // Sort by recommendation relevance
@@ -4852,10 +4972,10 @@ do {
         // Prioritize algorithms that match security level exactly
         const aMatches = (securityLevel === 'confidential' && ['tee', 'homomorphic', 'mpc'].includes(a.type)) ||
                         (securityLevel === 'maximum' && a.isPostQuantum) ||
-                        (securityLevel === 'enhanced' && a.type === 'symmetric' && a.keySize >= 256);
+                        (securityLevel === 'enhanced' && a.type === 'symmetric' && a.keySize && a.keySize >= 256);
         const bMatches = (securityLevel === 'confidential' && ['tee', 'homomorphic', 'mpc'].includes(b.type)) ||
                         (securityLevel === 'maximum' && b.isPostQuantum) ||
-                        (securityLevel === 'enhanced' && b.type === 'symmetric' && b.keySize >= 256);
+                        (securityLevel === 'enhanced' && b.type === 'symmetric' && b.keySize && b.keySize >= 256);
         
         if (aMatches && !bMatches) return -1;
         if (!aMatches && bMatches) return 1;
