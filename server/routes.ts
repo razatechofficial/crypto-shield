@@ -7351,8 +7351,8 @@ public class AveroxCrypto {
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.averox</groupId>
-    <artifactId>\${sdk.name.toLowerCase().replace(/\\s+/g, '-')}-crypto-sdk</artifactId>
-    <version>\${sdk.version}</version>
+    <artifactId>${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto-sdk</artifactId>
+    <version>${sdk.version}</version>
     <packaging>jar</packaging>
     
     <properties>
@@ -7448,13 +7448,13 @@ module Averox
 end`;
 
         const rubyGemspec = `Gem::Specification.new do |spec|
-  spec.name          = "\${sdk.name.toLowerCase().replace(/\\s+/g, '-')}-crypto-sdk"
-  spec.version       = "\${sdk.version}"
+  spec.name          = "${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto-sdk"
+  spec.version       = "${sdk.version}"
   spec.authors       = ["Averox"]
   spec.email         = ["support@averox.com"]
   spec.summary       = "Enterprise-grade encryption SDK"
   spec.description   = "Production-ready encryption library with comprehensive audit compliance"
-  spec.homepage      = "https://github.com/averox/\${sdk.name.toLowerCase().replace(/\\s+/g, '-')}-crypto-sdk"
+  spec.homepage      = "https://github.com/averox/${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto-sdk"
   spec.license       = "MIT"
   
   spec.files         = Dir["lib/**/*", "README.md"]
@@ -7605,7 +7605,7 @@ func (ac *AveroxCrypto) DecryptAESGCM(envelopeStr, key, aad string) (string, err
     return string(plaintext), nil
 }`;
 
-        const goMod = `module \${sdk.name.toLowerCase().replace(/\\s+/g, '')}-crypto-sdk
+        const goMod = `module ${sdk.name.toLowerCase().replace(/\s+/g, '')}-crypto-sdk
 
 go 1.19
 
@@ -7696,15 +7696,15 @@ namespace Averox.Crypto
         const csharpProject = `<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
-    <PackageId>\${sdk.name.replace(/\\s+/g, '')}.Crypto.SDK</PackageId>
-    <Version>\${sdk.version}</Version>
+    <PackageId>${sdk.name.replace(/\s+/g, '')}.Crypto.SDK</PackageId>
+    <Version>${sdk.version}</Version>
     <Authors>Averox</Authors>
     <Description>Enterprise-grade encryption SDK with comprehensive audit compliance</Description>
   </PropertyGroup>
 </Project>`;
 
         archive.append(csharpCore, { name: 'AveroxCrypto.cs' });
-        archive.append(csharpProject, { name: '\${sdk.name.replace(/\\s+/g, "")}.Crypto.SDK.csproj' });
+        archive.append(csharpProject, { name: `${sdk.name.replace(/\s+/g, "")}.Crypto.SDK.csproj` });
       }
 
       // Rust implementation
@@ -7815,8 +7815,8 @@ impl AveroxCrypto {
 }`;
 
         const rustCargo = `[package]
-name = "\${sdk.name.toLowerCase().replace(/\\s+/g, '_')}_crypto_sdk"
-version = "\${sdk.version}"
+name = "${sdk.name.toLowerCase().replace(/\s+/g, '_')}_crypto_sdk"
+version = "${sdk.version}"
 edition = "2021"
 authors = ["Averox <support@averox.com>"]
 description = "Enterprise-grade encryption SDK with comprehensive audit compliance"
@@ -8039,8 +8039,8 @@ namespace Averox.Crypto.Xamarin
         const xamarinProject = `<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <PackageId>Averox.\${sdk.name.replace(/\\s+/g, '')}.Crypto.Xamarin</PackageId>
-    <Version>\${sdk.version}</Version>
+    <PackageId>Averox.${sdk.name.replace(/\s+/g, '')}.Crypto.Xamarin</PackageId>
+    <Version>${sdk.version}</Version>
     <Authors>Averox</Authors>
     <Description>Enterprise-grade encryption SDK for Xamarin applications</Description>
   </PropertyGroup>
@@ -8052,7 +8052,7 @@ namespace Averox.Crypto.Xamarin
 </Project>`;
 
         archive.append(xamarinCore, { name: 'AveroxCrypto.cs' });
-        archive.append(xamarinProject, { name: 'Averox.\${sdk.name.replace(/\\s+/g, "")}.Crypto.Xamarin.csproj' });
+        archive.append(xamarinProject, { name: `Averox.${sdk.name.replace(/\s+/g, "")}.Crypto.Xamarin.csproj` });
       }
 
       // Add comprehensive production implementations for all selected languages
