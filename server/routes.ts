@@ -5971,6 +5971,238 @@ console.log('SDK meets enterprise security requirements.');
 `;
       archive.append(testSuite, { name: 'test-production.js' });
 
+      // Add comprehensive packaging and test suites for all languages
+      if (language === 'php') {
+        const composerJson = `{
+  "name": "\${sdk.name.toLowerCase()}/crypto-sdk",
+  "description": "Production-ready encryption SDK with comprehensive audit compliance",
+  "version": "\${sdk.version}",
+  "type": "library",
+  "require": {
+    "php": ">=8.0",
+    "ext-openssl": "*",
+    "ext-sodium": "*"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^10.0",
+    "phpstan/phpstan": "^1.10"
+  },
+  "autoload": {
+    "psr-4": {
+      "Averox\\\\Crypto\\\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Averox\\\\Crypto\\\\Tests\\\\": "tests/"
+    }
+  }
+}`;
+
+        const phpTest = `<?php
+namespace Averox\\Crypto\\Tests;
+
+use Averox\\Crypto\\AveroxCrypto;
+use PHPUnit\\Framework\\TestCase;
+
+class AveroxCryptoTest extends TestCase
+{
+    private AveroxCrypto $crypto;
+
+    protected function setUp(): void
+    {
+        $this->crypto = new AveroxCrypto();
+    }
+
+    public function testEncryptDecrypt(): void
+    {
+        $key = $this->crypto->generateKey();
+        $plaintext = 'Hello, Averox!';
+        $aad = 'test';
+
+        $encrypted = $this->crypto->encryptAESGCM($plaintext, $key, $aad);
+        $decrypted = $this->crypto->decryptAESGCM($encrypted, $key, $aad);
+        
+        $this->assertSame($plaintext, $decrypted);
+    }
+}`;
+
+        archive.append(composerJson, { name: 'composer.json' });
+        archive.append(phpTest, { name: 'tests/AveroxCryptoTest.php' });
+      }
+
+      if (language === 'python') {
+        const pytestIni = `[tool:pytest]
+testpaths = tests
+python_files = test_*.py
+python_classes = Test*
+python_functions = test_*
+addopts = -v --tb=short --strict-markers
+markers =
+    slow: marks tests as slow
+    integration: marks tests as integration tests
+`;
+
+        const pythonTest = `import pytest
+import base64
+from averox_crypto import AveroxCrypto, InvalidInputError, InvalidTagError, BadInputError
+
+
+class TestAveroxCrypto:
+    def setup_method(self):
+        self.crypto = AveroxCrypto()
+
+    def test_key_generation(self):
+        key = self.crypto.generate_key()
+        assert isinstance(key, str)
+        assert len(base64.b64decode(key)) == 32
+
+    def test_encrypt_decrypt(self):
+        key = self.crypto.generate_key()
+        plaintext = "Hello, Averox Crypto!"
+        aad = "test-metadata"
+
+        encrypted = self.crypto.encrypt_aes_gcm(plaintext, key, aad)
+        decrypted = self.crypto.decrypt_aes_gcm(encrypted, key, aad)
+        
+        assert decrypted == plaintext
+
+    def test_aad_validation(self):
+        key = self.crypto.generate_key()
+        plaintext = "Secret message"
+        aad = "correct-aad"
+        wrong_aad = "wrong-aad"
+
+        encrypted = self.crypto.encrypt_aes_gcm(plaintext, key, aad)
+        
+        with pytest.raises(InvalidTagError):
+            self.crypto.decrypt_aes_gcm(encrypted, key, wrong_aad)
+
+    def test_empty_aad_raises_error(self):
+        key = self.crypto.generate_key()
+        plaintext = "Test message"
+
+        with pytest.raises(InvalidInputError):
+            self.crypto.encrypt_aes_gcm(plaintext, key, "")
+
+    def test_envelope_format(self):
+        key = self.crypto.generate_key()
+        plaintext = "Test message"
+        aad = "test-aad"
+
+        encrypted = self.crypto.encrypt_aes_gcm(plaintext, key, aad)
+        import json
+        envelope = json.loads(encrypted)
+
+        assert envelope["v"] == 1
+        assert envelope["alg"] == "aes-256-gcm"
+        assert "iv" in envelope
+        assert "tag" in envelope
+        assert "ct" in envelope
+
+        # Validate IV length
+        iv = base64.urlsafe_b64decode(envelope["iv"])
+        assert len(iv) == 12
+
+    def test_timing_safe_equal(self):
+        a = b"same_bytes"
+        b = b"same_bytes"
+        c = b"diff_bytes"
+
+        assert self.crypto.timing_safe_equal(a, b) is True
+        assert self.crypto.timing_safe_equal(a, c) is False
+
+    def test_hkdf(self):
+        import os
+        salt = os.urandom(16)
+        ikm = os.urandom(32)
+        info = b"test-info"
+        length = 32
+
+        result = self.crypto.hkdf_derive(salt, ikm, info, length)
+        assert len(result) == length
+`;
+
+        archive.append(pytestIni, { name: 'pytest.ini' });
+        archive.append(pythonTest, { name: 'tests/test_averox_crypto.py' });
+      }
+
+      if (language === 'cpp') {
+        const cppCMakeTest = `cmake_minimum_required(VERSION 3.15)
+
+# Test configuration
+find_package(GTest REQUIRED)
+
+add_executable(test_averox_crypto 
+    test_averox_crypto.cpp
+    ../src/averox_crypto.cpp
+)
+
+target_link_libraries(test_averox_crypto 
+    GTest::gtest_main
+    OpenSSL::SSL 
+    OpenSSL::Crypto
+)
+
+target_include_directories(test_averox_crypto PRIVATE ../include)
+
+include(GoogleTest)
+gtest_discover_tests(test_averox_crypto)
+`;
+
+        const cppTestMain = `#include <gtest/gtest.h>
+#include "averox_crypto.h"
+
+using namespace averox;
+
+class AveroxCryptoTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        crypto = std::make_unique<AveroxCrypto>();
+    }
+    
+    std::unique_ptr<AveroxCrypto> crypto;
+};
+
+TEST_F(AveroxCryptoTest, KeyGeneration) {
+    auto key = crypto->generateKey();
+    EXPECT_EQ(key.size(), 32);
+}
+
+TEST_F(AveroxCryptoTest, EncryptDecrypt) {
+    auto key = crypto->generateKey();
+    std::string plaintext = "Hello, Averox!";
+    std::string aad = "test";
+    
+    std::string encrypted = crypto->encryptAESGCM(plaintext, key, aad);
+    std::string decrypted = crypto->decryptAESGCM(encrypted, key, aad);
+    
+    EXPECT_EQ(decrypted, plaintext);
+}
+
+TEST_F(AveroxCryptoTest, AADValidation) {
+    auto key = crypto->generateKey();
+    std::string plaintext = "Secret";
+    std::string aad = "correct";
+    std::string wrongAAD = "wrong";
+    
+    std::string encrypted = crypto->encryptAESGCM(plaintext, key, aad);
+    
+    EXPECT_THROW(
+        crypto->decryptAESGCM(encrypted, key, wrongAAD),
+        InvalidTagError
+    );
+}
+
+int main(int argc, char **argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
+}`;
+
+        archive.append(cppCMakeTest, { name: 'tests/CMakeLists.txt' });
+        archive.append(cppTestMain, { name: 'tests/test_averox_crypto.cpp' });
+      }
+
       // Add comprehensive production implementations for all selected languages
       if (languages.includes('javascript') || languages.includes('typescript')) {
         // Generate production-ready JavaScript code with ALL audit requirements
