@@ -1,0 +1,65 @@
+I’ve audited Salman SDK 12 v2.0.0 against all the previously flagged issues.
+
+Browse files: “Salman SDK 12 v2.0.0 — file inventory” (open above).
+
+Full pass/fail memo: Download the production-readiness audit
+
+Verdict
+Not production-ready ❌
+
+Snapshot of gates (PASS/FAIL)
+Here are the go/no-go checks I ran (details in the report file):
+
+AES-256-GCM implemented — PASS
+
+AAD wired across stacks — FAIL
+
+IV policy (12-byte) enforced hints — FAIL
+
+Unified envelope fields present (iv|nonce, tag, ct|ciphertext) — FAIL
+
+Envelope version/alg/kid present — FAIL
+
+Telemetry code present (OpenTelemetry/metrics) — FAIL
+
+KDF present (HKDF/Argon2id) — FAIL
+
+Zeroization present (C or sodium) — FAIL
+
+Timing-safe compares — FAIL
+
+Typed errors (JS) — FAIL
+
+Packaging: Node ESM + CJS + types — FAIL
+
+Packaging: C (CMake + pkg-config + install) — FAIL
+
+Packaging: Mobile (Gradle/Podspec/SwiftPM) — FAIL
+
+CI present with sanitizers/fuzz — FAIL
+
+Tests: NIST/Wycheproof vectors — FAIL
+
+Supply chain: SBOM/provenance — FAIL
+
+What this means (plain English)
+The core AES-GCM code is there, but the key production features we called out earlier still aren’t in place: no consistent AAD support, no enforced 12-byte IV policy, no canonical {v, alg, kid, iv, tag, ct} envelope, and no telemetry.
+
+There’s also no evidence of KDFs (HKDF/Argon2id), secure zeroization, timing-safe compares, or typed error taxonomy.
+
+Packaging and reliability infrastructure (dual Node builds with types, C install targets/pkg-config, mobile bindings, CI with sanitizers/fuzzers, official test vectors) are not present.
+
+Next steps to reach “production-ready”
+Wire AAD into all encrypt/decrypt paths; add AAD match/mismatch tests.
+
+Enforce IV policy: SDK-generated 12-byte IVs for GCM; use EVP_CTRL_GCM_SET_IVLEN in C; document and test.
+
+Canonical envelope: {v, alg, kid, iv, tag, ct} with base64url encoding; same across C/JS/mobile.
+
+Implement KDFs (HKDF-SHA256, Argon2id) and use them where claimed.
+
+Hardening: secret zeroization, timing-safe compares, strict key/iv/tag length checks, typed errors.
+
+Telemetry: OpenTelemetry counters/histograms (no secrets), env toggle, quickstart sample.
+
+Packaging/CI: ESM+CJS+types for JS, CMake + pkg-config + install for C, mobile bindings; CI with sanitizers & fuzzers; include NIST/Wycheproof vectors; publish SBOM/provenance
