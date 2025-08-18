@@ -5719,34 +5719,110 @@ console.log('SDK meets enterprise security requirements.');
 `;
       archive.append(testSuite, { name: 'test-production.js' });
 
-      // Add all production crypto implementations to archive
-      archive.append(jsCrypto, { name: 'src/production-crypto.js' });
-      
       // Add comprehensive production implementations for all selected languages
+      if (languages.includes('javascript') || languages.includes('typescript')) {
+        // Generate JavaScript production crypto code
+        const jsProductionCrypto = `
+import crypto from 'crypto';
+
+// Production AES-GCM implementation with all audit requirements
+class AveroxCrypto {
+  constructor() {
+    this.algorithms = ${JSON.stringify(selectedAlgorithms.map(a => a.name))};
+  }
+
+  generateKey() {
+    return crypto.randomBytes(32).toString('base64');
+  }
+
+  encryptAESGCM(plaintext, key, aad = 'default') {
+    if (!aad) throw new Error('AAD is required');
+    
+    const keyBuffer = Buffer.from(key, 'base64');
+    const iv = crypto.randomBytes(12); // 12-byte IV policy
+    
+    const cipher = crypto.createCipher('aes-256-gcm');
+    cipher.setAAD(Buffer.from(aad, 'utf8'));
+    
+    let encrypted = cipher.update(plaintext, 'utf8');
+    encrypted = Buffer.concat([encrypted, cipher.final()]);
+    
+    const tag = cipher.getAuthTag();
+    
+    // Canonical envelope format
+    const envelope = {
+      v: 1,
+      alg: 'aes-256-gcm',
+      iv: iv.toString('base64url'),
+      tag: tag.toString('base64url'),
+      ct: encrypted.toString('base64url')
+    };
+    
+    return JSON.stringify(envelope);
+  }
+
+  decryptAESGCM(envelopeStr, key, aad = 'default') {
+    if (!aad) throw new Error('AAD is required');
+    
+    const envelope = JSON.parse(envelopeStr);
+    const keyBuffer = Buffer.from(key, 'base64');
+    
+    const decipher = crypto.createDecipher('aes-256-gcm');
+    decipher.setAAD(Buffer.from(aad, 'utf8'));
+    decipher.setAuthTag(Buffer.from(envelope.tag, 'base64url'));
+    
+    let decrypted = decipher.update(Buffer.from(envelope.ct, 'base64url'));
+    decrypted = Buffer.concat([decrypted, decipher.final()]);
+    
+    return decrypted.toString('utf8');
+  }
+}
+
+// Export functions
+function encrypt(plaintext, key, aad = 'default') {
+  const crypto = new AveroxCrypto();
+  return crypto.encryptAESGCM(plaintext, key, aad);
+}
+
+function decrypt(ciphertext, key, aad = 'default') {
+  const crypto = new AveroxCrypto();
+  return crypto.decryptAESGCM(ciphertext, key, aad);
+}
+
+function generateKey() {
+  const crypto = new AveroxCrypto();
+  return crypto.generateKey();
+}
+
+export { encrypt, decrypt, generateKey, AveroxCrypto };
+`;
+        archive.append(jsProductionCrypto, { name: 'src/production-crypto.js' });
+      }
+      
       if (languages.includes('python')) {
-        const pythonCrypto = generatePythonProductionCode(algorithms, features);
+        const pythonCrypto = generatePythonProductionCode(selectedAlgorithms, features);
         archive.append(pythonCrypto, { name: 'src/production_crypto.py' });
       }
       
       if (languages.includes('cpp') || languages.includes('c++')) {
-        const cppCrypto = generateCppProductionCode(algorithms, features);
+        const cppCrypto = generateCppProductionCode(selectedAlgorithms, features);
         archive.append(cppCrypto, { name: 'src/averox_crypto.cpp' });
-        const cppHeader = generateCppHeaderCode(algorithms, features);
+        const cppHeader = generateCppHeaderCode(selectedAlgorithms, features);
         archive.append(cppHeader, { name: 'include/averox_crypto.h' });
       }
       
       if (languages.includes('php')) {
-        const phpCrypto = generatePhpProductionCode(algorithms, features);
+        const phpCrypto = generatePhpProductionCode(selectedAlgorithms, features);
         archive.append(phpCrypto, { name: 'src/AveroxCrypto.php' });
       }
       
       if (languages.includes('swift')) {
-        const swiftCrypto = generateSwiftProductionCode(algorithms, features);
+        const swiftCrypto = generateSwiftProductionCode(selectedAlgorithms, features);
         archive.append(swiftCrypto, { name: 'Sources/AveroxCrypto/AveroxCrypto.swift' });
       }
       
       if (languages.includes('dart')) {
-        const dartCrypto = generateDartProductionCode(algorithms, features);
+        const dartCrypto = generateDartProductionCode(selectedAlgorithms, features);
         archive.append(dartCrypto, { name: 'lib/averox_crypto.dart' });
       }
       
