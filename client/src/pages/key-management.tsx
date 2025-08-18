@@ -21,12 +21,9 @@ export default function KeyManagement() {
   const generateKeyMutation = useMutation({
     mutationFn: async () => {
       const keyData = {
-        keyType: 'encryption',
-        algorithm: 'AES-256-GCM',
+        keyType: 'primary',
         algorithmId: '9afbd303-2aee-4f9c-a23e-73edda7342e0', // Default AES-256-GCM algorithm ID
-        keySize: 256,
         status: 'active',
-        purpose: 'encryption',
         metadata: {}
       };
       return await apiRequest('POST', '/api/keys', keyData);

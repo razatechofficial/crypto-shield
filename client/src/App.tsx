@@ -38,6 +38,7 @@ function Router() {
           <Route path="/sdks" component={SdkManagement} />
           <Route path="/monitoring" component={Monitoring} />
           <Route path="/keys" component={KeyManagement} />
+          <Route path="/key-management" component={KeyManagement} />
           <Route path="/users" component={UserManagement} />
           <Route path="/subscription" component={Subscription} />
           <Route path="/settings" component={Settings} />
