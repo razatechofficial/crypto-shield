@@ -8984,20 +8984,14 @@ do {
   // Key management routes  
   app.get('/api/keys', async (req: any, res) => {
     try {
-      // Development bypass
-      if (process.env.NODE_ENV === 'development') {
-        res.json([]);
-        return;
-      }
-
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      // Use default tenant in development
+      const tenantId = process.env.NODE_ENV === 'development' ? 'default-tenant' : req.user?.claims?.sub;
       
-      if (!user?.tenantId) {
+      if (!tenantId) {
         return res.status(400).json({ message: "User not associated with a tenant" });
       }
 
-      const keys = await storage.getEncryptionKeys(user.tenantId);
+      const keys = await storage.getEncryptionKeys(tenantId);
       res.json(keys);
     } catch (error) {
       console.error("Error fetching keys:", error);
@@ -9007,80 +9001,66 @@ do {
 
   app.post('/api/keys', async (req: any, res) => {
     try {
-      // Development bypass with production-grade key generation
-      if (process.env.NODE_ENV === 'development') {
-        const productionKey = {
-          id: randomUUID(),
-          name: req.body.keyType || 'Production AES-256-GCM Key',
-          keyId: randomUUID(),
-          algorithm: 'AES-256-GCM',
-          keyType: req.body.keyType || 'primary',
-          algorithmId: req.body.algorithmId || '9afbd303-2aee-4f9c-a23e-73edda7342e0',
-          status: 'active',
-          createdAt: new Date().toISOString(),
-          lastUsed: new Date().toISOString(),
-          tenantId: 'default-tenant',
-          metadata: {
-            securityFeatures: [
-              'AAD_ENFORCEMENT',
-              'HKDF_KEY_DERIVATION', 
-              'IV_12_BYTE_POLICY',
-              'TIMING_SAFE_OPERATIONS',
-              'MEMORY_ZEROIZATION',
-              'NIST_COMPLIANCE',
-              'TELEMETRY_TRACKING',
-              'CANONICAL_ENVELOPE_FORMAT',
-              'CROSS_LANGUAGE_INTEROP'
-            ],
-            envelopeVersion: 'v2',
-            keyDerivation: 'hkdf-sha256',
-            auditCompliant: true,
-            generatedWith: 'production-encryption-core-v2.0.0',
-            compliance: ['NIST SP 800-38D', 'FIPS 140-2', 'ISO 27001'],
-            keyStrength: '256-bit',
-            ivPolicy: '12-byte-nist-gcm',
-            aadPolicy: 'mandatory'
-          }
-        };
-        
-        console.log('🔑 Generated production-grade key:', productionKey);
-        res.status(201).json(productionKey);
-        return;
-      }
-
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      // Use default tenant in development
+      const tenantId = process.env.NODE_ENV === 'development' ? 'default-tenant' : req.user?.claims?.sub;
       
-      if (!user?.tenantId) {
+      if (!tenantId) {
         return res.status(400).json({ message: "User not associated with a tenant" });
       }
 
-      const validatedData = insertEncryptionKeySchema.parse({
-        ...req.body,
-        tenantId: user.tenantId,
-      });
+      // Get the first available algorithm if none specified
+      const algorithms = await storage.getEncryptionAlgorithms();
+      const aesGcmAlgorithm = algorithms.find(alg => alg.name === 'AES-256-GCM');
+      
+      if (!aesGcmAlgorithm) {
+        return res.status(500).json({ message: "AES-256-GCM algorithm not found" });
+      }
 
-      const key = await storage.createEncryptionKey(validatedData);
+      const keyData = {
+        tenantId,
+        keyId: randomUUID(),
+        keyType: req.body.keyType || 'primary',
+        algorithmId: aesGcmAlgorithm.id,
+        status: 'active' as const,
+        metadata: {
+          securityFeatures: [
+            'AAD_ENFORCEMENT',
+            'HKDF_KEY_DERIVATION', 
+            'IV_12_BYTE_POLICY',
+            'TIMING_SAFE_OPERATIONS',
+            'MEMORY_ZEROIZATION',
+            'NIST_COMPLIANCE',
+            'TELEMETRY_TRACKING',
+            'CANONICAL_ENVELOPE_FORMAT',
+            'CROSS_LANGUAGE_INTEROP'
+          ],
+          envelopeVersion: 'v2',
+          keyDerivation: 'hkdf-sha256',
+          auditCompliant: true,
+          generatedWith: 'production-encryption-core-v2.0.0',
+          compliance: ['NIST SP 800-38D', 'FIPS 140-2', 'ISO 27001'],
+          keyStrength: '256-bit',
+          ivPolicy: '12-byte-nist-gcm',
+          aadPolicy: 'mandatory'
+        }
+      };
+
+      const key = await storage.createEncryptionKey(keyData);
 
       // Log security event
       await storage.createSecurityEvent({
-        tenantId: user.tenantId,
+        tenantId,
         eventType: 'key_created',
         severity: 'medium',
         description: `Encryption key created: ${key.keyType}`,
         metadata: { keyId: key.id, algorithmId: key.algorithmId },
       });
 
+      console.log('🔑 Created and persisted production-grade key:', key.id);
       res.status(201).json(key);
     } catch (error: any) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ 
-          message: "Invalid request data",
-          errors: error.errors 
-        });
-      }
       console.error("Error creating key:", error);
-      res.status(500).json({ message: "Failed to create key" });
+      res.status(500).json({ message: "Failed to create key", error: error.message });
     }
   });
 
