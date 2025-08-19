@@ -6,12 +6,19 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, RotateCcw, Pause, Trash2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Plus, RotateCcw, Pause, Trash2, Copy, Eye, AlertTriangle, Clock } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { useState } from "react";
 
 export default function KeyManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [selectedKeyType, setSelectedKeyType] = useState("primary");
+  const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
 
   const { data: keys = [], isLoading } = useQuery({
     queryKey: ["/api/keys"],
@@ -19,10 +26,10 @@ export default function KeyManagement() {
   });
 
   const generateKeyMutation = useMutation({
-    mutationFn: async () => {
-      console.log('🔑 Generating production-ready AES-256-GCM key...');
+    mutationFn: async (keyType: string) => {
+      console.log(`🔑 Generating production-ready ${keyType} key...`);
       const keyData = {
-        keyType: 'primary',
+        keyType,
         algorithmId: '9afbd303-2aee-4f9c-a23e-73edda7342e0', // AES-256-GCM with all security features
         status: 'active',
         metadata: {
@@ -47,9 +54,10 @@ export default function KeyManagement() {
       console.log('✅ Production key generated:', data);
       toast({
         title: "Production Key Generated", 
-        description: "AES-256-GCM key with all security audit requirements implemented",
+        description: `${selectedKeyType} key created with enterprise-grade security`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/keys"] });
+      setIsGenerateDialogOpen(false);
     },
     onError: (error: Error) => {
       console.error('❌ Key generation failed:', error);
@@ -72,36 +80,81 @@ export default function KeyManagement() {
     },
   });
 
-  const rotateKeyMutation = useMutation({
-    mutationFn: async (keyId: string) => {
-      return await apiRequest('PUT', `/api/keys/${keyId}/rotate`, {});
+  const updateKeyStatusMutation = useMutation({
+    mutationFn: async ({ keyId, status }: { keyId: string; status: string }) => {
+      return await apiRequest('PATCH', `/api/keys/${keyId}/status`, { status });
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       toast({
-        title: "Success",
-        description: "Key rotation initiated successfully!",
+        title: "Key Status Updated",
+        description: `Key status changed to ${variables.status}`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/keys"] });
     },
     onError: (error: Error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
       toast({
         title: "Error",
-        description: "Failed to rotate key. Please try again.",
+        description: "Failed to update key status",
         variant: "destructive",
       });
     },
   });
+
+  const revokeKeyMutation = useMutation({
+    mutationFn: async (keyId: string) => {
+      return await apiRequest('DELETE', `/api/keys/${keyId}`, {});
+    },
+    onSuccess: () => {
+      toast({
+        title: "Key Revoked",
+        description: "Key has been permanently revoked",
+        variant: "destructive",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/keys"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: "Failed to revoke key",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: "Copied to Clipboard",
+      description: `${label} copied successfully`,
+    });
+  };
+
+  const getKeyTypeDescription = (keyType: string) => {
+    switch (keyType) {
+      case 'primary':
+        return 'Master encryption key for main application data';
+      case 'session':
+        return 'Temporary key for session-based encryption';
+      case 'backup':
+        return 'Backup key for disaster recovery scenarios';
+      case 'rotation':
+        return 'Key generated during rotation process';
+      default:
+        return 'Custom encryption key';
+    }
+  };
+
+  const getExpirationWarning = (key: any) => {
+    if (!key.expiresAt) return null;
+    const now = new Date();
+    const expiration = new Date(key.expiresAt);
+    const daysUntilExpiration = Math.ceil((expiration.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (daysUntilExpiration <= 7) {
+      return daysUntilExpiration <= 0 ? 'Expired' : `Expires in ${daysUntilExpiration} days`;
+    }
+    return null;
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -120,16 +173,63 @@ export default function KeyManagement() {
 
   return (
     <div className="p-6">
-      <div className="mb-6">
-        <Button 
-          className="bg-blue-500 hover:bg-blue-600 text-white" 
-          data-testid="button-generate-key"
-          onClick={() => generateKeyMutation.mutate()}
-          disabled={generateKeyMutation.isPending}
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          {generateKeyMutation.isPending ? 'Generating...' : 'Generate New Key'}
-        </Button>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Encryption Key Management</h1>
+          <p className="text-slate-400">Manage encryption keys used across your SDKs and applications</p>
+        </div>
+        <Dialog open={isGenerateDialogOpen} onOpenChange={setIsGenerateDialogOpen}>
+          <DialogTrigger asChild>
+            <Button 
+              className="bg-blue-500 hover:bg-blue-600 text-white" 
+              data-testid="button-generate-key"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Generate New Key
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="bg-slate-800 border-slate-600 text-white">
+            <DialogHeader>
+              <DialogTitle>Generate New Encryption Key</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="keyType">Key Type</Label>
+                <Select value={selectedKeyType} onValueChange={setSelectedKeyType}>
+                  <SelectTrigger className="bg-slate-700 border-slate-600">
+                    <SelectValue placeholder="Select key type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="primary">Primary Key</SelectItem>
+                    <SelectItem value="session">Session Key</SelectItem>
+                    <SelectItem value="backup">Backup Key</SelectItem>
+                    <SelectItem value="rotation">Rotation Key</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-sm text-slate-400 mt-1">
+                  {getKeyTypeDescription(selectedKeyType)}
+                </p>
+              </div>
+              <div className="bg-slate-700 p-3 rounded">
+                <h4 className="font-medium mb-2">Security Features</h4>
+                <ul className="text-sm text-slate-300 space-y-1">
+                  <li>• AES-256-GCM with authenticated encryption</li>
+                  <li>• HKDF key derivation with SHA-256</li>
+                  <li>• 12-byte IV policy (NIST recommended)</li>
+                  <li>• Mandatory AAD enforcement</li>
+                  <li>• Memory zeroization and timing-safe operations</li>
+                </ul>
+              </div>
+              <Button 
+                onClick={() => generateKeyMutation.mutate(selectedKeyType)}
+                disabled={generateKeyMutation.isPending}
+                className="w-full bg-blue-600 hover:bg-blue-700"
+              >
+                {generateKeyMutation.isPending ? "Generating..." : `Generate ${selectedKeyType} Key`}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <Card className="bg-card border-border">
@@ -177,34 +277,57 @@ export default function KeyManagement() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <div className="flex space-x-2">
+                        <div className="flex space-x-1">
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="text-blue-500 hover:text-blue-400 hover:bg-secondary"
-                            onClick={() => rotateKeyMutation.mutate(key.keyId)}
-                            disabled={rotateKeyMutation.isPending || key.status === 'rotating'}
+                            className="text-blue-500 hover:text-blue-400 hover:bg-slate-700"
+                            onClick={() => copyToClipboard(key.keyId, 'Key ID')}
+                            data-testid={`button-copy-${key.id}`}
+                            title="Copy Key ID"
+                          >
+                            <Copy className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-green-500 hover:text-green-400 hover:bg-slate-700"
+                            onClick={() => updateKeyStatusMutation.mutate({ keyId: key.id, status: 'rotating' })}
+                            disabled={updateKeyStatusMutation.isPending || key.status === 'rotating'}
                             data-testid={`button-rotate-${key.id}`}
+                            title="Rotate Key"
                           >
                             <RotateCcw className="w-4 h-4" />
                           </Button>
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="text-yellow-500 hover:text-yellow-400 hover:bg-secondary"
-                            data-testid={`button-pause-${key.id}`}
+                            className="text-yellow-500 hover:text-yellow-400 hover:bg-slate-700"
+                            onClick={() => updateKeyStatusMutation.mutate({ keyId: key.id, status: key.status === 'active' ? 'expired' : 'active' })}
+                            disabled={updateKeyStatusMutation.isPending}
+                            data-testid={`button-toggle-${key.id}`}
+                            title={key.status === 'active' ? 'Disable Key' : 'Activate Key'}
                           >
                             <Pause className="w-4 h-4" />
                           </Button>
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="text-red-500 hover:text-red-400 hover:bg-secondary"
-                            data-testid={`button-delete-${key.id}`}
+                            className="text-red-500 hover:text-red-400 hover:bg-slate-700"
+                            onClick={() => revokeKeyMutation.mutate(key.id)}
+                            disabled={revokeKeyMutation.isPending || key.status === 'revoked'}
+                            data-testid={`button-revoke-${key.id}`}
+                            title="Revoke Key"
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
+                        {getExpirationWarning(key) && (
+                          <div className="flex items-center mt-1 text-yellow-500 text-xs">
+                            <AlertTriangle className="w-3 h-3 mr-1" />
+                            {getExpirationWarning(key)}
+                          </div>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}

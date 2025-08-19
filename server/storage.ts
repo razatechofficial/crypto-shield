@@ -1446,7 +1446,7 @@ export class DatabaseStorage implements IStorage {
     await db
       .update(encryptionKeys)
       .set({ status: status as any, updatedAt: new Date() })
-      .where(eq(encryptionKeys.keyId, keyId));
+      .where(eq(encryptionKeys.id, keyId));
   }
 
   // Security monitoring operations
