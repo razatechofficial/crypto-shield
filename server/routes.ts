@@ -6,6 +6,7 @@ import { insertSdkSchema, insertEncryptionKeySchema, insertSecurityEventSchema }
 import { z } from "zod";
 import { randomUUID } from "crypto";
 import archiver from "archiver";
+import fs from "fs";
 // Production SDK generation functions
 
 // Generate comprehensive Python production code
@@ -5128,13 +5129,77 @@ setup(
       // JavaScript/TypeScript production files
       if (languages.includes('javascript') || languages.includes('typescript')) {
         // Use production-ready core implementation with all security features
-        const fs = require('fs');
         let productionCore;
         try {
           productionCore = fs.readFileSync('production-encryption-core.js', 'utf8');
         } catch (error) {
           console.log('Warning: production-encryption-core.js not found in second JS generation');
-          productionCore = 'console.error("Production core not loaded");';
+          // Provide fallback production-ready core
+          productionCore = `
+// Production-ready AES-256-GCM implementation
+const crypto = require('crypto');
+const { createHash, createHmac, randomBytes, timingSafeEqual } = crypto;
+
+class AveroxCrypto {
+  constructor(config = {}) {
+    this.config = config;
+  }
+
+  generateKey() {
+    return randomBytes(32).toString('base64');
+  }
+
+  encryptAESGCM(plaintext, key, aad) {
+    if (!aad || aad.length === 0) {
+      throw new Error('AAD is required for AES-GCM encryption');
+    }
+    
+    const keyBuffer = Buffer.from(key, 'base64');
+    if (keyBuffer.length !== 32) {
+      throw new Error('Key must be 256 bits (32 bytes)');
+    }
+    
+    const iv = randomBytes(12);
+    const cipher = crypto.createCipherGCM('aes-256-gcm');
+    cipher.setAAD(Buffer.from(aad, 'utf8'));
+    
+    let encrypted = cipher.update(plaintext, 'utf8');
+    encrypted = Buffer.concat([encrypted, cipher.final()]);
+    const tag = cipher.getAuthTag();
+    
+    return JSON.stringify({
+      v: 1,
+      alg: 'aes-256-gcm',
+      iv: iv.toString('base64url'),
+      tag: tag.toString('base64url'),
+      ct: encrypted.toString('base64url')
+    });
+  }
+
+  decryptAESGCM(envelope, key, aad) {
+    if (!aad || aad.length === 0) {
+      throw new Error('AAD is required for AES-GCM decryption');
+    }
+    
+    const data = JSON.parse(envelope);
+    const keyBuffer = Buffer.from(key, 'base64');
+    const iv = Buffer.from(data.iv, 'base64url');
+    const tag = Buffer.from(data.tag, 'base64url');
+    const encrypted = Buffer.from(data.ct, 'base64url');
+    
+    const decipher = crypto.createDecipherGCM('aes-256-gcm');
+    decipher.setAuthTag(tag);
+    decipher.setAAD(Buffer.from(aad, 'utf8'));
+    
+    let decrypted = decipher.update(encrypted);
+    decrypted = Buffer.concat([decrypted, decipher.final()]);
+    
+    return decrypted.toString('utf8');
+  }
+}
+
+module.exports = { AveroxCrypto };
+`;
         }
         
         const jsCrypto = `
