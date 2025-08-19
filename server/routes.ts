@@ -9394,8 +9394,8 @@ ${Buffer.from(algorithmName + keySize + timestamp).toString('base64')}
       let allAlgorithms = [];
       
       try {
-        userSDKs = await storage.getUserSDKs(user.claims.sub) || [];
-        allAlgorithms = await storage.getAlgorithms() || [];
+        userSDKs = await storage.getSDKs(user.claims.sub) || [];
+        allAlgorithms = await storage.getEncryptionAlgorithms() || [];
       } catch (storageError) {
         console.log("Storage access issue, using defaults:", storageError);
         // Use default values if storage fails
@@ -9460,8 +9460,8 @@ ${Buffer.from(algorithmName + keySize + timestamp).toString('base64')}
       const migrationId = randomUUID();
       
       // Get user's actual SDKs and analyze their cryptographic algorithms
-      const userSDKs = await storage.getUserSDKs(user.claims.sub) || [];
-      const allAlgorithms = await storage.getAlgorithms() || [];
+      const userSDKs = await storage.getSDKs(user.claims.sub) || [];
+      const allAlgorithms = await storage.getEncryptionAlgorithms() || [];
       
       console.log(`📊 Analyzing ${userSDKs.length} SDKs and ${allAlgorithms.length} algorithms for quantum vulnerability`);
       
