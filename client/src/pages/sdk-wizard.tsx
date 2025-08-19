@@ -220,9 +220,9 @@ export default function SdkWizard() {
           if (securityLevel === 'confidential' || securityLevel === 'privacy-preserving') {
             return alg.type === 'tee' || alg.type === 'homomorphic' || alg.type === 'mpc' || alg.isPostQuantum;
           } else if (securityLevel === 'maximum') {
-            return alg.isPostQuantum || alg.keySize >= 256;
+            return alg.isPostQuantum || (alg.keySize && alg.keySize >= 256);
           } else if (securityLevel === 'enhanced') {
-            return alg.type === 'symmetric' && alg.keySize >= 256;
+            return alg.type === 'symmetric' && (alg.keySize && alg.keySize >= 256);
           } else {
             return alg.type === 'symmetric' && alg.isActive;
           }
@@ -793,7 +793,7 @@ export default function SdkWizard() {
                           onClick={() => {
                             const recommendedIds = recommendedAlgorithms.map(alg => alg.id);
                             setSelectedAlgorithms(prev => {
-                              const newSelection = [...new Set([...prev, ...recommendedIds])];
+                              const newSelection = Array.from(new Set([...prev, ...recommendedIds]));
                               return newSelection;
                             });
                           }}
