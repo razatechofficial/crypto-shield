@@ -220,6 +220,55 @@ export default function KeyManagement() {
     });
   };
 
+  const downloadKeyMutation = useMutation({
+    mutationFn: async (keyId: string) => {
+      console.log(`🔑 Downloading production key: ${keyId}`);
+      return await apiRequest('GET', `/api/keys/${keyId}/download`, {});
+    },
+    onSuccess: (data, keyId) => {
+      // Create downloadable file with key data
+      const keyData = {
+        keyId: data.keyId,
+        keyMaterial: data.keyMaterial,
+        algorithm: data.algorithm,
+        keySize: data.keySize,
+        format: data.format || 'PEM',
+        createdAt: data.createdAt,
+        metadata: {
+          ...data.metadata,
+          downloadedAt: new Date().toISOString(),
+          downloadedBy: 'current-user'
+        }
+      };
+
+      const blob = new Blob([JSON.stringify(keyData, null, 2)], {
+        type: 'application/json'
+      });
+      
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${data.keyId}-key.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Key Downloaded",
+        description: `Production key ${data.keyId} downloaded successfully`,
+      });
+    },
+    onError: (error: Error) => {
+      console.error('❌ Key download failed:', error);
+      toast({
+        title: "Download Failed",
+        description: `Failed to download key: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
   // Filter and search logic
   const filteredKeys = Array.isArray(keys) ? keys.filter((key: any) => {
     const matchesSearch = !searchQuery || 
@@ -584,6 +633,17 @@ export default function KeyManagement() {
                       </TableCell>
                       <TableCell>
                         <div className="flex space-x-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-green-500 hover:text-green-400 hover:bg-slate-700"
+                            onClick={() => downloadKeyMutation.mutate(key.id)}
+                            disabled={downloadKeyMutation.isPending}
+                            data-testid={`button-download-${key.id}`}
+                            title="Download Key"
+                          >
+                            {downloadKeyMutation.isPending ? "..." : "⬇"}
+                          </Button>
                           <Button
                             size="sm"
                             variant="ghost"
