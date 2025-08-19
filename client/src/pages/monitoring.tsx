@@ -41,21 +41,21 @@ export default function Monitoring() {
   const getMonitoringData = () => {
     const labels = Array.from({length: 24}, (_, i) => `${i}:00`);
     
-    // Use actual operation statistics
-    const stats = operationsData?.stats;
-    const hourlyOps = stats?.hourlyOperations || [];
+    // Use actual operation statistics 
+    const stats = operationsData && typeof operationsData === 'object' && 'stats' in operationsData ? operationsData.stats : null;
+    const hourlyOps = stats && typeof stats === 'object' && 'hourlyOperations' in stats ? stats.hourlyOperations : [];
     
     // Map real hourly data to chart format
     const encryptionData = labels.map((label) => {
-      const hourData = hourlyOps.find(h => h.hour === label);
+      const hourData = Array.isArray(hourlyOps) ? hourlyOps.find((h: any) => h.hour === label) : null;
       return hourData ? hourData.count : 0;
     });
 
     // Use real security incidents for threat data
     const threatData = labels.map(() => {
-      const criticalIncidents = incidents.filter(i => 
+      const criticalIncidents = Array.isArray(incidents) ? incidents.filter((i: any) => 
         i.severity === 'critical' || i.severity === 'high'
-      ).length;
+      ).length : 0;
       return criticalIncidents;
     });
 
@@ -118,18 +118,18 @@ export default function Monitoring() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {incidents.filter((i: any) => i.severity === 'critical' || i.severity === 'high').slice(0, 2).map((incident: any) => (
+              {Array.isArray(incidents) && incidents.filter((i: any) => i.severity === 'critical' || i.severity === 'high').slice(0, 2).map((incident: any) => (
                 <div key={incident.id} className={`flex items-center justify-between p-3 ${incident.severity === 'critical' ? 'bg-red-500' : 'bg-yellow-500'} bg-opacity-10 border ${incident.severity === 'critical' ? 'border-red-500' : 'border-yellow-500'} border-opacity-20 rounded-lg`}>
                   <div>
-                    <p className="text-foreground font-medium">{incident.incidentType.replace('_', ' ').toUpperCase()}</p>
-                    <p className="text-muted-foreground text-sm">{incident.description}</p>
+                    <p className="text-foreground font-medium">{(incident?.incident_type || incident?.incidentType || 'Unknown').toString().replace(/_/g, ' ').toUpperCase()}</p>
+                    <p className="text-muted-foreground text-sm">{incident?.description || 'No description available'}</p>
                   </div>
                   <Badge className={`${incident.severity === 'critical' ? 'bg-red-500' : 'bg-yellow-500'} text-white`}>
-                    {incident.status.toUpperCase()}
+                    {(incident?.status || 'UNKNOWN').toString().toUpperCase()}
                   </Badge>
                 </div>
               ))}
-              {(!incidents || incidents.filter((i: any) => i.severity === 'critical' || i.severity === 'high').length === 0) && (
+              {(!Array.isArray(incidents) || incidents.filter((i: any) => i.severity === 'critical' || i.severity === 'high').length === 0) && (
                 <div className="text-center py-4">
                   <p className="text-muted-foreground">No critical incidents detected</p>
                 </div>
@@ -148,9 +148,9 @@ export default function Monitoring() {
               <div>
                 <div className="flex justify-between text-sm mb-1">
                   <span className="text-muted-foreground">Encryption Performance</span>
-                  <span className="text-green-500">{healthData?.encryptionPerformance?.toFixed(1) || '100.0'}%</span>
+                  <span className="text-green-500">{(healthData && typeof healthData === 'object' && 'encryptionPerformance' in healthData && typeof healthData.encryptionPerformance === 'number') ? healthData.encryptionPerformance.toFixed(1) : '100.0'}%</span>
                 </div>
-                <Progress value={healthData?.encryptionPerformance || 100} className="h-2" />
+                <Progress value={(healthData && typeof healthData === 'object' && 'encryptionPerformance' in healthData && typeof healthData.encryptionPerformance === 'number') ? healthData.encryptionPerformance : 100} className="h-2" />
               </div>
               <div>
                 <div className="flex justify-between text-sm mb-1">
@@ -254,23 +254,23 @@ export default function Monitoring() {
               {events.map((event: any) => (
                 <div key={event.id} className="flex items-center space-x-4 p-3 bg-muted rounded-lg">
                   <div className={`w-8 h-8 ${getEventColor(event.severity)} bg-opacity-20 rounded-lg flex items-center justify-center`}>
-                    {getEventIcon(event.eventType)}
+                    {getEventIcon(event?.eventType || event?.event_type || event?.incident_type || 'unknown')}
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center space-x-2">
                       <p className="text-foreground font-medium" data-testid={`event-type-${event.id}`}>
-                        {event.eventType.replace('_', ' ').toUpperCase()}
+                        {(event?.eventType || event?.event_type || event?.incident_type || 'Unknown').toString().replace(/_/g, ' ').toUpperCase()}
                       </p>
                       <Badge className={`${getEventColor(event.severity)} text-white text-xs`}>
-                        {event.severity.toUpperCase()}
+                        {(event?.severity || 'UNKNOWN').toString().toUpperCase()}
                       </Badge>
                     </div>
                     <p className="text-muted-foreground text-sm" data-testid={`event-description-${event.id}`}>
-                      {event.description}
+                      {event?.description || 'No description available'}
                     </p>
                   </div>
                   <span className="text-muted-foreground text-sm" data-testid={`event-time-${event.id}`}>
-                    {formatDistanceToNow(new Date(event.createdAt), { addSuffix: true })}
+                    {event?.createdAt ? formatDistanceToNow(new Date(event.createdAt), { addSuffix: true }) : 'Just now'}
                   </span>
                 </div>
               ))}
