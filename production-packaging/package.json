@@ -1,0 +1,77 @@
+{
+  "name": "@averox/crypto-sdk",
+  "version": "2.0.0",
+  "description": "Production-grade cryptographic SDK with enterprise security features",
+  "main": "dist/cjs/index.js",
+  "module": "dist/esm/index.js",
+  "types": "dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js"
+    }
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE",
+    "SECURITY.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "npm run build:cjs && npm run build:esm && npm run build:types",
+    "build:cjs": "babel src --out-dir dist/cjs --env-name cjs",
+    "build:esm": "babel src --out-dir dist/esm --env-name esm",
+    "build:types": "tsc --emitDeclarationOnly --outDir dist/types",
+    "test": "jest",
+    "test:nist": "node test/nist-vectors.js",
+    "test:security": "npm audit && npm run test:nist",
+    "lint": "eslint src/ test/",
+    "prebuild": "npm run lint && npm run test:security",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "cryptography",
+    "encryption",
+    "aes-gcm",
+    "enterprise",
+    "security",
+    "nist",
+    "post-quantum-ready"
+  ],
+  "author": "Averox Security Platform",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/averox/crypto-sdk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/averox/crypto-sdk/issues"
+  },
+  "homepage": "https://averox.com/crypto-sdk",
+  "dependencies": {
+    "crypto": "^1.0.1"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.22.0",
+    "@babel/core": "^7.22.0",
+    "@babel/preset-env": "^7.22.0",
+    "@babel/preset-typescript": "^7.22.0",
+    "@types/node": "^20.0.0",
+    "eslint": "^8.44.0",
+    "jest": "^29.6.0",
+    "typescript": "^5.1.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "security": {
+    "advisories": "enabled",
+    "audit": "strict"
+  },
+  "funding": {
+    "type": "commercial",
+    "url": "https://averox.com/enterprise"
+  }
+}

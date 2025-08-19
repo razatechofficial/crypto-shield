@@ -1,0 +1,264 @@
+// Averox Cryptographic SDK - Android/Kotlin Implementation
+// Production-grade encryption with enterprise security features
+
+plugins {
+    id 'com.android.library'
+    id 'org.jetbrains.kotlin.android'
+    id 'maven-publish'
+    id 'signing'
+    id 'org.jetbrains.dokka'
+}
+
+android {
+    namespace 'com.averox.crypto'
+    compileSdk 34
+
+    defaultConfig {
+        minSdk 23
+        targetSdk 34
+        
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        consumerProguardFiles "consumer-rules.pro"
+        
+        // Native library configuration
+        ndk {
+            abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86_64'
+        }
+        
+        // NIST compliance version
+        buildConfigField "String", "NIST_COMPLIANCE_VERSION", '"2024.1"'
+        buildConfigField "boolean", "PRODUCTION_BUILD", "true"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            
+            // Security hardening
+            ndk {
+                debugSymbolLevel 'NONE'
+            }
+        }
+        debug {
+            testCoverageEnabled true
+            // Enable sanitizers for debug builds
+            ndk {
+                debugSymbolLevel 'FULL'
+            }
+        }
+    }
+    
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    
+    kotlinOptions {
+        jvmTarget = '1.8'
+        freeCompilerArgs += [
+            '-opt-in=kotlin.RequiresOptIn',
+            '-Xjvm-default=all'
+        ]
+    }
+    
+    // Native library build
+    externalNativeBuild {
+        cmake {
+            path file('src/main/cpp/CMakeLists.txt')
+            version '3.22.1'
+        }
+    }
+    
+    // Security configurations
+    packagingOptions {
+        doNotStrip "*/arm64-v8a/*.so"
+        doNotStrip "*/armeabi-v7a/*.so"
+        doNotStrip "*/x86_64/*.so"
+    }
+    
+    // Test options
+    testOptions {
+        unitTests {
+            includeAndroidResources = true
+        }
+    }
+    
+    lint {
+        abortOnError true
+        checkReleaseBuilds true
+        checkDependencies true
+        
+        // Security-focused lint checks
+        check 'Security', 'TrustAllX509TrustManager', 'BadHostnameVerifier'
+        
+        disable 'GoogleAppIndexingWarning'
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core-ktx:1.12.0'
+    implementation 'androidx.security:security-crypto:1.1.0-alpha06'
+    
+    // Cryptographic dependencies
+    implementation 'org.bouncycastle:bcprov-jdk18on:1.76'
+    implementation 'org.bouncycastle:bcpkix-jdk18on:1.76'
+    
+    // Telemetry (optional)
+    implementation 'io.opentelemetry:opentelemetry-api:1.32.0'
+    implementation 'io.opentelemetry:opentelemetry-sdk:1.32.0'
+    
+    // Testing
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.robolectric:robolectric:4.11.1'
+    testImplementation 'androidx.test.ext:junit:1.1.5'
+    testImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+    
+    // NIST test vectors
+    testImplementation 'org.json:json:20231013'
+    
+    // Security testing
+    testImplementation 'org.mockito:mockito-core:5.7.0'
+    testImplementation 'org.mockito:mockito-kotlin:5.2.1'
+    
+    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+}
+
+// Maven publishing configuration
+publishing {
+    publications {
+        release(MavenPublication) {
+            from components.release
+            
+            groupId = 'com.averox'
+            artifactId = 'crypto-sdk'
+            version = '2.0.0'
+            
+            pom {
+                name = 'Averox Cryptographic SDK'
+                description = 'Production-grade cryptographic SDK with enterprise security features'
+                url = 'https://github.com/averox/crypto-sdk-android'
+                
+                licenses {
+                    license {
+                        name = 'MIT License'
+                        url = 'https://opensource.org/licenses/MIT'
+                    }
+                }
+                
+                developers {
+                    developer {
+                        id = 'averox-team'
+                        name = 'Averox Security Team'
+                        email = 'security@averox.com'
+                    }
+                }
+                
+                scm {
+                    connection = 'scm:git:git://github.com/averox/crypto-sdk-android.git'
+                    developerConnection = 'scm:git:ssh://github.com/averox/crypto-sdk-android.git'
+                    url = 'https://github.com/averox/crypto-sdk-android'
+                }
+            }
+        }
+    }
+    
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/averox/crypto-sdk-android")
+            credentials {
+                username = project.findProperty("gpr.user") ?: System.getenv("USERNAME")
+                password = project.findProperty("gpr.key") ?: System.getenv("TOKEN")
+            }
+        }
+    }
+}
+
+// Signing for Maven Central
+signing {
+    required { gradle.taskGraph.hasTask("publish") }
+    sign publishing.publications.release
+}
+
+// Security auditing tasks
+task securityAudit {
+    doLast {
+        println "Running security audit..."
+        exec {
+            commandLine 'gradle', 'dependencyCheck'
+        }
+    }
+}
+
+task nistValidation {
+    doLast {
+        println "Running NIST test vector validation..."
+        exec {
+            commandLine './gradlew', 'testDebugUnitTest', '--tests', '*NISTVectorTest*'
+        }
+    }
+}
+
+// Custom tasks for production builds
+task productionBuild {
+    dependsOn 'securityAudit', 'nistValidation', 'assembleRelease'
+    description 'Complete production build with security validation'
+}
+
+// Code coverage
+apply plugin: 'jacoco'
+
+jacoco {
+    toolVersion = "0.8.8"
+}
+
+task jacocoTestReport(type: JacocoReport, dependsOn: ['testDebugUnitTest']) {
+    reports {
+        xml.required = true
+        html.required = true
+    }
+    
+    def fileFilter = [
+        '**/R.class',
+        '**/R$*.class',
+        '**/BuildConfig.*',
+        '**/Manifest*.*',
+        '**/*Test*.*',
+        'android/**/*.*'
+    ]
+    
+    def kotlinTree = fileTree(dir: "$project.buildDir/tmp/kotlin-classes/debug", excludes: fileFilter)
+    def javaTree = fileTree(dir: "$project.buildDir/intermediates/classes/debug", excludes: fileFilter)
+    def mainSrc = "$project.projectDir/src/main/kotlin"
+    
+    sourceDirectories.setFrom(files([mainSrc]))
+    classDirectories.setFrom(files([kotlinTree, javaTree]))
+    executionData.setFrom(fileTree(dir: project.buildDir, includes: [
+        'jacoco/testDebugUnitTest.exec', 'outputs/code-coverage/connected/*coverage.ec'
+    ]))
+}
+
+// Documentation generation
+dokkaHtml.configure {
+    outputDirectory.set(file("$buildDir/docs/kotlin"))
+    
+    dokkaSourceSets {
+        named("main") {
+            moduleName.set("Averox Crypto SDK")
+            moduleVersion.set("2.0.0")
+            
+            includes.from("README.md")
+            
+            sourceLink {
+                localDirectory.set(file("src/main/kotlin"))
+                remoteUrl.set(uri("https://github.com/averox/crypto-sdk-android/tree/main/src/main/kotlin").toURL())
+                remoteLineSuffix.set("#L")
+            }
+        }
+    }
+}
+
+// ProGuard rules for release builds
+android.buildTypes.release.proguardFile 'proguard-averox-crypto.pro'
