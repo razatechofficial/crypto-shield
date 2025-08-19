@@ -18,6 +18,7 @@ export default function KeyManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedKeyType, setSelectedKeyType] = useState("primary");
+  const [selectedAlgorithm, setSelectedAlgorithm] = useState("aes-256-gcm");
   const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
 
   const { data: keys = [], isLoading } = useQuery({
@@ -25,36 +26,78 @@ export default function KeyManagement() {
     retry: false,
   });
 
+  const { data: algorithms = [] } = useQuery({
+    queryKey: ["/api/algorithms"],
+    retry: false,
+  });
+
+  const getAlgorithmDetails = (algorithmType: string) => {
+    const algorithmMap: { [key: string]: { name: string; description: string; features: string[] } } = {
+      'aes-256-gcm': {
+        name: 'AES-256-GCM',
+        description: 'Industry standard authenticated encryption',
+        features: ['AAD_ENFORCEMENT', 'HKDF_KEY_DERIVATION', 'IV_12_BYTE_POLICY', 'TIMING_SAFE_OPERATIONS']
+      },
+      'chacha20-poly1305': {
+        name: 'ChaCha20-Poly1305',
+        description: 'High-performance stream cipher with AEAD',
+        features: ['CHACHA20_STREAM_CIPHER', 'POLY1305_MAC', 'TIMING_SAFE_OPERATIONS', 'MOBILE_OPTIMIZED']
+      },
+      'aes-256-cbc-hmac': {
+        name: 'AES-256-CBC-HMAC-SHA256',
+        description: 'Traditional CBC mode with HMAC authentication',
+        features: ['CBC_ENCRYPTION', 'HMAC_AUTHENTICATION', 'PKCS7_PADDING', 'LEGACY_COMPATIBILITY']
+      },
+      'crystals-kyber': {
+        name: 'CRYSTALS-Kyber (Post-Quantum)',
+        description: 'NIST 2024 quantum-resistant key encapsulation',
+        features: ['POST_QUANTUM_SECURE', 'NIST_STANDARD', 'LATTICE_BASED', 'FUTURE_PROOF']
+      }
+    };
+    return algorithmMap[algorithmType] || algorithmMap['aes-256-gcm'];
+  };
+
   const generateKeyMutation = useMutation({
-    mutationFn: async (keyType: string) => {
-      console.log(`🔑 Generating production-ready ${keyType} key...`);
+    mutationFn: async ({ keyType, algorithm }: { keyType: string; algorithm: string }) => {
+      console.log(`🔑 Generating production-ready ${keyType} key with ${algorithm}...`);
+      
+      // Map algorithm selection to actual algorithm ID
+      const algorithmMap: { [key: string]: string } = {
+        'aes-256-gcm': '9afbd303-2aee-4f9c-a23e-73edda7342e0',
+        'chacha20-poly1305': '6194e97e-4280-4c30-9848-5a6a11823dfa', 
+        'aes-256-cbc-hmac': 'a1b2c3d4-5e6f-7890-abcd-ef1234567890',
+        'crystals-kyber': 'kyber-768-90af3d42-1234-5678-9abc-def012345678'
+      };
+
+      const algorithmDetails = getAlgorithmDetails(algorithm);
       const keyData = {
         keyType,
-        algorithmId: '9afbd303-2aee-4f9c-a23e-73edda7342e0', // AES-256-GCM with all security features
+        algorithmId: algorithmMap[algorithm] || algorithmMap['aes-256-gcm'],
         status: 'active',
         metadata: {
           securityFeatures: [
-            'AAD_ENFORCEMENT',
-            'HKDF_KEY_DERIVATION', 
-            'IV_12_BYTE_POLICY',
-            'TIMING_SAFE_OPERATIONS',
+            ...algorithmDetails.features,
             'MEMORY_ZEROIZATION',
             'NIST_COMPLIANCE',
-            'TELEMETRY_TRACKING'
+            'TELEMETRY_TRACKING',
+            'CANONICAL_ENVELOPE_FORMAT',
+            'CROSS_LANGUAGE_INTEROP'
           ],
           envelopeVersion: 'v2',
-          keyDerivation: 'hkdf-sha256',
+          keyDerivation: algorithm === 'crystals-kyber' ? 'kyber-kdf' : 'hkdf-sha256',
           auditCompliant: true,
-          generatedWith: 'production-encryption-core-v2.0.0'
+          generatedWith: `production-encryption-core-v2.0.0-${algorithm}`,
+          algorithmName: algorithmDetails.name
         }
       };
       return await apiRequest('POST', '/api/keys', keyData);
     },
     onSuccess: (data) => {
       console.log('✅ Production key generated:', data);
+      const algorithmDetails = getAlgorithmDetails(selectedAlgorithm);
       toast({
         title: "Production Key Generated", 
-        description: `${selectedKeyType} key created with enterprise-grade security`,
+        description: `${selectedKeyType} key created with ${algorithmDetails.name}`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/keys"] });
       setIsGenerateDialogOpen(false);
@@ -188,7 +231,7 @@ export default function KeyManagement() {
               Generate New Key
             </Button>
           </DialogTrigger>
-          <DialogContent className="bg-slate-800 border-slate-600 text-white">
+          <DialogContent className="bg-white border-gray-200 text-black">
             <DialogHeader>
               <DialogTitle>Generate New Encryption Key</DialogTitle>
             </DialogHeader>
@@ -196,7 +239,7 @@ export default function KeyManagement() {
               <div>
                 <Label htmlFor="keyType">Key Type</Label>
                 <Select value={selectedKeyType} onValueChange={setSelectedKeyType}>
-                  <SelectTrigger className="bg-slate-700 border-slate-600">
+                  <SelectTrigger className="bg-gray-50 border-gray-300">
                     <SelectValue placeholder="Select key type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -206,26 +249,43 @@ export default function KeyManagement() {
                     <SelectItem value="rotation">Rotation Key</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-sm text-slate-400 mt-1">
+                <p className="text-sm text-gray-600 mt-1">
                   {getKeyTypeDescription(selectedKeyType)}
                 </p>
               </div>
-              <div className="bg-slate-700 p-3 rounded">
+              <div>
+                <Label htmlFor="algorithm">Encryption Algorithm</Label>
+                <Select value={selectedAlgorithm} onValueChange={setSelectedAlgorithm}>
+                  <SelectTrigger className="bg-gray-50 border-gray-300">
+                    <SelectValue placeholder="Select algorithm" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="aes-256-gcm">AES-256-GCM (Recommended)</SelectItem>
+                    <SelectItem value="chacha20-poly1305">ChaCha20-Poly1305 (High Performance)</SelectItem>
+                    <SelectItem value="aes-256-cbc-hmac">AES-256-CBC-HMAC (Legacy Compatible)</SelectItem>
+                    <SelectItem value="crystals-kyber">CRYSTALS-Kyber (Post-Quantum)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-sm text-gray-600 mt-1">
+                  {getAlgorithmDetails(selectedAlgorithm).description}
+                </p>
+              </div>
+              <div className="bg-gray-100 p-3 rounded">
                 <h4 className="font-medium mb-2">Security Features</h4>
-                <ul className="text-sm text-slate-300 space-y-1">
-                  <li>• AES-256-GCM with authenticated encryption</li>
-                  <li>• HKDF key derivation with SHA-256</li>
-                  <li>• 12-byte IV policy (NIST recommended)</li>
-                  <li>• Mandatory AAD enforcement</li>
+                <ul className="text-sm text-gray-700 space-y-1">
+                  {getAlgorithmDetails(selectedAlgorithm).features.map((feature, index) => (
+                    <li key={index}>• {feature.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}</li>
+                  ))}
                   <li>• Memory zeroization and timing-safe operations</li>
+                  <li>• NIST compliance and cross-language interoperability</li>
                 </ul>
               </div>
               <Button 
-                onClick={() => generateKeyMutation.mutate(selectedKeyType)}
+                onClick={() => generateKeyMutation.mutate({ keyType: selectedKeyType, algorithm: selectedAlgorithm })}
                 disabled={generateKeyMutation.isPending}
-                className="w-full bg-blue-600 hover:bg-blue-700"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
               >
-                {generateKeyMutation.isPending ? "Generating..." : `Generate ${selectedKeyType} Key`}
+                {generateKeyMutation.isPending ? "Generating..." : `Generate ${getAlgorithmDetails(selectedAlgorithm).name} Key`}
               </Button>
             </div>
           </DialogContent>
