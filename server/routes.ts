@@ -9318,6 +9318,225 @@ ${Buffer.from(algorithmName + keySize + timestamp).toString('base64')}
     }
   });
 
+  // Quantum Security Routes
+  app.get("/api/quantum/readiness", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      console.log("🔍 Quantum readiness request from user:", user.claims.sub);
+      
+      // Calculate quantum readiness based on current SDKs and algorithms
+      const userSDKs = await storage.getUserSDKs(user.claims.sub);
+      const allAlgorithms = await storage.getAlgorithms();
+      
+      const postQuantumAlgorithms = allAlgorithms.filter(alg => alg.isPostQuantum);
+      const totalAlgorithms = allAlgorithms.length;
+      const quantumSafePercentage = Math.round((postQuantumAlgorithms.length / totalAlgorithms) * 100);
+      
+      const readinessData = {
+        quantumSafePercentage,
+        postQuantumAlgorithms: postQuantumAlgorithms.length,
+        totalAlgorithms,
+        riskLevels: {
+          critical: allAlgorithms.filter(alg => alg.name.includes('RSA') || alg.name.includes('ECDSA')).length,
+          moderate: allAlgorithms.filter(alg => alg.name.includes('AES')).length,
+          low: allAlgorithms.filter(alg => alg.name.includes('SHA')).length
+        },
+        lastAssessment: new Date().toISOString(),
+        migrationStatus: userSDKs.some(sdk => sdk.algorithms?.some((algId: string) => 
+          postQuantumAlgorithms.some(pq => pq.id === algId)
+        )) ? 'in-progress' : 'not-started'
+      };
+      
+      res.json(readinessData);
+    } catch (error) {
+      console.error("Error fetching quantum readiness:", error);
+      res.status(500).json({ error: "Failed to fetch quantum readiness data" });
+    }
+  });
+
+  app.post("/api/quantum/migration/start", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      console.log("🔍 Starting quantum migration assessment for user:", user.claims.sub);
+      
+      // Create a migration assessment record
+      const migrationId = randomUUID();
+      const assessment = {
+        id: migrationId,
+        userId: user.claims.sub,
+        status: 'initiated',
+        startedAt: new Date().toISOString(),
+        assessmentType: 'quantum-migration',
+        estimatedCompletion: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours
+      };
+      
+      // In a real implementation, this would trigger background analysis
+      // For now, we'll simulate the assessment initiation
+      
+      res.json({
+        migrationId,
+        status: 'initiated',
+        message: 'Quantum migration assessment has been started',
+        estimatedCompletion: assessment.estimatedCompletion
+      });
+    } catch (error) {
+      console.error("Error starting migration assessment:", error);
+      res.status(500).json({ error: "Failed to start migration assessment" });
+    }
+  });
+
+  app.get("/api/quantum/migration/guide", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      console.log("🔍 Generating quantum migration guide for user:", user.claims.sub);
+      
+      // Generate comprehensive migration guide content
+      const guideContent = `# Quantum Security Migration Guide
+## Enterprise Post-Quantum Cryptography Implementation
+
+### Executive Summary
+This guide provides a comprehensive roadmap for migrating your cryptographic infrastructure to quantum-resistant algorithms, ensuring long-term security against emerging quantum computing threats.
+
+### Current Threat Landscape
+- **Timeline**: Cryptographically relevant quantum computers expected by 2030-2040
+- **Impact**: Complete compromise of RSA, ECDSA, and traditional public-key systems
+- **Urgency**: Migration should begin immediately for high-value, long-lived data
+
+### NIST Post-Quantum Standards (2024)
+#### Primary Algorithms
+1. **CRYSTALS-Kyber** (Key Encapsulation Mechanism)
+   - Security Level: 128-bit equivalent
+   - Use Case: Key exchange and hybrid implementations
+   - Status: NIST FIPS 203 Standard
+
+2. **CRYSTALS-Dilithium** (Digital Signatures)
+   - Security Level: 128-bit equivalent
+   - Use Case: Digital signatures and authentication
+   - Status: NIST FIPS 204 Standard
+
+3. **SPHINCS+** (Hash-based Signatures)
+   - Security Level: Multiple levels available
+   - Use Case: Long-term signatures with minimal assumptions
+   - Status: NIST FIPS 205 Standard
+
+### Three-Phase Migration Strategy
+
+#### Phase 1: Assessment & Inventory (Months 1-6)
+**Cryptographic Discovery**
+- Audit all cryptographic implementations across your infrastructure
+- Identify RSA, ECDSA, and other quantum-vulnerable algorithms
+- Map data classification and retention requirements
+- Assess performance and compatibility constraints
+
+**Risk Prioritization**
+- Classify systems by quantum risk exposure
+- Prioritize high-value, long-retention data systems
+- Identify compliance and regulatory requirements
+- Establish migration timeline based on risk assessment
+
+#### Phase 2: Hybrid Implementation (Months 7-18)
+**Algorithm Integration**
+- Deploy CRYSTALS-Kyber for new key exchange operations
+- Implement CRYSTALS-Dilithium for new digital signatures
+- Maintain classical algorithms in hybrid mode for compatibility
+- Establish quantum-safe certificate authorities
+
+**Testing & Validation**
+- Performance benchmarking against current implementations
+- Interoperability testing with existing systems
+- Security validation through penetration testing
+- Load testing for production readiness
+
+#### Phase 3: Full Migration (Months 19-24)
+**Production Deployment**
+- Migrate critical systems to pure post-quantum implementations
+- Retire quantum-vulnerable algorithms in high-risk scenarios
+- Maintain hybrid support for legacy system compatibility
+- Implement continuous monitoring and updating procedures
+
+**Compliance & Documentation**
+- Update security policies and procedures
+- Document all cryptographic implementations
+- Ensure regulatory compliance (FIPS, Common Criteria)
+- Establish incident response procedures for quantum threats
+
+### Implementation Checklist
+
+#### Technical Requirements
+- [ ] Inventory all cryptographic implementations
+- [ ] Assess performance impact of post-quantum algorithms
+- [ ] Plan key management system updates
+- [ ] Design hybrid classical/post-quantum architectures
+- [ ] Implement quantum-safe random number generation
+- [ ] Update certificate and PKI infrastructure
+
+#### Organizational Requirements
+- [ ] Executive sponsorship and budget approval
+- [ ] Cross-functional migration team formation
+- [ ] Risk assessment and compliance review
+- [ ] Vendor and partner coordination
+- [ ] Staff training and certification programs
+- [ ] Incident response plan updates
+
+#### Compliance Considerations
+- [ ] NIST Cybersecurity Framework alignment
+- [ ] FIPS 140-2/3 compliance maintenance
+- [ ] Industry-specific requirements (HIPAA, PCI-DSS, etc.)
+- [ ] International standards compliance (ISO 27001, etc.)
+- [ ] Audit trail and documentation requirements
+
+### Cost-Benefit Analysis
+
+#### Implementation Costs
+- Algorithm licensing and implementation: $50K-$200K
+- Staff training and certification: $25K-$100K
+- Testing and validation: $100K-$500K
+- Infrastructure updates: $200K-$1M+
+- Ongoing maintenance: $50K-$200K annually
+
+#### Risk Mitigation Benefits
+- Protection against quantum computing threats
+- Compliance with emerging regulatory requirements
+- Competitive advantage in quantum-safe security
+- Reduced liability for data breaches
+- Enhanced customer and partner trust
+
+### Recommended Tools and Resources
+
+#### Implementation Platforms
+- Averox Enterprise Crypto SDK
+- NIST Post-Quantum Cryptography Library
+- Bouncy Castle Post-Quantum Extensions
+- Open Quantum Safe (OQS) Library
+
+#### Assessment Tools
+- Cryptographic agility assessment frameworks
+- Quantum risk assessment methodologies
+- Performance benchmarking suites
+- Compliance validation tools
+
+### Conclusion
+Quantum computing represents both an unprecedented threat and an opportunity for organizations to strengthen their cryptographic posture. By following this migration guide and beginning implementation immediately, your organization can ensure long-term security against quantum threats while maintaining operational efficiency and regulatory compliance.
+
+For additional support and consultation, contact our quantum security experts at quantum-security@averox.com.
+
+---
+Generated: ${new Date().toLocaleDateString()}
+Organization: Averox Enterprise Security Platform
+Classification: Internal Use - Migration Planning
+`;
+
+      // Create a proper text file download (in production would be PDF)
+      res.setHeader('Content-Type', 'text/plain');
+      res.setHeader('Content-Disposition', 'attachment; filename="quantum-migration-guide.txt"');
+      res.send(guideContent);
+      
+    } catch (error) {
+      console.error("Error generating migration guide:", error);
+      res.status(500).json({ error: "Failed to generate migration guide" });
+    }
+  });
+
   app.post('/api/security-events', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;

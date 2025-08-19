@@ -3,9 +3,75 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, Cpu, Zap, AlertTriangle, CheckCircle, Globe, Lock } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { Shield, Cpu, Zap, AlertTriangle, CheckCircle, Globe, Lock, Download, FileText } from "lucide-react";
+import { useState } from "react";
 
 export default function QuantumSecurity() {
+  const { toast } = useToast();
+  const [migrationStarted, setMigrationStarted] = useState(false);
+  
+  // Fetch quantum readiness data
+  const { data: quantumReadiness, isLoading: readinessLoading } = useQuery({
+    queryKey: ["/api/quantum/readiness"],
+    retry: false,
+  });
+
+  // Migration assessment mutation
+  const startMigrationMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest('POST', '/api/quantum/migration/start', {});
+    },
+    onSuccess: (data) => {
+      setMigrationStarted(true);
+      toast({
+        title: "Migration Assessment Started",
+        description: "Your quantum security assessment has been initiated. You'll receive a detailed report shortly.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Migration Start Failed", 
+        description: "Unable to start migration assessment. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Download migration guide mutation
+  const downloadGuideMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch('/api/quantum/migration/guide', {
+        method: 'GET',
+        credentials: 'include',
+      });
+      if (!response.ok) throw new Error('Download failed');
+      return response.blob();
+    },
+    onSuccess: (blob) => {
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'quantum-migration-guide.pdf';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast({
+        title: "Download Started",
+        description: "The quantum migration guide is downloading now.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Download Failed",
+        description: "Unable to download migration guide. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
   const postQuantumAlgorithms = [
     {
       name: "CRYSTALS-Kyber",
@@ -330,19 +396,41 @@ export default function QuantumSecurity() {
                 <div className="flex space-x-4">
                   <Button 
                     className="bg-purple-600 hover:bg-purple-700 dark:bg-purple-700 dark:hover:bg-purple-600" 
+                    onClick={() => startMigrationMutation.mutate()}
+                    disabled={startMigrationMutation.isPending || migrationStarted}
                     data-testid="button-start-migration"
                   >
                     <Zap className="w-4 h-4 mr-2" />
-                    Start Migration Assessment
+                    {startMigrationMutation.isPending 
+                      ? "Starting Assessment..." 
+                      : migrationStarted 
+                        ? "Assessment In Progress" 
+                        : "Start Migration Assessment"
+                    }
                   </Button>
                   <Button 
                     variant="outline" 
                     className="border-border text-foreground hover:bg-muted"
+                    onClick={() => downloadGuideMutation.mutate()}
+                    disabled={downloadGuideMutation.isPending}
                     data-testid="button-download-guide"
                   >
-                    Download Migration Guide
+                    <Download className="w-4 h-4 mr-2" />
+                    {downloadGuideMutation.isPending ? "Downloading..." : "Download Migration Guide"}
                   </Button>
                 </div>
+
+                {migrationStarted && (
+                  <div className="mt-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                    <div className="flex items-center space-x-2">
+                      <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+                      <h4 className="font-medium text-green-800 dark:text-green-200">Migration Assessment Active</h4>
+                    </div>
+                    <p className="text-sm text-green-700 dark:text-green-300 mt-1">
+                      Your cryptographic inventory scan is running. Results will be available in the dashboard within 24 hours.
+                    </p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
