@@ -175,6 +175,7 @@ export default function KeyManagement() {
     mutationFn: async ({ keyId, status }: { keyId: string; status: string }) => {
       return await apiRequest('PATCH', `/api/keys/${keyId}/status`, { status });
     },
+    mutationKey: ['updateKeyStatus'],
     onSuccess: (_, variables) => {
       toast({
         title: "Key Status Updated",
@@ -195,6 +196,7 @@ export default function KeyManagement() {
     mutationFn: async (keyId: string) => {
       return await apiRequest('DELETE', `/api/keys/${keyId}`, {});
     },
+    mutationKey: ['revokeKey'],
     onSuccess: () => {
       toast({
         title: "Key Revoked",
@@ -613,7 +615,7 @@ export default function KeyManagement() {
                 </TableHeader>
                 <TableBody>
                   {filteredKeys.map((key: any) => (
-                    <TableRow key={key.id} className="border-border" onClick={(e) => e.stopPropagation()}>
+                    <TableRow key={key.id} className="border-border">
                       <TableCell className="text-foreground w-12">
                         <input 
                           type="checkbox" 
@@ -644,7 +646,12 @@ export default function KeyManagement() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <div className="flex space-x-1" onClick={(e) => e.stopPropagation()}>
+                        <div 
+                          className="flex space-x-1" 
+                          onClick={(e) => e.stopPropagation()} 
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onMouseUp={(e) => e.stopPropagation()}
+                        >
                           <Button
                             size="sm"
                             variant="ghost"
@@ -652,6 +659,7 @@ export default function KeyManagement() {
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
+                              e.nativeEvent.stopImmediatePropagation();
                               if (!downloadKeyMutation.isPending) {
                                 downloadKeyMutation.mutate(key.id);
                               }
@@ -669,6 +677,7 @@ export default function KeyManagement() {
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
+                              e.nativeEvent.stopImmediatePropagation();
                               copyToClipboard(key.keyId, 'Key ID');
                             }}
                             data-testid={`button-copy-${key.id}`}
@@ -683,6 +692,7 @@ export default function KeyManagement() {
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
+                              e.nativeEvent.stopImmediatePropagation();
                               if (!updateKeyStatusMutation.isPending && key.status !== 'rotating') {
                                 updateKeyStatusMutation.mutate({ keyId: key.id, status: 'rotating' });
                               }
@@ -700,6 +710,7 @@ export default function KeyManagement() {
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
+                              e.nativeEvent.stopImmediatePropagation();
                               if (!updateKeyStatusMutation.isPending) {
                                 updateKeyStatusMutation.mutate({ keyId: key.id, status: key.status === 'active' ? 'expired' : 'active' });
                               }
@@ -717,6 +728,7 @@ export default function KeyManagement() {
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
+                              e.nativeEvent.stopImmediatePropagation();
                               if (!revokeKeyMutation.isPending && key.status !== 'revoked') {
                                 revokeKeyMutation.mutate(key.id);
                               }
