@@ -223,7 +223,18 @@ export default function KeyManagement() {
   const downloadKeyMutation = useMutation({
     mutationFn: async (keyId: string) => {
       console.log(`🔑 Downloading production key: ${keyId}`);
-      return await apiRequest('GET', `/api/keys/${keyId}/download`, {});
+      const response = await fetch(`/api/keys/${keyId}/download`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      return await response.json();
     },
     onSuccess: (data, keyId) => {
       // Create downloadable file with key data
