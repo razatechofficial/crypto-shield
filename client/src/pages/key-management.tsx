@@ -648,7 +648,11 @@ export default function KeyManagement() {
                             size="sm"
                             variant="ghost"
                             className="text-green-500 hover:text-green-400 hover:bg-slate-700"
-                            onClick={() => downloadKeyMutation.mutate(key.id)}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              downloadKeyMutation.mutate(key.id);
+                            }}
                             disabled={downloadKeyMutation.isPending}
                             data-testid={`button-download-${key.id}`}
                             title="Download Key"
@@ -659,7 +663,11 @@ export default function KeyManagement() {
                             size="sm"
                             variant="ghost"
                             className="text-blue-500 hover:text-blue-400 hover:bg-slate-700"
-                            onClick={() => copyToClipboard(key.keyId, 'Key ID')}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              copyToClipboard(key.keyId, 'Key ID');
+                            }}
                             data-testid={`button-copy-${key.id}`}
                             title="Copy Key ID"
                           >
@@ -669,7 +677,11 @@ export default function KeyManagement() {
                             size="sm"
                             variant="ghost"
                             className="text-green-500 hover:text-green-400 hover:bg-slate-700"
-                            onClick={() => updateKeyStatusMutation.mutate({ keyId: key.id, status: 'rotating' })}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              updateKeyStatusMutation.mutate({ keyId: key.id, status: 'rotating' });
+                            }}
                             disabled={updateKeyStatusMutation.isPending || key.status === 'rotating'}
                             data-testid={`button-rotate-${key.id}`}
                             title="Rotate Key"
@@ -680,7 +692,11 @@ export default function KeyManagement() {
                             size="sm"
                             variant="ghost"
                             className="text-yellow-500 hover:text-yellow-400 hover:bg-slate-700"
-                            onClick={() => updateKeyStatusMutation.mutate({ keyId: key.id, status: key.status === 'active' ? 'expired' : 'active' })}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              updateKeyStatusMutation.mutate({ keyId: key.id, status: key.status === 'active' ? 'expired' : 'active' });
+                            }}
                             disabled={updateKeyStatusMutation.isPending}
                             data-testid={`button-toggle-${key.id}`}
                             title={key.status === 'active' ? 'Disable Key' : 'Activate Key'}
@@ -691,7 +707,11 @@ export default function KeyManagement() {
                             size="sm"
                             variant="ghost"
                             className="text-red-500 hover:text-red-400 hover:bg-slate-700"
-                            onClick={() => revokeKeyMutation.mutate(key.id)}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              revokeKeyMutation.mutate(key.id);
+                            }}
                             disabled={revokeKeyMutation.isPending || key.status === 'revoked'}
                             data-testid={`button-revoke-${key.id}`}
                             title="Revoke Key"

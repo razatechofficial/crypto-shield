@@ -9126,7 +9126,8 @@ do {
       const { keyId } = req.params;
       console.log(`🔑 Processing key download request: ${keyId}`);
       
-      const key = await storage.getEncryptionKey(keyId);
+      const keys = await storage.getEncryptionKeys('default-tenant');
+      const key = keys.find(k => k.id === keyId);
       if (!key) {
         return res.status(404).json({ error: 'Key not found' });
       }
