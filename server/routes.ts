@@ -9133,7 +9133,8 @@ do {
       }
 
       // Get algorithm details
-      const algorithm = await storage.getAlgorithm(key.algorithmId);
+      const algorithms = await storage.getEncryptionAlgorithms();
+      const algorithm = algorithms.find(alg => alg.id === key.algorithmId);
       if (!algorithm) {
         return res.status(400).json({ error: 'Algorithm not found' });
       }
