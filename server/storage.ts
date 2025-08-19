@@ -139,6 +139,12 @@ export class DatabaseStorage implements IStorage {
 
   // SDK operations
   async getSDKs(tenantId: string): Promise<Sdk[]> {
+    // Check if SDKs exist, if not, seed some test data
+    const existing = await db.select().from(sdks).where(eq(sdks.tenantId, tenantId)).limit(1);
+    if (existing.length === 0) {
+      await this.seedTestSDKs(tenantId);
+    }
+    
     return await db
       .select()
       .from(sdks)
@@ -177,6 +183,131 @@ export class DatabaseStorage implements IStorage {
       .from(encryptionAlgorithms)
       .where(eq(encryptionAlgorithms.isActive, true))
       .orderBy(encryptionAlgorithms.name);
+  }
+
+  // Seed test SDKs for development
+  private async seedTestSDKs(tenantId: string): Promise<void> {
+    const testSDKs = [
+      {
+        id: randomUUID(),
+        tenantId: tenantId,
+        userId: 'system',
+        name: 'FinanceSecure SDK',
+        description: 'Enterprise-grade encryption SDK for financial applications with FIPS 140-2 compliance',
+        version: '2.1.0',
+        languages: JSON.stringify(['javascript', 'python', 'java', 'csharp']),
+        algorithms: JSON.stringify(['AES-256-GCM', 'ChaCha20-Poly1305', 'RSA-4096']),
+        dataTypes: JSON.stringify(['payment_data', 'pii', 'financial_records']),
+        complianceRequirements: JSON.stringify(['FIPS-140-2', 'PCI-DSS', 'SOX']),
+        confidentialFeatures: JSON.stringify(['hardware_security_module', 'secure_enclaves']),
+        configuration: {
+          encryptionMode: 'AES-256-GCM',
+          keyRotationInterval: '90_days',
+          auditLogging: true,
+          multiTenant: true
+        },
+        features: {
+          keyManagement: true,
+          auditLogging: true,
+          multiTenant: true,
+          quantumSafe: false
+        },
+        downloadUrl: '/api/sdks/finance-secure-v2.1.0/download',
+        isActive: true,
+        createdAt: new Date(Date.now() - 86400000 * 7), // 7 days ago
+        updatedAt: new Date(Date.now() - 86400000 * 2), // 2 days ago
+      },
+      {
+        id: randomUUID(),
+        tenantId: tenantId,
+        userId: 'system',
+        name: 'HealthcareCrypto SDK',
+        description: 'HIPAA-compliant encryption SDK for healthcare data with end-to-end encryption',
+        version: '1.8.3',
+        languages: JSON.stringify(['python', 'javascript', 'swift', 'kotlin']),
+        algorithms: JSON.stringify(['AES-256-GCM', 'ChaCha20-Poly1305']),
+        dataTypes: JSON.stringify(['medical_records', 'pii', 'phi']),
+        complianceRequirements: JSON.stringify(['HIPAA', 'HITECH', 'FDA-21-CFR-11']),
+        confidentialFeatures: JSON.stringify(['secure_multi_party_computation']),
+        configuration: {
+          encryptionMode: 'AES-256-GCM',
+          keyRotationInterval: '30_days',
+          auditLogging: true,
+          multiTenant: false
+        },
+        features: {
+          keyManagement: true,
+          auditLogging: true,
+          multiTenant: false,
+          quantumSafe: false
+        },
+        downloadUrl: '/api/sdks/healthcare-crypto-v1.8.3/download',
+        isActive: true,
+        createdAt: new Date(Date.now() - 86400000 * 14), // 14 days ago
+        updatedAt: new Date(Date.now() - 86400000 * 5), // 5 days ago
+      },
+      {
+        id: randomUUID(),
+        tenantId: tenantId,
+        userId: 'system',
+        name: 'QuantumSafe Enterprise SDK',
+        description: 'Next-generation quantum-resistant encryption SDK with NIST 2024 post-quantum algorithms',
+        version: '3.0.0-beta',
+        languages: JSON.stringify(['javascript', 'python', 'cpp', 'rust']),
+        algorithms: JSON.stringify(['Kyber-1024', 'Dilithium-5', 'SPHINCS+-SHA256', 'AES-256-GCM']),
+        dataTypes: JSON.stringify(['classified', 'defense', 'government', 'critical_infrastructure']),
+        complianceRequirements: JSON.stringify(['NIST-PQC', 'FIPS-140-3', 'Common-Criteria']),
+        confidentialFeatures: JSON.stringify(['post_quantum_cryptography', 'hardware_security_module', 'secure_enclaves']),
+        configuration: {
+          encryptionMode: 'Hybrid-PQC',
+          keyRotationInterval: '7_days',
+          auditLogging: true,
+          multiTenant: true
+        },
+        features: {
+          keyManagement: true,
+          auditLogging: true,
+          multiTenant: true,
+          quantumSafe: true
+        },
+        downloadUrl: '/api/sdks/quantum-safe-enterprise-v3.0.0-beta/download',
+        isActive: true,
+        createdAt: new Date(Date.now() - 86400000 * 3), // 3 days ago
+        updatedAt: new Date(Date.now() - 86400000 * 1), // 1 day ago
+      },
+      {
+        id: randomUUID(),
+        tenantId: tenantId,
+        userId: 'system',
+        name: 'MobileCrypto SDK',
+        description: 'Lightweight encryption SDK optimized for mobile applications with battery-efficient algorithms',
+        version: '2.3.1',
+        languages: JSON.stringify(['swift', 'kotlin', 'javascript', 'dart']),
+        algorithms: JSON.stringify(['ChaCha20-Poly1305', 'AES-128-GCM']),
+        dataTypes: JSON.stringify(['user_data', 'app_data', 'communications']),
+        complianceRequirements: JSON.stringify(['GDPR', 'CCPA', 'App-Store-Guidelines']),
+        confidentialFeatures: JSON.stringify(['biometric_encryption']),
+        configuration: {
+          encryptionMode: 'ChaCha20-Poly1305',
+          keyRotationInterval: '30_days',
+          auditLogging: false,
+          multiTenant: false
+        },
+        features: {
+          keyManagement: true,
+          auditLogging: false,
+          multiTenant: false,
+          quantumSafe: false
+        },
+        downloadUrl: '/api/sdks/mobile-crypto-v2.3.1/download',
+        isActive: true,
+        createdAt: new Date(Date.now() - 86400000 * 21), // 21 days ago
+        updatedAt: new Date(Date.now() - 86400000 * 7), // 7 days ago
+      }
+    ];
+
+    await db.insert(sdks).values(testSDKs);
+    console.log('✅ Seeded test SDK data');
   }
 
   // Seed encryption algorithms - COMPREHENSIVE MARKET COVERAGE
