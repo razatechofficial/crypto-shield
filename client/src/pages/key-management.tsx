@@ -646,99 +646,114 @@ export default function KeyManagement() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <div 
-                          className="flex space-x-1" 
-                          onClick={(e) => e.stopPropagation()} 
-                          onMouseDown={(e) => e.stopPropagation()}
-                          onMouseUp={(e) => e.stopPropagation()}
-                        >
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="text-green-500 hover:text-green-400 hover:bg-slate-700"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              e.nativeEvent.stopImmediatePropagation();
-                              if (!downloadKeyMutation.isPending) {
-                                downloadKeyMutation.mutate(key.id);
-                              }
-                            }}
-                            disabled={downloadKeyMutation.isPending}
-                            data-testid={`button-download-${key.id}`}
-                            title="Download Key"
-                          >
-                            {downloadKeyMutation.isPending ? "..." : "⬇"}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="text-blue-500 hover:text-blue-400 hover:bg-slate-700"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              e.nativeEvent.stopImmediatePropagation();
-                              copyToClipboard(key.keyId, 'Key ID');
-                            }}
-                            data-testid={`button-copy-${key.id}`}
-                            title="Copy Key ID"
-                          >
-                            <Copy className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="text-green-500 hover:text-green-400 hover:bg-slate-700"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              e.nativeEvent.stopImmediatePropagation();
-                              if (!updateKeyStatusMutation.isPending && key.status !== 'rotating') {
-                                updateKeyStatusMutation.mutate({ keyId: key.id, status: 'rotating' });
-                              }
-                            }}
-                            disabled={updateKeyStatusMutation.isPending || key.status === 'rotating'}
-                            data-testid={`button-rotate-${key.id}`}
-                            title="Rotate Key"
-                          >
-                            <RotateCcw className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="text-yellow-500 hover:text-yellow-400 hover:bg-slate-700"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              e.nativeEvent.stopImmediatePropagation();
-                              if (!updateKeyStatusMutation.isPending) {
-                                updateKeyStatusMutation.mutate({ keyId: key.id, status: key.status === 'active' ? 'expired' : 'active' });
-                              }
-                            }}
-                            disabled={updateKeyStatusMutation.isPending}
-                            data-testid={`button-toggle-${key.id}`}
-                            title={key.status === 'active' ? 'Disable Key' : 'Activate Key'}
-                          >
-                            <Pause className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="text-red-500 hover:text-red-400 hover:bg-slate-700"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              e.nativeEvent.stopImmediatePropagation();
-                              if (!revokeKeyMutation.isPending && key.status !== 'revoked') {
-                                revokeKeyMutation.mutate(key.id);
-                              }
-                            }}
-                            disabled={revokeKeyMutation.isPending || key.status === 'revoked'}
-                            data-testid={`button-revoke-${key.id}`}
-                            title="Revoke Key"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                        <div className="flex space-x-1">
+                          <div className="inline-block">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-green-500 hover:text-green-400 hover:bg-slate-700"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                e.nativeEvent.stopImmediatePropagation();
+                                setTimeout(() => {
+                                  if (!downloadKeyMutation.isPending) {
+                                    downloadKeyMutation.mutate(key.id);
+                                  }
+                                }, 0);
+                              }}
+                              disabled={downloadKeyMutation.isPending}
+                              data-testid={`button-download-${key.id}`}
+                              title="Download Key"
+                            >
+                              {downloadKeyMutation.isPending ? "..." : "⬇"}
+                            </Button>
+                          </div>
+                          <div className="inline-block">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-blue-500 hover:text-blue-400 hover:bg-slate-700"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                e.nativeEvent.stopImmediatePropagation();
+                                setTimeout(() => {
+                                  copyToClipboard(key.keyId, 'Key ID');
+                                }, 0);
+                              }}
+                              data-testid={`button-copy-${key.id}`}
+                              title="Copy Key ID"
+                            >
+                              <Copy className="w-4 h-4" />
+                            </Button>
+                          </div>
+                          <div className="inline-block">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-green-500 hover:text-green-400 hover:bg-slate-700"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                e.nativeEvent.stopImmediatePropagation();
+                                setTimeout(() => {
+                                  if (!updateKeyStatusMutation.isPending && key.status !== 'rotating') {
+                                    updateKeyStatusMutation.mutate({ keyId: key.id, status: 'rotating' });
+                                  }
+                                }, 0);
+                              }}
+                              disabled={updateKeyStatusMutation.isPending || key.status === 'rotating'}
+                              data-testid={`button-rotate-${key.id}`}
+                              title="Rotate Key"
+                            >
+                              <RotateCcw className="w-4 h-4" />
+                            </Button>
+                          </div>
+                          <div className="inline-block">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-yellow-500 hover:text-yellow-400 hover:bg-slate-700"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                e.nativeEvent.stopImmediatePropagation();
+                                setTimeout(() => {
+                                  if (!updateKeyStatusMutation.isPending) {
+                                    updateKeyStatusMutation.mutate({ keyId: key.id, status: key.status === 'active' ? 'expired' : 'active' });
+                                  }
+                                }, 0);
+                              }}
+                              disabled={updateKeyStatusMutation.isPending}
+                              data-testid={`button-toggle-${key.id}`}
+                              title={key.status === 'active' ? 'Disable Key' : 'Activate Key'}
+                            >
+                              <Pause className="w-4 h-4" />
+                            </Button>
+                          </div>
+                          <div className="inline-block">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-red-500 hover:text-red-400 hover:bg-slate-700"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                e.nativeEvent.stopImmediatePropagation();
+                                setTimeout(() => {
+                                  if (!revokeKeyMutation.isPending && key.status !== 'revoked') {
+                                    revokeKeyMutation.mutate(key.id);
+                                  }
+                                }, 0);
+                              }}
+                              disabled={revokeKeyMutation.isPending || key.status === 'revoked'}
+                              data-testid={`button-revoke-${key.id}`}
+                              title="Revoke Key"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
                         </div>
                         {getExpirationWarning(key) && (
                           <div className="flex items-center mt-1 text-yellow-500 text-xs">
