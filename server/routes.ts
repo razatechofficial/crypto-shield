@@ -5077,8 +5077,8 @@ Documentation: https://docs.averox.com
 
       console.log('🚀 Generating PRODUCTION-GRADE SDK with ALL security gates implemented');
       
-      // Import the production SDK generator  
-      const ProductionSDKGenerator = require('../production-sdk-generator.js');
+      // Import the production SDK generator - use dynamic import at top level
+      const ProductionSDKGenerator = await import('../production-sdk-generator.js').then(m => m.default || m);
       
       // Generate production-grade SDKs for each language
       for (const language of languages) {
@@ -5092,7 +5092,7 @@ Documentation: https://docs.averox.com
           // Add all generated files to archive
           for (const [filePath, content] of Object.entries(sdkFiles)) {
             const archivePath = `${language}/${filePath}`;
-            archive.append(content, { name: archivePath });
+            archive.append(content as string, { name: archivePath });
             console.log(`📁 Added production file: ${archivePath}`);
           }
         }

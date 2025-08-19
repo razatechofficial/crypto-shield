@@ -752,4 +752,8 @@ jobs:
   }
 }
 
-module.exports = ProductionSDKGenerator;
+// Support both CommonJS and ES modules
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = ProductionSDKGenerator;
+}
+export default ProductionSDKGenerator;
