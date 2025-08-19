@@ -9829,11 +9829,11 @@ Classification: Internal Use - Migration Planning
   // Get real-time crypto operations
   app.get('/api/monitoring/operations', isAuthenticated, async (req, res) => {
     try {
-      const user = getUserFromSession(req);
+      const tenantId = process.env.NODE_ENV === 'development' ? 'default-tenant' : req.user?.claims?.sub;
       const hours = parseInt(req.query.hours as string) || 24;
       
-      const operations = await storage.getCryptoOperations(user.tenantId, hours);
-      const stats = await storage.getOperationStats(user.tenantId, hours);
+      const operations = await storage.getCryptoOperations(tenantId, hours);
+      const stats = await storage.getOperationStats(tenantId, hours);
       
       res.json({
         operations,
@@ -9848,9 +9848,9 @@ Classification: Internal Use - Migration Planning
   // Get system health based on real performance data
   app.get('/api/monitoring/health', isAuthenticated, async (req, res) => {
     try {
-      const user = getUserFromSession(req);
+      const tenantId = process.env.NODE_ENV === 'development' ? 'default-tenant' : req.user?.claims?.sub;
       
-      const healthMetrics = await storage.getSystemHealthMetrics(user.tenantId);
+      const healthMetrics = await storage.getSystemHealthMetrics(tenantId);
       res.json(healthMetrics);
     } catch (error) {
       console.error('Error fetching health metrics:', error);
@@ -9861,10 +9861,10 @@ Classification: Internal Use - Migration Planning
   // Get real security incidents
   app.get('/api/monitoring/incidents', isAuthenticated, async (req, res) => {
     try {
-      const user = getUserFromSession(req);
+      const tenantId = process.env.NODE_ENV === 'development' ? 'default-tenant' : req.user?.claims?.sub;
       const status = req.query.status as string;
       
-      const incidents = await storage.getSecurityIncidents(user.tenantId, status);
+      const incidents = await storage.getSecurityIncidents(tenantId, status);
       res.json(incidents);
     } catch (error) {
       console.error('Error fetching security incidents:', error);
@@ -9875,9 +9875,9 @@ Classification: Internal Use - Migration Planning
   // Get SDK deployments and their real-time status
   app.get('/api/monitoring/deployments', isAuthenticated, async (req, res) => {
     try {
-      const user = getUserFromSession(req);
+      const tenantId = process.env.NODE_ENV === 'development' ? 'default-tenant' : req.user?.claims?.sub;
       
-      const deployments = await storage.getSdkDeployments(user.tenantId);
+      const deployments = await storage.getSdkDeployments(tenantId);
       res.json(deployments);
     } catch (error) {
       console.error('Error fetching deployments:', error);
@@ -9888,10 +9888,10 @@ Classification: Internal Use - Migration Planning
   // Legacy endpoint updated to use real data
   app.get('/api/monitoring/events', isAuthenticated, async (req, res) => {
     try {
-      const user = getUserFromSession(req);
+      const tenantId = process.env.NODE_ENV === 'development' ? 'default-tenant' : req.user?.claims?.sub;
       
       // Return actual security events from monitoring database
-      const events = await storage.getSecurityEvents(user.tenantId, 100);
+      const events = await storage.getSecurityEvents(tenantId, 100);
       res.json(events);
     } catch (error) {
       console.error('Error fetching monitoring events:', error);
@@ -9967,9 +9967,9 @@ Classification: Internal Use - Migration Planning
   // Record security incident
   app.post('/api/monitoring/incidents', isAuthenticated, async (req, res) => {
     try {
-      const user = getUserFromSession(req);
+      const tenantId = process.env.NODE_ENV === 'development' ? 'default-tenant' : req.user?.claims?.sub;
       const incident = await storage.recordSecurityIncident({
-        tenantId: user.tenantId,
+        tenantId,
         ...req.body
       });
 
@@ -9983,9 +9983,9 @@ Classification: Internal Use - Migration Planning
   // Register SDK deployment
   app.post('/api/monitoring/deployments', isAuthenticated, async (req, res) => {
     try {
-      const user = getUserFromSession(req);
+      const tenantId = process.env.NODE_ENV === 'development' ? 'default-tenant' : req.user?.claims?.sub;
       const deployment = await storage.registerSdkDeployment({
-        tenantId: user.tenantId,
+        tenantId,
         ...req.body
       });
 
