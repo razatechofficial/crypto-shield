@@ -250,3 +250,154 @@ export type SecurityEvent = typeof securityEvents.$inferSelect;
 export type InsertSecurityEvent = z.infer<typeof insertSecurityEventSchema>;
 export type ApiUsage = typeof apiUsage.$inferSelect;
 export type InsertApiUsage = z.infer<typeof insertApiUsageSchema>;
+
+// Real-time monitoring tables
+export const cryptoOperations = pgTable("crypto_operations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  sdkId: varchar("sdk_id").references(() => sdks.id),
+  operation: varchar("operation").notNull(), // encrypt, decrypt, sign, verify
+  algorithm: varchar("algorithm").notNull(),
+  keyId: varchar("key_id").references(() => encryptionKeys.id),
+  status: varchar("status").notNull(), // success, failure, timeout
+  duration: integer("duration").notNull(), // milliseconds
+  dataSize: integer("data_size"), // bytes processed
+  clientId: varchar("client_id"), // SDK instance identifier
+  ipAddress: varchar("ip_address"),
+  userAgent: varchar("user_agent"),
+  errorCode: varchar("error_code"),
+  errorMessage: text("error_message"),
+  metadata: jsonb("metadata").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const performanceMetrics = pgTable("performance_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  sdkId: varchar("sdk_id").references(() => sdks.id),
+  metricType: varchar("metric_type").notNull(), // throughput, latency, cpu_usage, memory_usage
+  value: integer("value").notNull(),
+  unit: varchar("unit").notNull(), // ops/sec, ms, %, mb
+  timestamp: timestamp("timestamp").defaultNow(),
+  metadata: jsonb("metadata").default({}),
+});
+
+export const securityIncidents = pgTable("security_incidents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  incidentType: varchar("incident_type").notNull(), // brute_force, key_compromise, anomaly_detection
+  severity: varchar("severity").notNull(), // critical, high, medium, low
+  status: varchar("status").notNull(), // open, investigating, resolved, false_positive
+  description: text("description").notNull(),
+  source: varchar("source"), // system, user_report, automated_detection
+  affectedSdks: text("affected_sdks").array(),
+  affectedKeys: text("affected_keys").array(),
+  detectionMethod: varchar("detection_method"),
+  mitigationSteps: text("mitigation_steps").array(),
+  assignedTo: varchar("assigned_to").references(() => users.id),
+  resolvedAt: timestamp("resolved_at"),
+  metadata: jsonb("metadata").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const sdkDeployments = pgTable("sdk_deployments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  sdkId: varchar("sdk_id").references(() => sdks.id).notNull(),
+  environment: varchar("environment").notNull(), // production, staging, development
+  version: varchar("version").notNull(),
+  applicationName: varchar("application_name"),
+  deploymentUrl: varchar("deployment_url"),
+  healthStatus: varchar("health_status").notNull().default('healthy'), // healthy, degraded, critical, offline
+  lastHeartbeat: timestamp("last_heartbeat"),
+  instanceCount: integer("instance_count").default(1),
+  totalOperations: integer("total_operations").default(0),
+  successRate: integer("success_rate").default(100),
+  averageLatency: integer("average_latency").default(0),
+  metadata: jsonb("metadata").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Insert schemas for new tables
+export const insertCryptoOperationSchema = createInsertSchema(cryptoOperations).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertPerformanceMetricSchema = createInsertSchema(performanceMetrics).omit({
+  id: true,
+  timestamp: true,
+});
+
+export const insertSecurityIncidentSchema = createInsertSchema(securityIncidents).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSdkDeploymentSchema = createInsertSchema(sdkDeployments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Types for new tables
+export type CryptoOperation = typeof cryptoOperations.$inferSelect;
+export type InsertCryptoOperation = z.infer<typeof insertCryptoOperationSchema>;
+export type PerformanceMetric = typeof performanceMetrics.$inferSelect;
+export type InsertPerformanceMetric = z.infer<typeof insertPerformanceMetricSchema>;
+export type SecurityIncident = typeof securityIncidents.$inferSelect;
+export type InsertSecurityIncident = z.infer<typeof insertSecurityIncidentSchema>;
+export type SdkDeployment = typeof sdkDeployments.$inferSelect;
+export type InsertSdkDeployment = z.infer<typeof insertSdkDeploymentSchema>;
+
+// Relations for new tables
+export const cryptoOperationRelations = relations(cryptoOperations, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [cryptoOperations.tenantId],
+    references: [tenants.id],
+  }),
+  sdk: one(sdks, {
+    fields: [cryptoOperations.sdkId],
+    references: [sdks.id],
+  }),
+  key: one(encryptionKeys, {
+    fields: [cryptoOperations.keyId],
+    references: [encryptionKeys.id],
+  }),
+}));
+
+export const performanceMetricRelations = relations(performanceMetrics, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [performanceMetrics.tenantId],
+    references: [tenants.id],
+  }),
+  sdk: one(sdks, {
+    fields: [performanceMetrics.sdkId],
+    references: [sdks.id],
+  }),
+}));
+
+export const securityIncidentRelations = relations(securityIncidents, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [securityIncidents.tenantId],
+    references: [tenants.id],
+  }),
+  assignedUser: one(users, {
+    fields: [securityIncidents.assignedTo],
+    references: [users.id],
+  }),
+}));
+
+export const sdkDeploymentRelations = relations(sdkDeployments, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [sdkDeployments.tenantId],
+    references: [tenants.id],
+  }),
+  sdk: one(sdks, {
+    fields: [sdkDeployments.sdkId],
+    references: [sdks.id],
+  }),
+}));

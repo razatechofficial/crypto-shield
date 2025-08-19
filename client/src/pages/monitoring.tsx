@@ -11,53 +11,66 @@ import { formatDistanceToNow } from "date-fns";
 export default function Monitoring() {
   const { toast } = useToast();
 
-  const { data: events = [], isLoading: eventsLoading } = useQuery({
-    queryKey: ["/api/monitoring/events"],
+  // Get real crypto operations and incidents
+  const { data: operationsData, isLoading: operationsLoading } = useQuery({
+    queryKey: ["/api/monitoring/operations"],
     retry: false,
   });
 
-  // Get real monitoring statistics
-  const { data: stats } = useQuery({
-    queryKey: ["/api/dashboard/stats"],
+  const { data: healthData } = useQuery({
+    queryKey: ["/api/monitoring/health"],
     retry: false,
   });
 
-  // Real monitoring data based on actual events and statistics
+  const { data: incidents = [], isLoading: incidentsLoading } = useQuery({
+    queryKey: ["/api/monitoring/incidents"],
+    retry: false,
+  });
+
+  const { data: deployments = [] } = useQuery({
+    queryKey: ["/api/monitoring/deployments"],
+    retry: false,
+  });
+
+  // Legacy compatibility
+  const events = incidents;
+  const eventsLoading = incidentsLoading;
+  const stats = healthData;
+
+  // Real monitoring data from actual operations
   const getMonitoringData = () => {
-    // Generate realistic data based on actual events
-    const currentHour = new Date().getHours();
     const labels = Array.from({length: 24}, (_, i) => `${i}:00`);
     
-    // Base encryption requests on SDK count and activity patterns
-    const baseRequests = stats?.totalSDKs ? stats.totalSDKs * 50 : 100;
-    const encryptionData = labels.map((_, i) => {
-      // Higher activity during business hours
-      const businessHourMultiplier = (i >= 9 && i <= 17) ? 1.5 : 0.7;
-      const randomVariation = 0.8 + Math.random() * 0.4; // 80-120% variation
-      return Math.floor(baseRequests * businessHourMultiplier * randomVariation);
+    // Use actual operation statistics
+    const stats = operationsData?.stats;
+    const hourlyOps = stats?.hourlyOperations || [];
+    
+    // Map real hourly data to chart format
+    const encryptionData = labels.map((label) => {
+      const hourData = hourlyOps.find(h => h.hour === label);
+      return hourData ? hourData.count : 0;
     });
 
-    // Threat detection based on actual security events
-    const recentThreats = events.filter(e => 
-      e.eventType === 'threat_detected' || e.eventType === 'security_alert'
-    ).length;
+    // Use real security incidents for threat data
     const threatData = labels.map(() => {
-      // Base on recent actual threats with some randomness
-      return Math.floor(recentThreats * (0.5 + Math.random() * 1.5));
+      const criticalIncidents = incidents.filter(i => 
+        i.severity === 'critical' || i.severity === 'high'
+      ).length;
+      return criticalIncidents;
     });
 
     return {
       labels,
       datasets: [
         {
-          label: 'Encryption Requests',
+          label: 'Encryption Operations',
           data: encryptionData,
           borderColor: '#3B82F6',
           backgroundColor: 'rgba(59, 130, 246, 0.1)',
           tension: 0.4
         },
         {
-          label: 'Threat Detections',
+          label: 'Security Incidents',
           data: threatData,
           borderColor: '#EF4444',
           backgroundColor: 'rgba(239, 68, 68, 0.1)',
@@ -105,20 +118,20 @@ export default function Monitoring() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {events.filter(e => e.severity === 'critical' || e.severity === 'high').slice(0, 2).map((threat: any) => (
-                <div key={threat.id} className={`flex items-center justify-between p-3 ${threat.severity === 'critical' ? 'bg-red-500' : 'bg-yellow-500'} bg-opacity-10 border ${threat.severity === 'critical' ? 'border-red-500' : 'border-yellow-500'} border-opacity-20 rounded-lg`}>
+              {incidents.filter((i: any) => i.severity === 'critical' || i.severity === 'high').slice(0, 2).map((incident: any) => (
+                <div key={incident.id} className={`flex items-center justify-between p-3 ${incident.severity === 'critical' ? 'bg-red-500' : 'bg-yellow-500'} bg-opacity-10 border ${incident.severity === 'critical' ? 'border-red-500' : 'border-yellow-500'} border-opacity-20 rounded-lg`}>
                   <div>
-                    <p className="text-foreground font-medium">{threat.eventType.replace('_', ' ').toUpperCase()}</p>
-                    <p className="text-muted-foreground text-sm">{threat.description}</p>
+                    <p className="text-foreground font-medium">{incident.incidentType.replace('_', ' ').toUpperCase()}</p>
+                    <p className="text-muted-foreground text-sm">{incident.description}</p>
                   </div>
-                  <Badge className={`${threat.severity === 'critical' ? 'bg-red-500' : 'bg-yellow-500'} text-white`}>
-                    {threat.metadata?.status || 'MONITORED'}
+                  <Badge className={`${incident.severity === 'critical' ? 'bg-red-500' : 'bg-yellow-500'} text-white`}>
+                    {incident.status.toUpperCase()}
                   </Badge>
                 </div>
               ))}
-              {(!events || events.filter(e => e.severity === 'critical' || e.severity === 'high').length === 0) && (
+              {(!incidents || incidents.filter((i: any) => i.severity === 'critical' || i.severity === 'high').length === 0) && (
                 <div className="text-center py-4">
-                  <p className="text-muted-foreground">No critical threats detected</p>
+                  <p className="text-muted-foreground">No critical incidents detected</p>
                 </div>
               )}
             </div>
@@ -135,23 +148,23 @@ export default function Monitoring() {
               <div>
                 <div className="flex justify-between text-sm mb-1">
                   <span className="text-muted-foreground">Encryption Performance</span>
-                  <span className="text-green-500">{stats ? (100 - (events.filter(e => e.eventType === 'encryption_failure').length / Math.max(stats.totalSDKs, 1) * 100)).toFixed(1) : '99.8'}%</span>
+                  <span className="text-green-500">{healthData?.encryptionPerformance?.toFixed(1) || '100.0'}%</span>
                 </div>
-                <Progress value={stats ? (100 - (events.filter(e => e.eventType === 'encryption_failure').length / Math.max(stats.totalSDKs, 1) * 100)) : 99.8} className="h-2" />
+                <Progress value={healthData?.encryptionPerformance || 100} className="h-2" />
               </div>
               <div>
                 <div className="flex justify-between text-sm mb-1">
                   <span className="text-muted-foreground">Key Infrastructure</span>
-                  <span className="text-green-500">{stats ? (100 - (events.filter(e => e.eventType === 'key_rotation_failed').length / Math.max(stats.totalKeys || 1, 1) * 100)).toFixed(1) : '99.9'}%</span>
+                  <span className="text-green-500">{healthData?.keyInfrastructure?.toFixed(1) || '100.0'}%</span>
                 </div>
-                <Progress value={stats ? (100 - (events.filter(e => e.eventType === 'key_rotation_failed').length / Math.max(stats.totalKeys || 1, 1) * 100)) : 99.9} className="h-2" />
+                <Progress value={healthData?.keyInfrastructure || 100} className="h-2" />
               </div>
               <div>
                 <div className="flex justify-between text-sm mb-1">
                   <span className="text-muted-foreground">Auto-healing</span>
-                  <span className="text-blue-500">{events.filter(e => e.eventType === 'auto_recovery').length > 0 ? '100' : '100'}%</span>
+                  <span className="text-blue-500">{healthData?.autoHealing?.toFixed(1) || '100.0'}%</span>
                 </div>
-                <Progress value={100} className="h-2" />
+                <Progress value={healthData?.autoHealing || 100} className="h-2" />
               </div>
             </div>
           </CardContent>

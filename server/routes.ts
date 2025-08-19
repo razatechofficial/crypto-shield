@@ -9824,6 +9824,178 @@ Classification: Internal Use - Migration Planning
     }
   });
 
+  // REAL MONITORING SYSTEM - Track actual SDK operations and usage
+
+  // Get real-time crypto operations
+  app.get('/api/monitoring/operations', isAuthenticated, async (req, res) => {
+    try {
+      const user = getUserFromSession(req);
+      const hours = parseInt(req.query.hours as string) || 24;
+      
+      const operations = await storage.getCryptoOperations(user.tenantId, hours);
+      const stats = await storage.getOperationStats(user.tenantId, hours);
+      
+      res.json({
+        operations,
+        stats
+      });
+    } catch (error) {
+      console.error('Error fetching crypto operations:', error);
+      res.status(500).json({ message: 'Failed to fetch crypto operations' });
+    }
+  });
+
+  // Get system health based on real performance data
+  app.get('/api/monitoring/health', isAuthenticated, async (req, res) => {
+    try {
+      const user = getUserFromSession(req);
+      
+      const healthMetrics = await storage.getSystemHealthMetrics(user.tenantId);
+      res.json(healthMetrics);
+    } catch (error) {
+      console.error('Error fetching health metrics:', error);
+      res.status(500).json({ message: 'Failed to fetch health metrics' });
+    }
+  });
+
+  // Get real security incidents
+  app.get('/api/monitoring/incidents', isAuthenticated, async (req, res) => {
+    try {
+      const user = getUserFromSession(req);
+      const status = req.query.status as string;
+      
+      const incidents = await storage.getSecurityIncidents(user.tenantId, status);
+      res.json(incidents);
+    } catch (error) {
+      console.error('Error fetching security incidents:', error);
+      res.status(500).json({ message: 'Failed to fetch security incidents' });
+    }
+  });
+
+  // Get SDK deployments and their real-time status
+  app.get('/api/monitoring/deployments', isAuthenticated, async (req, res) => {
+    try {
+      const user = getUserFromSession(req);
+      
+      const deployments = await storage.getSdkDeployments(user.tenantId);
+      res.json(deployments);
+    } catch (error) {
+      console.error('Error fetching deployments:', error);
+      res.status(500).json({ message: 'Failed to fetch deployments' });
+    }
+  });
+
+  // Legacy endpoint updated to use real data
+  app.get('/api/monitoring/events', isAuthenticated, async (req, res) => {
+    try {
+      const user = getUserFromSession(req);
+      
+      // Return actual security events from monitoring database
+      const events = await storage.getSecurityEvents(user.tenantId, 100);
+      res.json(events);
+    } catch (error) {
+      console.error('Error fetching monitoring events:', error);
+      res.status(500).json({ message: 'Failed to fetch monitoring events' });
+    }
+  });
+
+  // Record real crypto operation (called by SDKs)
+  app.post('/api/monitoring/operations', async (req, res) => {
+    try {
+      const {
+        tenantId,
+        sdkId,
+        operation,
+        algorithm,
+        keyId,
+        status,
+        duration,
+        dataSize,
+        clientId,
+        ipAddress,
+        userAgent,
+        errorCode,
+        errorMessage,
+        metadata
+      } = req.body;
+
+      const cryptoOp = await storage.recordCryptoOperation({
+        tenantId,
+        sdkId,
+        operation,
+        algorithm,
+        keyId,
+        status,
+        duration,
+        dataSize,
+        clientId,
+        ipAddress,
+        userAgent,
+        errorCode,
+        errorMessage,
+        metadata
+      });
+
+      res.json(cryptoOp);
+    } catch (error) {
+      console.error('Error recording crypto operation:', error);
+      res.status(500).json({ message: 'Failed to record operation' });
+    }
+  });
+
+  // Record performance metrics (called by monitoring agents)
+  app.post('/api/monitoring/metrics', async (req, res) => {
+    try {
+      const { tenantId, sdkId, metricType, value, unit, metadata } = req.body;
+
+      const metric = await storage.recordPerformanceMetric({
+        tenantId,
+        sdkId,
+        metricType,
+        value,
+        unit,
+        metadata
+      });
+
+      res.json(metric);
+    } catch (error) {
+      console.error('Error recording performance metric:', error);
+      res.status(500).json({ message: 'Failed to record metric' });
+    }
+  });
+
+  // Record security incident
+  app.post('/api/monitoring/incidents', isAuthenticated, async (req, res) => {
+    try {
+      const user = getUserFromSession(req);
+      const incident = await storage.recordSecurityIncident({
+        tenantId: user.tenantId,
+        ...req.body
+      });
+
+      res.json(incident);
+    } catch (error) {
+      console.error('Error recording security incident:', error);
+      res.status(500).json({ message: 'Failed to record incident' });
+    }
+  });
+
+  // Register SDK deployment
+  app.post('/api/monitoring/deployments', isAuthenticated, async (req, res) => {
+    try {
+      const user = getUserFromSession(req);
+      const deployment = await storage.registerSdkDeployment({
+        tenantId: user.tenantId,
+        ...req.body
+      });
+
+      res.json(deployment);
+    } catch (error) {
+      console.error('Error registering deployment:', error);
+      res.status(500).json({ message: 'Failed to register deployment' });
+    }
+  });
+
   // User management routes (admin only)
   app.get('/api/users', isAuthenticated, async (req: any, res) => {
     try {
