@@ -4764,16 +4764,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Dashboard routes
   app.get('/api/dashboard/stats', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      console.log('🔍 Dashboard stats - User object:', JSON.stringify(req.user, null, 2));
+      const userId = req.user?.claims?.sub || req.user?.id;
+      console.log('🔍 Dashboard stats - User ID:', userId);
       
-      if (!user?.tenantId) {
+      if (!userId) {
+        console.error('❌ No user ID found in dashboard stats request');
+        return res.status(401).json({ message: "User ID not found" });
+      }
+      
+      const user = await storage.getUser(userId);
+      console.log('🔍 Dashboard stats - User from storage:', JSON.stringify(user, null, 2));
+      
+      // Use default tenant for development
+      const tenantId = user?.tenantId || (process.env.NODE_ENV === 'development' ? 'default-tenant' : null);
+      
+      if (!tenantId) {
         return res.status(400).json({ message: "User not associated with a tenant" });
       }
 
-      const sdks = await storage.getSDKs(user.tenantId);
-      const keys = await storage.getEncryptionKeys(user.tenantId);
-      const events = await storage.getSecurityEvents(user.tenantId, 10);
+      const sdks = await storage.getSDKs(tenantId);
+      const keys = await storage.getEncryptionKeys(tenantId);
+      const events = await storage.getSecurityEvents(tenantId, 10);
       const algorithms = await storage.getEncryptionAlgorithms();
 
       const stats = {
@@ -4796,11 +4808,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // SDK generation and management routes
   app.get('/api/sdks', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      console.log('🔍 SDK request - User object:', JSON.stringify(req.user, null, 2));
+      const userId = req.user?.claims?.sub || req.user?.id;
+      console.log('🔍 SDK request - User ID:', userId);
+      
+      if (!userId) {
+        console.error('❌ No user ID found in request');
+        return res.status(401).json({ message: "User ID not found" });
+      }
+      
       const user = await storage.getUser(userId);
+      console.log('🔍 SDK request - User from storage:', JSON.stringify(user, null, 2));
       
       if (!user?.tenantId) {
-        return res.status(400).json({ message: "User not associated with a tenant" });
+        // Use default tenant for development
+        const tenantId = process.env.NODE_ENV === 'development' ? 'default-tenant' : null;
+        if (!tenantId) {
+          return res.status(400).json({ message: "User not associated with a tenant" });
+        }
+        console.log('🔍 Using default tenant for development:', tenantId);
+        const sdks = await storage.getSDKs(tenantId);
+        return res.json(sdks);
       }
 
       const sdks = await storage.getSDKs(user.tenantId);
@@ -4813,17 +4841,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/sdks/generate', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      console.log('🔍 SDK generate - User object:', JSON.stringify(req.user, null, 2));
+      const userId = req.user?.claims?.sub || req.user?.id;
+      console.log('🔍 SDK generate - User ID:', userId);
       
-      if (!user?.tenantId) {
+      if (!userId) {
+        console.error('❌ No user ID found in SDK generate request');
+        return res.status(401).json({ message: "User ID not found" });
+      }
+      
+      const user = await storage.getUser(userId);
+      console.log('🔍 SDK generate - User from storage:', JSON.stringify(user, null, 2));
+      
+      // Use default tenant for development
+      const tenantId = user?.tenantId || (process.env.NODE_ENV === 'development' ? 'default-tenant' : null);
+      
+      if (!tenantId) {
         return res.status(400).json({ message: "User not associated with a tenant" });
       }
 
       // Prepare and validate request body - convert arrays to JSON strings
       const requestData = {
         ...req.body,
-        tenantId: user.tenantId,
+        tenantId: tenantId,
         userId: userId,
         // Convert arrays to JSON strings as expected by schema
         languages: JSON.stringify(req.body.languages || []),
