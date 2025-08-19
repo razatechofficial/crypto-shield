@@ -1815,10 +1815,17 @@ export class DatabaseStorage implements IStorage {
       ? (activeDeployments / deployments.length) * 100 
       : 100;
     
+    // Calculate actual auto-healing based on incident resolution rate
+    const incidents = await this.getSecurityIncidents(tenantId);
+    const resolvedIncidents = incidents.filter(i => i.status === 'resolved').length;
+    const autoHealing = incidents.length > 0 
+      ? (resolvedIncidents / incidents.length) * 100 
+      : 0; // No incidents means no auto-healing data yet
+
     return {
       encryptionPerformance: Math.round(encryptionPerformance * 10) / 10,
       keyInfrastructure: Math.round(keyInfrastructure * 10) / 10,
-      autoHealing: 100, // Based on deployment recovery metrics
+      autoHealing: Math.round(autoHealing * 10) / 10,
       averageResponseTime: Math.round(averageResponseTime),
       errorRate: Math.round(errorRate * 10) / 10,
       activeDeployments

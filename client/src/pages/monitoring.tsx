@@ -148,23 +148,23 @@ export default function Monitoring() {
               <div>
                 <div className="flex justify-between text-sm mb-1">
                   <span className="text-muted-foreground">Encryption Performance</span>
-                  <span className="text-green-500">{(healthData && typeof healthData === 'object' && 'encryptionPerformance' in healthData && typeof healthData.encryptionPerformance === 'number') ? healthData.encryptionPerformance.toFixed(1) : '100.0'}%</span>
+                  <span className="text-green-500">{(healthData && typeof healthData === 'object' && 'encryptionPerformance' in healthData && typeof healthData.encryptionPerformance === 'number') ? healthData.encryptionPerformance.toFixed(1) : 'No data'}%</span>
                 </div>
-                <Progress value={(healthData && typeof healthData === 'object' && 'encryptionPerformance' in healthData && typeof healthData.encryptionPerformance === 'number') ? healthData.encryptionPerformance : 100} className="h-2" />
+                <Progress value={(healthData && typeof healthData === 'object' && 'encryptionPerformance' in healthData && typeof healthData.encryptionPerformance === 'number') ? healthData.encryptionPerformance : 0} className="h-2" />
               </div>
               <div>
                 <div className="flex justify-between text-sm mb-1">
                   <span className="text-muted-foreground">Key Infrastructure</span>
-                  <span className="text-green-500">{healthData?.keyInfrastructure?.toFixed(1) || '100.0'}%</span>
+                  <span className="text-green-500">{(healthData && typeof healthData === 'object' && 'keyInfrastructure' in healthData && typeof healthData.keyInfrastructure === 'number') ? healthData.keyInfrastructure.toFixed(1) : 'No data'}%</span>
                 </div>
-                <Progress value={healthData?.keyInfrastructure || 100} className="h-2" />
+                <Progress value={(healthData && typeof healthData === 'object' && 'keyInfrastructure' in healthData && typeof healthData.keyInfrastructure === 'number') ? healthData.keyInfrastructure : 0} className="h-2" />
               </div>
               <div>
                 <div className="flex justify-between text-sm mb-1">
                   <span className="text-muted-foreground">Auto-healing</span>
-                  <span className="text-blue-500">{healthData?.autoHealing?.toFixed(1) || '100.0'}%</span>
+                  <span className="text-blue-500">{(healthData && typeof healthData === 'object' && 'autoHealing' in healthData && typeof healthData.autoHealing === 'number') ? healthData.autoHealing.toFixed(1) : 'No data'}%</span>
                 </div>
-                <Progress value={healthData?.autoHealing || 100} className="h-2" />
+                <Progress value={(healthData && typeof healthData === 'object' && 'autoHealing' in healthData && typeof healthData.autoHealing === 'number') ? healthData.autoHealing : 0} className="h-2" />
               </div>
             </div>
           </CardContent>
