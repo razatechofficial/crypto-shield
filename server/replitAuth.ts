@@ -128,20 +128,40 @@ export async function setupAuth(app: Express) {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
+  console.log('🔍 isAuthenticated middleware - req.isAuthenticated():', req.isAuthenticated());
+  console.log('🔍 isAuthenticated middleware - req.user:', JSON.stringify(req.user, null, 2));
+  console.log('🔍 isAuthenticated middleware - req.session:', JSON.stringify(req.session, null, 2));
+  
   const user = req.user as any;
 
-  if (!req.isAuthenticated() || !user.expires_at) {
-    return res.status(401).json({ message: "Unauthorized" });
+  if (!req.isAuthenticated()) {
+    console.log('❌ Authentication failed - req.isAuthenticated() is false');
+    return res.status(401).json({ message: "Unauthorized - not authenticated" });
+  }
+  
+  if (!user) {
+    console.log('❌ Authentication failed - no user object');
+    return res.status(401).json({ message: "Unauthorized - no user" });
+  }
+
+  if (!user.expires_at) {
+    console.log('❌ Authentication failed - no expires_at');
+    return res.status(401).json({ message: "Unauthorized - no expires_at" });
   }
 
   const now = Math.floor(Date.now() / 1000);
+  console.log('🔍 Token check - now:', now, 'expires_at:', user.expires_at);
+  
   if (now <= user.expires_at) {
+    console.log('✅ Token still valid, proceeding');
     return next();
   }
 
+  console.log('⚠️ Token expired, attempting refresh');
   const refreshToken = user.refresh_token;
   if (!refreshToken) {
-    res.status(401).json({ message: "Unauthorized" });
+    console.log('❌ No refresh token available');
+    res.status(401).json({ message: "Unauthorized - token expired, no refresh token" });
     return;
   }
 
@@ -149,9 +169,11 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     const config = await getOidcConfig();
     const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
     updateUserSession(user, tokenResponse);
+    console.log('✅ Token refreshed successfully');
     return next();
   } catch (error) {
-    res.status(401).json({ message: "Unauthorized" });
+    console.log('❌ Token refresh failed:', error);
+    res.status(401).json({ message: "Unauthorized - token refresh failed" });
     return;
   }
 };
