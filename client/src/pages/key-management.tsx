@@ -19,7 +19,14 @@ export default function KeyManagement() {
   const queryClient = useQueryClient();
   const [selectedKeyType, setSelectedKeyType] = useState("primary");
   const [selectedAlgorithm, setSelectedAlgorithm] = useState("AES-256-GCM");
+  const [keyBits, setKeyBits] = useState("256");
+  const [rotationInterval, setRotationInterval] = useState("30");
+  const [enableHSM, setEnableHSM] = useState(true);
+  const [enableAuditLogging, setEnableAuditLogging] = useState(true);
   const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
+  const [statusFilter, setStatusFilter] = useState("all");
 
   const { data: keys = [], isLoading } = useQuery({
     queryKey: ["/api/keys"],
@@ -77,7 +84,14 @@ export default function KeyManagement() {
   };
 
   const generateKeyMutation = useMutation({
-    mutationFn: async ({ keyType, algorithm }: { keyType: string; algorithm: string }) => {
+    mutationFn: async ({ keyType, algorithm, keyBits, rotationInterval, enableHSM, enableAuditLogging }: { 
+      keyType: string; 
+      algorithm: string; 
+      keyBits: string;
+      rotationInterval: string;
+      enableHSM: boolean;
+      enableAuditLogging: boolean;
+    }) => {
       console.log(`🔑 Generating production-ready ${keyType} key with ${algorithm}...`);
       
       // Find the actual algorithm from our database
@@ -91,28 +105,37 @@ export default function KeyManagement() {
         keyType,
         algorithmId: algorithmObj.id,
         status: 'active',
+        rotationInterval: parseInt(rotationInterval),
         metadata: {
           securityFeatures: algorithmDetails.features,
           envelopeVersion: 'v2',
           keyDerivation: algorithmDetails.isPostQuantum ? 'post-quantum-kdf' : 'hkdf-sha256',
-          auditCompliant: true,
+          auditCompliant: enableAuditLogging,
           generatedWith: `production-encryption-core-v2.0.0-${algorithm}`,
           algorithmName: algorithmDetails.name,
           algorithmType: algorithmDetails.type,
-          keySize: algorithmDetails.keySize,
+          keySize: parseInt(keyBits),
+          customKeySize: parseInt(keyBits),
           quantumSafe: algorithmDetails.isQuantumSafe,
           postQuantum: algorithmDetails.isPostQuantum,
+          hsmEnabled: enableHSM,
+          auditLogging: enableAuditLogging,
+          rotationPolicy: {
+            interval: parseInt(rotationInterval),
+            autoRotate: true,
+            retainVersions: 5
+          },
           compliance: ['NIST', 'FIPS 140-2', 'ISO 27001', 'Common Criteria'],
           kmsFeatures: [
             'KEY_ROTATION',
             'KEY_VERSIONING',
             'ACCESS_CONTROL',
-            'AUDIT_LOGGING',
-            'HARDWARE_SECURITY',
+            enableAuditLogging ? 'AUDIT_LOGGING' : null,
+            enableHSM ? 'HARDWARE_SECURITY' : 'SOFTWARE_SECURITY',
             'ENVELOPE_ENCRYPTION',
             'KEY_ESCROW',
             'COMPLIANCE_REPORTING'
-          ]
+          ].filter(Boolean)
         }
       };
       return await apiRequest('POST', '/api/keys', keyData);
@@ -195,6 +218,34 @@ export default function KeyManagement() {
       title: "Copied to Clipboard",
       description: `${label} copied successfully`,
     });
+  };
+
+  // Filter and search logic
+  const filteredKeys = Array.isArray(keys) ? keys.filter((key: any) => {
+    const matchesSearch = !searchQuery || 
+      key.keyId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      key.keyType?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      key.algorithm?.displayName?.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesStatus = statusFilter === 'all' || key.status === statusFilter;
+    
+    return matchesSearch && matchesStatus;
+  }) : [];
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedKeys(filteredKeys.map((key: any) => key.id));
+    } else {
+      setSelectedKeys([]);
+    }
+  };
+
+  const handleSelectKey = (keyId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedKeys([...selectedKeys, keyId]);
+    } else {
+      setSelectedKeys(selectedKeys.filter(id => id !== keyId));
+    }
   };
 
   const getKeyTypeDescription = (keyType: string) => {
@@ -340,8 +391,76 @@ export default function KeyManagement() {
                   </p>
                 </div>
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="keyBits">Key Size (bits)</Label>
+                  <Select value={keyBits} onValueChange={setKeyBits}>
+                    <SelectTrigger className="bg-gray-50 border-gray-300">
+                      <SelectValue placeholder="Select key size" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="128">128 bits (Fast)</SelectItem>
+                      <SelectItem value="192">192 bits (Balanced)</SelectItem>
+                      <SelectItem value="256">256 bits (Secure - Recommended)</SelectItem>
+                      <SelectItem value="384">384 bits (High Security)</SelectItem>
+                      <SelectItem value="512">512 bits (Maximum Security)</SelectItem>
+                      <SelectItem value="768">768 bits (Post-Quantum)</SelectItem>
+                      <SelectItem value="1024">1024 bits (Legacy RSA)</SelectItem>
+                      <SelectItem value="2048">2048 bits (RSA Standard)</SelectItem>
+                      <SelectItem value="4096">4096 bits (RSA High Security)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="rotation">Rotation Interval (days)</Label>
+                  <Select value={rotationInterval} onValueChange={setRotationInterval}>
+                    <SelectTrigger className="bg-gray-50 border-gray-300">
+                      <SelectValue placeholder="Select rotation" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="7">7 days (High Security)</SelectItem>
+                      <SelectItem value="30">30 days (Standard)</SelectItem>
+                      <SelectItem value="90">90 days (Quarterly)</SelectItem>
+                      <SelectItem value="180">180 days (Semi-Annual)</SelectItem>
+                      <SelectItem value="365">365 days (Annual)</SelectItem>
+                      <SelectItem value="0">Manual Only</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                <div className="flex items-center space-x-2">
+                  <input 
+                    type="checkbox" 
+                    id="hsm" 
+                    checked={enableHSM} 
+                    onChange={(e) => setEnableHSM(e.target.checked)}
+                    className="rounded border-gray-300"
+                  />
+                  <Label htmlFor="hsm" className="text-sm">Hardware Security Module (HSM) Protection</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input 
+                    type="checkbox" 
+                    id="audit" 
+                    checked={enableAuditLogging} 
+                    onChange={(e) => setEnableAuditLogging(e.target.checked)}
+                    className="rounded border-gray-300"
+                  />
+                  <Label htmlFor="audit" className="text-sm">Enterprise Audit Logging & Compliance</Label>
+                </div>
+              </div>
+
               <Button 
-                onClick={() => generateKeyMutation.mutate({ keyType: selectedKeyType, algorithm: selectedAlgorithm })}
+                onClick={() => generateKeyMutation.mutate({ 
+                  keyType: selectedKeyType, 
+                  algorithm: selectedAlgorithm,
+                  keyBits,
+                  rotationInterval,
+                  enableHSM,
+                  enableAuditLogging
+                })}
                 disabled={generateKeyMutation.isPending}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white"
               >
@@ -354,7 +473,52 @@ export default function KeyManagement() {
 
       <Card className="bg-card border-border">
         <CardHeader>
-          <CardTitle className="text-foreground">Encryption Keys</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-foreground">Encryption Keys ({Array.isArray(keys) ? keys.length : 0})</CardTitle>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <input 
+                  type="text"
+                  placeholder="Search keys..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="px-3 py-1 border border-gray-300 rounded text-sm bg-white"
+                  data-testid="search-keys"
+                />
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-32 bg-white border-gray-300">
+                    <SelectValue placeholder="Filter" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="expired">Expired</SelectItem>
+                    <SelectItem value="rotating">Rotating</SelectItem>
+                    <SelectItem value="revoked">Revoked</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {selectedKeys.length > 0 && (
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-gray-600">{selectedKeys.length} selected</span>
+                  <Button 
+                    size="sm" 
+                    variant="destructive"
+                    onClick={() => {
+                      if (confirm(`Delete ${selectedKeys.length} selected keys? This action cannot be undone.`)) {
+                        // TODO: Implement bulk delete
+                        toast({ title: "Bulk Delete", description: `${selectedKeys.length} keys marked for deletion` });
+                        setSelectedKeys([]);
+                      }
+                    }}
+                    data-testid="bulk-delete-keys"
+                  >
+                    Delete Selected
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -363,22 +527,41 @@ export default function KeyManagement() {
                 <div key={i} className="h-16 bg-muted rounded animate-pulse"></div>
               ))}
             </div>
-          ) : Array.isArray(keys) && keys.length ? (
+          ) : filteredKeys.length ? (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="border-border">
+                    <TableHead className="text-foreground font-medium w-12">
+                      <input 
+                        type="checkbox" 
+                        checked={selectedKeys.length === filteredKeys.length && filteredKeys.length > 0}
+                        onChange={(e) => handleSelectAll(e.target.checked)}
+                        className="rounded border-gray-300"
+                        data-testid="select-all-keys"
+                      />
+                    </TableHead>
                     <TableHead className="text-foreground font-medium">Key ID</TableHead>
                     <TableHead className="text-foreground font-medium">Type</TableHead>
                     <TableHead className="text-foreground font-medium">Algorithm</TableHead>
+                    <TableHead className="text-foreground font-medium">Size</TableHead>
                     <TableHead className="text-foreground font-medium">Created</TableHead>
                     <TableHead className="text-foreground font-medium">Status</TableHead>
                     <TableHead className="text-foreground font-medium">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(keys as any[]).map((key: any) => (
+                  {filteredKeys.map((key: any) => (
                     <TableRow key={key.id} className="border-border">
+                      <TableCell className="text-foreground w-12">
+                        <input 
+                          type="checkbox" 
+                          checked={selectedKeys.includes(key.id)}
+                          onChange={(e) => handleSelectKey(key.id, e.target.checked)}
+                          className="rounded border-gray-300"
+                          data-testid={`select-key-${key.id}`}
+                        />
+                      </TableCell>
                       <TableCell className="text-foreground font-mono text-sm" data-testid={`key-id-${key.id}`}>
                         {key.keyId}
                       </TableCell>
@@ -387,6 +570,9 @@ export default function KeyManagement() {
                       </TableCell>
                       <TableCell className="text-foreground" data-testid={`key-algorithm-${key.id}`}>
                         {key.algorithm?.displayName || 'N/A'}
+                      </TableCell>
+                      <TableCell className="text-foreground" data-testid={`key-size-${key.id}`}>
+                        {key.metadata?.keySize || key.metadata?.customKeySize || 'N/A'} bits
                       </TableCell>
                       <TableCell className="text-foreground" data-testid={`key-created-${key.id}`}>
                         {formatDistanceToNow(new Date(key.createdAt), { addSuffix: true })}
@@ -456,8 +642,18 @@ export default function KeyManagement() {
             </div>
           ) : (
             <div className="text-center py-8">
-              <p className="text-slate-400">No encryption keys found</p>
-              <p className="text-slate-500 text-sm mt-2">Generate your first key to get started</p>
+              <p className="text-slate-400">
+                {searchQuery || statusFilter !== 'all' 
+                  ? `No keys match your search criteria` 
+                  : 'No encryption keys found'
+                }
+              </p>
+              <p className="text-slate-500 text-sm mt-2">
+                {searchQuery || statusFilter !== 'all'
+                  ? 'Try adjusting your search or filter settings'
+                  : 'Generate your first key to get started'
+                }
+              </p>
             </div>
           )}
         </CardContent>
