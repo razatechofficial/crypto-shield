@@ -21,8 +21,8 @@
  * ✅ Supply chain security (SBOM/provenance)
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
 
 class ProductionSDKGenerator {
   
@@ -752,8 +752,4 @@ jobs:
   }
 }
 
-// Support both CommonJS and ES modules
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = ProductionSDKGenerator;
-}
 export default ProductionSDKGenerator;
