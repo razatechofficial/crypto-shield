@@ -15,8 +15,8 @@ import { ArrowLeft, ArrowRight, Download, Lightbulb } from "lucide-react";
 import type { EncryptionAlgorithm } from '@shared/schema';
 
 const languages = [
-  { id: 'javascript', name: 'JavaScript', icon: '📜', category: 'Web Development' },
-  { id: 'typescript', name: 'TypeScript', icon: '📘', category: 'Web Development' },
+  { id: 'javascript', name: 'JavaScript (Node.js & React)', icon: '📜', category: 'Web Development' },
+  { id: 'typescript', name: 'TypeScript (Node.js & React)', icon: '📘', category: 'Web Development' },
   { id: 'python', name: 'Python', icon: '🐍', category: 'Backend & Data Science' },
   { id: 'java', name: 'Java', icon: '☕', category: 'Enterprise & Android' },
   { id: 'kotlin', name: 'Kotlin', icon: '🎯', category: 'Android Development' },
