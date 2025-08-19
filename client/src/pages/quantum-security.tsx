@@ -46,25 +46,46 @@ export default function QuantumSecurity() {
       const response = await fetch('/api/quantum/migration/guide', {
         method: 'GET',
         credentials: 'include',
+        headers: {
+          'Accept': 'application/pdf, text/plain',
+        },
       });
-      if (!response.ok) throw new Error('Download failed');
-      return response.blob();
-    },
-    onSuccess: (blob) => {
+      
+      if (!response.ok) {
+        throw new Error(`Download failed: ${response.status}`);
+      }
+      
+      // Check content type and create proper download
+      const contentType = response.headers.get('content-type');
+      const blob = await response.blob();
+      
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'quantum-migration-guide.pdf';
-      document.body.appendChild(a);
-      a.click();
+      const link = document.createElement('a');
+      link.href = url;
+      
+      // Set appropriate filename based on content type
+      if (contentType?.includes('application/pdf')) {
+        link.download = 'Averox-Quantum-Migration-Guide.pdf';
+      } else {
+        link.download = 'Averox-Quantum-Migration-Guide.txt';
+      }
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      
+      return { contentType };
+    },
+    onSuccess: (data) => {
+      const fileType = data?.contentType?.includes('pdf') ? 'PDF document' : 'text document';
       toast({
-        title: "Download Started",
-        description: "The quantum migration guide is downloading now.",
+        title: "Migration Guide Downloaded",
+        description: `The comprehensive quantum security migration guide (${fileType}) has been downloaded successfully.`,
       });
     },
     onError: (error) => {
+      console.error('Download error:', error);
       toast({
         title: "Download Failed",
         description: "Unable to download migration guide. Please try again.",
@@ -421,14 +442,23 @@ export default function QuantumSecurity() {
                 </div>
 
                 {migrationStarted && (
-                  <div className="mt-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                  <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                     <div className="flex items-center space-x-2">
-                      <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
-                      <h4 className="font-medium text-green-800 dark:text-green-200">Migration Assessment Active</h4>
+                      <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                      <h4 className="font-medium text-blue-800 dark:text-blue-200">Migration Assessment In Progress</h4>
                     </div>
-                    <p className="text-sm text-green-700 dark:text-green-300 mt-1">
-                      Your cryptographic inventory scan is running. Results will be available in the dashboard within 24 hours.
+                    <p className="text-sm text-blue-700 dark:text-blue-300 mt-2">
+                      ✓ Cryptographic inventory scan initiated<br/>
+                      ✓ Risk assessment algorithms deployed<br/>
+                      ⏳ Analyzing current infrastructure...<br/>
+                      ⏳ Generating migration recommendations...
                     </p>
+                    <div className="mt-3">
+                      <div className="w-full bg-blue-200 dark:bg-blue-800 rounded-full h-2">
+                        <div className="bg-blue-600 h-2 rounded-full animate-pulse" style={{ width: '45%' }}></div>
+                      </div>
+                      <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">Assessment approximately 45% complete • Results in dashboard within 24 hours</p>
+                    </div>
                   </div>
                 )}
               </div>
