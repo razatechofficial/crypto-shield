@@ -612,7 +612,7 @@ export default function KeyManagement() {
                 </TableHeader>
                 <TableBody>
                   {filteredKeys.map((key: any) => (
-                    <TableRow key={key.id} className="border-border">
+                    <TableRow key={key.id} className="border-border" onClick={(e) => e.stopPropagation()}>
                       <TableCell className="text-foreground w-12">
                         <input 
                           type="checkbox" 
@@ -643,7 +643,7 @@ export default function KeyManagement() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <div className="flex space-x-1">
+                        <div className="flex space-x-1" onClick={(e) => e.stopPropagation()}>
                           <Button
                             size="sm"
                             variant="ghost"
