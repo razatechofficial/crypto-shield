@@ -177,6 +177,8 @@ export default function KeyManagement() {
     },
     mutationKey: ['updateKeyStatus'],
     onSuccess: (_, variables) => {
+      setActiveRotate(null);
+      setActiveToggle(null);
       toast({
         title: "Key Status Updated",
         description: `Key status changed to ${variables.status}`,
@@ -184,6 +186,8 @@ export default function KeyManagement() {
       queryClient.invalidateQueries({ queryKey: ["/api/keys"] });
     },
     onError: (error: Error) => {
+      setActiveRotate(null);
+      setActiveToggle(null);
       toast({
         title: "Error",
         description: "Failed to update key status",
@@ -198,6 +202,7 @@ export default function KeyManagement() {
     },
     mutationKey: ['revokeKey'],
     onSuccess: () => {
+      setActiveRevoke(null);
       toast({
         title: "Key Revoked",
         description: "Key has been permanently revoked",
@@ -206,6 +211,7 @@ export default function KeyManagement() {
       queryClient.invalidateQueries({ queryKey: ["/api/keys"] });
     },
     onError: (error: Error) => {
+      setActiveRevoke(null);
       toast({
         title: "Error",
         description: "Failed to revoke key",
@@ -222,8 +228,14 @@ export default function KeyManagement() {
     });
   };
 
+  const [activeDownload, setActiveDownload] = useState<string | null>(null);
+  const [activeRotate, setActiveRotate] = useState<string | null>(null);
+  const [activeToggle, setActiveToggle] = useState<string | null>(null);
+  const [activeRevoke, setActiveRevoke] = useState<string | null>(null);
+
   const downloadKeyMutation = useMutation({
     mutationFn: async (keyId: string) => {
+      setActiveDownload(keyId);
       console.log(`🔑 Downloading production key: ${keyId}`);
       const response = await fetch(`/api/keys/${keyId}/download`, {
         method: 'GET',
@@ -240,6 +252,7 @@ export default function KeyManagement() {
     },
     mutationKey: ['downloadKey'],
     onSuccess: (data, keyId) => {
+      setActiveDownload(null);
       // Create downloadable file with key data
       const keyData = {
         keyId: data.keyId,
@@ -273,7 +286,8 @@ export default function KeyManagement() {
         description: `Production key ${data.keyId} downloaded successfully`,
       });
     },
-    onError: (error: Error) => {
+    onError: (error: Error, keyId) => {
+      setActiveDownload(null);
       console.error('❌ Key download failed:', error);
       toast({
         title: "Download Failed",
@@ -656,17 +670,15 @@ export default function KeyManagement() {
                                 e.preventDefault();
                                 e.stopPropagation();
                                 e.nativeEvent.stopImmediatePropagation();
-                                setTimeout(() => {
-                                  if (!downloadKeyMutation.isPending) {
-                                    downloadKeyMutation.mutate(key.id);
-                                  }
-                                }, 0);
+                                if (activeDownload !== key.id && !activeDownload) {
+                                  downloadKeyMutation.mutate(key.id);
+                                }
                               }}
-                              disabled={downloadKeyMutation.isPending}
+                              disabled={activeDownload === key.id}
                               data-testid={`button-download-${key.id}`}
                               title="Download Key"
                             >
-                              {downloadKeyMutation.isPending ? "..." : "⬇"}
+                              {activeDownload === key.id ? "..." : "⬇"}
                             </Button>
                           </div>
                           <div className="inline-block">
@@ -697,13 +709,12 @@ export default function KeyManagement() {
                                 e.preventDefault();
                                 e.stopPropagation();
                                 e.nativeEvent.stopImmediatePropagation();
-                                setTimeout(() => {
-                                  if (!updateKeyStatusMutation.isPending && key.status !== 'rotating') {
-                                    updateKeyStatusMutation.mutate({ keyId: key.id, status: 'rotating' });
-                                  }
-                                }, 0);
+                                if (activeRotate !== key.id && !activeRotate && key.status !== 'rotating') {
+                                  setActiveRotate(key.id);
+                                  updateKeyStatusMutation.mutate({ keyId: key.id, status: 'rotating' });
+                                }
                               }}
-                              disabled={updateKeyStatusMutation.isPending || key.status === 'rotating'}
+                              disabled={activeRotate === key.id || key.status === 'rotating'}
                               data-testid={`button-rotate-${key.id}`}
                               title="Rotate Key"
                             >
@@ -719,13 +730,12 @@ export default function KeyManagement() {
                                 e.preventDefault();
                                 e.stopPropagation();
                                 e.nativeEvent.stopImmediatePropagation();
-                                setTimeout(() => {
-                                  if (!updateKeyStatusMutation.isPending) {
-                                    updateKeyStatusMutation.mutate({ keyId: key.id, status: key.status === 'active' ? 'expired' : 'active' });
-                                  }
-                                }, 0);
+                                if (activeToggle !== key.id && !activeToggle) {
+                                  setActiveToggle(key.id);
+                                  updateKeyStatusMutation.mutate({ keyId: key.id, status: key.status === 'active' ? 'expired' : 'active' });
+                                }
                               }}
-                              disabled={updateKeyStatusMutation.isPending}
+                              disabled={activeToggle === key.id}
                               data-testid={`button-toggle-${key.id}`}
                               title={key.status === 'active' ? 'Disable Key' : 'Activate Key'}
                             >
@@ -741,13 +751,12 @@ export default function KeyManagement() {
                                 e.preventDefault();
                                 e.stopPropagation();
                                 e.nativeEvent.stopImmediatePropagation();
-                                setTimeout(() => {
-                                  if (!revokeKeyMutation.isPending && key.status !== 'revoked') {
-                                    revokeKeyMutation.mutate(key.id);
-                                  }
-                                }, 0);
+                                if (activeRevoke !== key.id && !activeRevoke && key.status !== 'revoked') {
+                                  setActiveRevoke(key.id);
+                                  revokeKeyMutation.mutate(key.id);
+                                }
                               }}
-                              disabled={revokeKeyMutation.isPending || key.status === 'revoked'}
+                              disabled={activeRevoke === key.id || key.status === 'revoked'}
                               data-testid={`button-revoke-${key.id}`}
                               title="Revoke Key"
                             >
