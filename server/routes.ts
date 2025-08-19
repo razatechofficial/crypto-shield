@@ -4827,11 +4827,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ message: "User not associated with a tenant" });
         }
         console.log('🔍 Using default tenant for development:', tenantId);
-        const sdks = await storage.getSDKs(tenantId);
+        const sdks = await storage.getSDKs(tenantId, userId);
         return res.json(sdks);
       }
 
-      const sdks = await storage.getSDKs(user.tenantId);
+      const sdks = await storage.getSDKs(user.tenantId, userId);
       res.json(sdks);
     } catch (error) {
       console.error("Error fetching SDKs:", error);

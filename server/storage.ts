@@ -36,7 +36,7 @@ export interface IStorage {
   createTenant(tenant: InsertTenant): Promise<Tenant>;
   
   // SDK operations
-  getSDKs(tenantId: string): Promise<Sdk[]>;
+  getSDKs(tenantId: string, userId?: string): Promise<Sdk[]>;
   createSDK(sdk: InsertSdk): Promise<Sdk>;
   getSDK(id: string): Promise<Sdk | undefined>;
   deleteSDK(id: string): Promise<void>;
@@ -138,11 +138,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   // SDK operations
-  async getSDKs(tenantId: string): Promise<Sdk[]> {
+  async getSDKs(tenantId: string, userId?: string): Promise<Sdk[]> {
     // Check if SDKs exist, if not, seed some test data
     const existing = await db.select().from(sdks).where(eq(sdks.tenantId, tenantId)).limit(1);
-    if (existing.length === 0) {
-      await this.seedTestSDKs(tenantId);
+    if (existing.length === 0 && userId) {
+      await this.seedTestSDKs(tenantId, userId);
     }
     
     return await db
@@ -186,12 +186,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Seed test SDKs for development
-  private async seedTestSDKs(tenantId: string): Promise<void> {
+  private async seedTestSDKs(tenantId: string, userId: string): Promise<void> {
     const testSDKs = [
       {
         id: randomUUID(),
         tenantId: tenantId,
-        userId: 'system',
+        userId: userId,
         name: 'FinanceSecure SDK',
         description: 'Enterprise-grade encryption SDK for financial applications with FIPS 140-2 compliance',
         version: '2.1.0',
@@ -220,7 +220,7 @@ export class DatabaseStorage implements IStorage {
       {
         id: randomUUID(),
         tenantId: tenantId,
-        userId: 'system',
+        userId: userId,
         name: 'HealthcareCrypto SDK',
         description: 'HIPAA-compliant encryption SDK for healthcare data with end-to-end encryption',
         version: '1.8.3',
@@ -249,7 +249,7 @@ export class DatabaseStorage implements IStorage {
       {
         id: randomUUID(),
         tenantId: tenantId,
-        userId: 'system',
+        userId: userId,
         name: 'QuantumSafe Enterprise SDK',
         description: 'Next-generation quantum-resistant encryption SDK with NIST 2024 post-quantum algorithms',
         version: '3.0.0-beta',
@@ -278,7 +278,7 @@ export class DatabaseStorage implements IStorage {
       {
         id: randomUUID(),
         tenantId: tenantId,
-        userId: 'system',
+        userId: userId,
         name: 'MobileCrypto SDK',
         description: 'Lightweight encryption SDK optimized for mobile applications with battery-efficient algorithms',
         version: '2.3.1',
