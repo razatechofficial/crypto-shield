@@ -649,15 +649,9 @@ export default function KeyManagement() {
                             size="sm"
                             variant="ghost"
                             className="text-green-500 hover:text-green-400 hover:bg-slate-700"
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              e.stopImmediatePropagation();
-                            }}
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              e.stopImmediatePropagation();
                               if (!downloadKeyMutation.isPending) {
                                 downloadKeyMutation.mutate(key.id);
                               }
@@ -672,15 +666,9 @@ export default function KeyManagement() {
                             size="sm"
                             variant="ghost"
                             className="text-blue-500 hover:text-blue-400 hover:bg-slate-700"
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              e.stopImmediatePropagation();
-                            }}
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              e.stopImmediatePropagation();
                               copyToClipboard(key.keyId, 'Key ID');
                             }}
                             data-testid={`button-copy-${key.id}`}
@@ -692,15 +680,9 @@ export default function KeyManagement() {
                             size="sm"
                             variant="ghost"
                             className="text-green-500 hover:text-green-400 hover:bg-slate-700"
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              e.stopImmediatePropagation();
-                            }}
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              e.stopImmediatePropagation();
                               if (!updateKeyStatusMutation.isPending && key.status !== 'rotating') {
                                 updateKeyStatusMutation.mutate({ keyId: key.id, status: 'rotating' });
                               }
@@ -715,15 +697,9 @@ export default function KeyManagement() {
                             size="sm"
                             variant="ghost"
                             className="text-yellow-500 hover:text-yellow-400 hover:bg-slate-700"
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              e.stopImmediatePropagation();
-                            }}
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              e.stopImmediatePropagation();
                               if (!updateKeyStatusMutation.isPending) {
                                 updateKeyStatusMutation.mutate({ keyId: key.id, status: key.status === 'active' ? 'expired' : 'active' });
                               }
@@ -738,15 +714,9 @@ export default function KeyManagement() {
                             size="sm"
                             variant="ghost"
                             className="text-red-500 hover:text-red-400 hover:bg-slate-700"
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              e.stopImmediatePropagation();
-                            }}
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              e.stopImmediatePropagation();
                               if (!revokeKeyMutation.isPending && key.status !== 'revoked') {
                                 revokeKeyMutation.mutate(key.id);
                               }
