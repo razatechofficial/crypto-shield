@@ -81,6 +81,9 @@ class ProductionSDKGenerator {
     const securityTests = this.getSecurityTestSuite();
     const readme = this.getProductionReadme(sdk);
     const cmakeConfig = this.getCMakeConfig(sdk);
+    const securityMd = this.getSecurityPolicy();
+    const changelog = this.getChangelog(sdk);
+    const license = this.getLicense();
     
     return {
       'package.json': JSON.stringify(packageJson, null, 2),
@@ -89,8 +92,10 @@ class ProductionSDKGenerator {
       'test/nist-vectors.js': nistTests,
       'test/security.test.js': securityTests,
       'README.md': readme,
+      'CHANGELOG.md': changelog,
+      'LICENSE': license,
       'CMakeLists.txt': cmakeConfig,
-      'SECURITY.md': this.getSecurityPolicy(),
+      'SECURITY.md': securityMd,
       '.github/workflows/ci.yml': this.getCIConfig(),
       'SBOM.json': this.getSBOM(sdk)
     };
