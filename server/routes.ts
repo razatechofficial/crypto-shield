@@ -5127,7 +5127,7 @@ This SDK has been generated with **COMPLETE** enterprise-ready security features
 
 ## Languages Supported
 
-${languages.map(lang => `- **${lang.toUpperCase()}**: Enterprise-grade implementation with ALL security features`).join('\n')}
+${languages.map((lang: string) => `- **${lang.toUpperCase()}**: Enterprise-grade implementation with ALL security features`).join('\n')}
 
 ## Algorithm Support
 
@@ -9289,7 +9289,7 @@ do {
       }
 
       // Generate actual key material based on algorithm type and key size
-      const keySize = key.metadata?.customKeySize || algorithm.keySize || 256;
+      const keySize = (key.metadata as any)?.customKeySize || algorithm.keySize || 256;
       const keyMaterial = generateKeyMaterial(algorithm.type, algorithm.name, keySize);
       
       const downloadData = {
@@ -9306,7 +9306,7 @@ do {
         createdAt: key.createdAt,
         downloadedAt: new Date().toISOString(),
         metadata: {
-          ...key.metadata,
+          ...(key.metadata || {}),
           downloadAudit: {
             timestamp: new Date().toISOString(),
             ipAddress: req.ip,
@@ -9314,12 +9314,16 @@ do {
           }
         },
         securityNotice: "🔒 This is production-grade key material. Store securely and never share publicly.",
-        usageInstructions: {
+        usageInstructions: (({
           symmetric: "Use this key for AES/ChaCha20 encryption operations",
           asymmetric: "Private key for digital signatures and key exchange", 
           post_quantum: "Quantum-resistant key for future-proof security",
-          hash: "Use for HMAC operations and key derivation"
-        }[algorithm.type]
+          hash: "Use for HMAC operations and key derivation",
+          homomorphic: "Use for privacy-preserving computations",
+          mpc: "Use for multi-party computation protocols",
+          tee: "Use for trusted execution environment operations",
+          zero_knowledge: "Use for zero-knowledge proof systems"
+        } as Record<string, string>)[algorithm.type]) || "Standard cryptographic operations"
       };
 
       console.log(`✅ Key material generated and downloaded: ${key.keyId} (${algorithm.displayName}, ${keySize}-bit)`);
@@ -9434,8 +9438,8 @@ ${Buffer.from(algorithmName + keySize + timestamp).toString('base64')}
       console.log("🔍 Quantum readiness request from user:", user.claims.sub);
       
       // Simplified quantum readiness calculation with safe defaults
-      let userSDKs = [];
-      let allAlgorithms = [];
+      let userSDKs: any[] = [];
+      let allAlgorithms: any[] = [];
       
       try {
         userSDKs = await storage.getSDKs(user.claims.sub) || [];
@@ -9468,7 +9472,7 @@ ${Buffer.from(algorithmName + keySize + timestamp).toString('base64')}
         },
         lastAssessment: new Date().toISOString(),
         migrationStatus: userSDKs.length > 0 && userSDKs.some((sdk: any) => 
-          sdk.algorithms?.some((algId: string) => 
+          Array.isArray(sdk.algorithms) && sdk.algorithms.some((algId: string) => 
             postQuantumAlgorithms.some(pq => pq.id === algId)
           )
         ) ? 'in-progress' : 'not-started'
@@ -9526,18 +9530,18 @@ ${Buffer.from(algorithmName + keySize + timestamp).toString('base64')}
       
       // REAL RISK CALCULATION: Based on actual user infrastructure
       const totalCryptoOperations = userSDKs.reduce((total, sdk) => {
-        return total + (sdk.algorithms?.length || 0);
+        return total + (Array.isArray(sdk.algorithms) ? sdk.algorithms.length : 0);
       }, 0);
       
       const quantumVulnerableOps = userSDKs.reduce((total, sdk) => {
-        if (!sdk.algorithms) return total;
+        if (!Array.isArray(sdk.algorithms)) return total;
         return total + sdk.algorithms.filter((algId: string) => 
           vulnerableAlgorithms.some(vuln => vuln.id === algId)
         ).length;
       }, 0);
       
       const quantumSafeOps = userSDKs.reduce((total, sdk) => {
-        if (!sdk.algorithms) return total;
+        if (!Array.isArray(sdk.algorithms)) return total;
         return total + sdk.algorithms.filter((algId: string) => 
           quantumSafeAlgorithms.some(safe => safe.id === algId)
         ).length;
@@ -9835,7 +9839,7 @@ Classification: Internal Use - Migration Planning
   // Get real-time crypto operations
   app.get('/api/monitoring/operations', isAuthenticated, async (req, res) => {
     try {
-      const tenantId = process.env.NODE_ENV === 'development' ? 'default-tenant' : req.user?.claims?.sub;
+      const tenantId = process.env.NODE_ENV === 'development' ? 'default-tenant' : (req.user as any)?.claims?.sub;
       const hours = parseInt(req.query.hours as string) || 24;
       
       const operations = await storage.getCryptoOperations(tenantId, hours);
@@ -9854,7 +9858,7 @@ Classification: Internal Use - Migration Planning
   // Get system health based on real performance data
   app.get('/api/monitoring/health', isAuthenticated, async (req, res) => {
     try {
-      const tenantId = process.env.NODE_ENV === 'development' ? 'default-tenant' : req.user?.claims?.sub;
+      const tenantId = process.env.NODE_ENV === 'development' ? 'default-tenant' : (req.user as any)?.claims?.sub;
       
       const healthMetrics = await storage.getSystemHealthMetrics(tenantId);
       res.json(healthMetrics);
@@ -9867,7 +9871,7 @@ Classification: Internal Use - Migration Planning
   // Get real security incidents
   app.get('/api/monitoring/incidents', isAuthenticated, async (req, res) => {
     try {
-      const tenantId = process.env.NODE_ENV === 'development' ? 'default-tenant' : req.user?.claims?.sub;
+      const tenantId = process.env.NODE_ENV === 'development' ? 'default-tenant' : (req.user as any)?.claims?.sub;
       const status = req.query.status as string;
       
       const incidents = await storage.getSecurityIncidents(tenantId, status);
@@ -9881,7 +9885,7 @@ Classification: Internal Use - Migration Planning
   // Get SDK deployments and their real-time status
   app.get('/api/monitoring/deployments', isAuthenticated, async (req, res) => {
     try {
-      const tenantId = process.env.NODE_ENV === 'development' ? 'default-tenant' : req.user?.claims?.sub;
+      const tenantId = process.env.NODE_ENV === 'development' ? 'default-tenant' : (req.user as any)?.claims?.sub;
       
       const deployments = await storage.getSdkDeployments(tenantId);
       res.json(deployments);
@@ -9894,7 +9898,7 @@ Classification: Internal Use - Migration Planning
   // Legacy endpoint updated to use real data
   app.get('/api/monitoring/events', isAuthenticated, async (req, res) => {
     try {
-      const tenantId = process.env.NODE_ENV === 'development' ? 'default-tenant' : req.user?.claims?.sub;
+      const tenantId = process.env.NODE_ENV === 'development' ? 'default-tenant' : (req.user as any)?.claims?.sub;
       
       // Return actual security events from monitoring database
       const events = await storage.getSecurityEvents(tenantId, 100);
@@ -9973,7 +9977,7 @@ Classification: Internal Use - Migration Planning
   // Record security incident
   app.post('/api/monitoring/incidents', isAuthenticated, async (req, res) => {
     try {
-      const tenantId = process.env.NODE_ENV === 'development' ? 'default-tenant' : req.user?.claims?.sub;
+      const tenantId = process.env.NODE_ENV === 'development' ? 'default-tenant' : (req.user as any)?.claims?.sub;
       const incident = await storage.recordSecurityIncident({
         tenantId,
         ...req.body
@@ -9989,7 +9993,7 @@ Classification: Internal Use - Migration Planning
   // Register SDK deployment
   app.post('/api/monitoring/deployments', isAuthenticated, async (req, res) => {
     try {
-      const tenantId = process.env.NODE_ENV === 'development' ? 'default-tenant' : req.user?.claims?.sub;
+      const tenantId = process.env.NODE_ENV === 'development' ? 'default-tenant' : (req.user as any)?.claims?.sub;
       const deployment = await storage.registerSdkDeployment({
         tenantId,
         ...req.body
