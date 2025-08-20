@@ -1,5 +1,5 @@
 /**
- * AuditTestSDK - Enterprise Cryptographic SDK
+ * TestSDK - Enterprise Cryptographic SDK
  * SECURITY AUDIT COMPLIANT - ALL 18 GATES IMPLEMENTED
  */
 
