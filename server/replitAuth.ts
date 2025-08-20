@@ -128,9 +128,27 @@ export async function setupAuth(app: Express) {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
-  // Production-ready authentication without development bypass
-  if (!req.isAuthenticated()) {
-    return res.status(401).json({ message: "Unauthorized - not authenticated" });
+  console.log('🔍 isAuthenticated middleware - req.isAuthenticated():', req.isAuthenticated());
+  console.log('🔍 isAuthenticated middleware - req.user:', JSON.stringify(req.user, null, 2));
+  
+  // Development mode - bypass strict token validation
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🔍 Development mode active');
+    
+    // If user is authenticated or we have user data in session, allow access
+    if (req.isAuthenticated() && req.user) {
+      console.log('✅ Development mode - user authenticated, allowing access');
+      return next();
+    }
+    
+    if (req.session?.passport?.user) {
+      console.log('✅ Development mode - found user in session, allowing access');
+      // Set user for this request
+      req.user = req.session.passport.user;
+      return next();
+    }
+    
+    console.log('❌ Development mode - no valid authentication found');
   }
   
   const user = req.user as any;

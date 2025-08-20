@@ -52,15 +52,15 @@ export default function AdvancedAnalytics() {
   ];
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-6 bg-white min-h-screen">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-white">Advanced Analytics</h1>
-          <p className="text-slate-400">Comprehensive cryptographic operations analytics and intelligence</p>
+          <h1 className="text-3xl font-bold text-gray-900">Advanced Analytics</h1>
+          <p className="text-gray-600">Comprehensive cryptographic operations analytics and intelligence</p>
         </div>
         <div className="flex items-center space-x-4">
           <Select value={timeRange} onValueChange={setTimeRange}>
-            <SelectTrigger className="w-32 bg-slate-800 border-slate-600">
+            <SelectTrigger className="w-32 bg-white border-gray-300">
               <SelectValue placeholder="Time Range" />
             </SelectTrigger>
             <SelectContent>
@@ -79,98 +79,98 @@ export default function AdvancedAnalytics() {
 
       {/* Key Metrics Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="bg-slate-800 border-slate-700">
+        <Card className="bg-white border-gray-300 shadow-sm">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-400">Total Operations</p>
-                <p className="text-2xl font-bold text-white">24.7K</p>
-                <p className="text-sm text-green-400 flex items-center">
+                <p className="text-sm text-gray-600">Total Operations</p>
+                <p className="text-2xl font-bold text-gray-900">24.7K</p>
+                <p className="text-sm text-green-600 flex items-center">
                   <TrendingUp className="w-3 h-3 mr-1" />
                   +12.5% from last period
                 </p>
               </div>
-              <Activity className="w-8 h-8 text-blue-400" />
+              <Activity className="w-8 h-8 text-blue-600" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-800 border-slate-700">
+        <Card className="bg-white border-gray-300 shadow-sm">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-400">Avg Latency</p>
-                <p className="text-2xl font-bold text-white">14.2ms</p>
-                <p className="text-sm text-green-400 flex items-center">
+                <p className="text-sm text-gray-600">Avg Latency</p>
+                <p className="text-2xl font-bold text-gray-900">14.2ms</p>
+                <p className="text-sm text-green-600 flex items-center">
                   <TrendingUp className="w-3 h-3 mr-1 rotate-180" />
                   -3.2% improvement
                 </p>
               </div>
-              <Zap className="w-8 h-8 text-yellow-400" />
+              <Zap className="w-8 h-8 text-yellow-600" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-800 border-slate-700">
+        <Card className="bg-white border-gray-300 shadow-sm">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-400">Success Rate</p>
-                <p className="text-2xl font-bold text-white">99.2%</p>
-                <p className="text-sm text-green-400 flex items-center">
+                <p className="text-sm text-gray-600">Success Rate</p>
+                <p className="text-2xl font-bold text-gray-900">99.2%</p>
+                <p className="text-sm text-green-600 flex items-center">
                   <Shield className="w-3 h-3 mr-1" />
                   Enterprise SLA met
                 </p>
               </div>
-              <Shield className="w-8 h-8 text-green-400" />
+              <Shield className="w-8 h-8 text-green-600" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-800 border-slate-700">
+        <Card className="bg-white border-gray-300 shadow-sm">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-400">Security Events</p>
-                <p className="text-2xl font-bold text-white">194</p>
-                <p className="text-sm text-orange-400 flex items-center">
+                <p className="text-sm text-gray-600">Security Events</p>
+                <p className="text-2xl font-bold text-gray-900">194</p>
+                <p className="text-sm text-orange-600 flex items-center">
                   <AlertTriangle className="w-3 h-3 mr-1" />
                   3 high priority
                 </p>
               </div>
-              <AlertTriangle className="w-8 h-8 text-orange-400" />
+              <AlertTriangle className="w-8 h-8 text-orange-600" />
             </div>
           </CardContent>
         </Card>
       </div>
 
       <Tabs defaultValue="performance" className="w-full">
-        <TabsList className="grid w-full grid-cols-5 bg-slate-800 text-slate-200">
-          <TabsTrigger value="performance" className="data-[state=active]:bg-blue-600">Performance</TabsTrigger>
-          <TabsTrigger value="algorithms" className="data-[state=active]:bg-blue-600">Algorithms</TabsTrigger>
-          <TabsTrigger value="security" className="data-[state=active]:bg-blue-600">Security</TabsTrigger>
-          <TabsTrigger value="geographic" className="data-[state=active]:bg-blue-600">Geographic</TabsTrigger>
-          <TabsTrigger value="compliance" className="data-[state=active]:bg-blue-600">Compliance</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-5 bg-gray-100 text-gray-700">
+          <TabsTrigger value="performance" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">Performance</TabsTrigger>
+          <TabsTrigger value="algorithms" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">Algorithms</TabsTrigger>
+          <TabsTrigger value="security" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">Security</TabsTrigger>
+          <TabsTrigger value="geographic" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">Geographic</TabsTrigger>
+          <TabsTrigger value="compliance" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">Compliance</TabsTrigger>
         </TabsList>
 
         <TabsContent value="performance" className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card className="bg-slate-800 border-slate-700">
+            <Card className="bg-white border-gray-300 shadow-sm">
               <CardHeader>
-                <CardTitle className="text-white">Operations Over Time</CardTitle>
+                <CardTitle className="text-gray-900">Operations Over Time</CardTitle>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
                   <AreaChart data={performanceData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                    <XAxis dataKey="time" stroke="#9CA3AF" />
-                    <YAxis stroke="#9CA3AF" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                    <XAxis dataKey="time" stroke="#6B7280" />
+                    <YAxis stroke="#6B7280" />
                     <Tooltip 
                       contentStyle={{ 
-                        backgroundColor: '#1F2937', 
-                        border: '1px solid #374151',
+                        backgroundColor: '#FFFFFF', 
+                        border: '1px solid #E5E7EB',
                         borderRadius: '8px',
-                        color: '#F3F4F6'
+                        color: '#1F2937'
                       }} 
                     />
                     <Area type="monotone" dataKey="operations" stroke="#3B82F6" fill="#3B82F6" fillOpacity={0.3} />
@@ -179,22 +179,22 @@ export default function AdvancedAnalytics() {
               </CardContent>
             </Card>
 
-            <Card className="bg-slate-800 border-slate-700">
+            <Card className="bg-white border-gray-300 shadow-sm">
               <CardHeader>
-                <CardTitle className="text-white">Latency Distribution</CardTitle>
+                <CardTitle className="text-gray-900">Latency Distribution</CardTitle>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
                   <LineChart data={performanceData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                    <XAxis dataKey="time" stroke="#9CA3AF" />
-                    <YAxis stroke="#9CA3AF" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                    <XAxis dataKey="time" stroke="#6B7280" />
+                    <YAxis stroke="#6B7280" />
                     <Tooltip 
                       contentStyle={{ 
-                        backgroundColor: '#1F2937', 
-                        border: '1px solid #374151',
+                        backgroundColor: '#FFFFFF', 
+                        border: '1px solid #E5E7EB',
                         borderRadius: '8px',
-                        color: '#F3F4F6'
+                        color: '#1F2937'
                       }} 
                     />
                     <Line type="monotone" dataKey="latency" stroke="#10B981" strokeWidth={2} />
@@ -204,22 +204,22 @@ export default function AdvancedAnalytics() {
             </Card>
           </div>
 
-          <Card className="bg-slate-800 border-slate-700">
+          <Card className="bg-white border-gray-300 shadow-sm">
             <CardHeader>
-              <CardTitle className="text-white">Throughput vs Error Rate</CardTitle>
+              <CardTitle className="text-gray-900">Throughput vs Error Rate</CardTitle>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={400}>
                 <BarChart data={performanceData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis dataKey="time" stroke="#9CA3AF" />
-                  <YAxis stroke="#9CA3AF" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                  <XAxis dataKey="time" stroke="#6B7280" />
+                  <YAxis stroke="#6B7280" />
                   <Tooltip 
                     contentStyle={{ 
-                      backgroundColor: '#1F2937', 
-                      border: '1px solid #374151',
+                      backgroundColor: '#FFFFFF', 
+                      border: '1px solid #E5E7EB',
                       borderRadius: '8px',
-                      color: '#F3F4F6'
+                      color: '#1F2937'
                     }} 
                   />
                   <Bar dataKey="throughput" fill="#3B82F6" />
@@ -232,9 +232,9 @@ export default function AdvancedAnalytics() {
 
         <TabsContent value="algorithms" className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card className="bg-slate-800 border-slate-700">
+            <Card className="bg-white border-gray-300 shadow-sm">
               <CardHeader>
-                <CardTitle className="text-white">Algorithm Usage Distribution</CardTitle>
+                <CardTitle className="text-gray-900">Algorithm Usage Distribution</CardTitle>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
@@ -254,10 +254,10 @@ export default function AdvancedAnalytics() {
                     </Pie>
                     <Tooltip 
                       contentStyle={{ 
-                        backgroundColor: '#1F2937', 
-                        border: '1px solid #374151',
+                        backgroundColor: '#FFFFFF', 
+                        border: '1px solid #E5E7EB',
                         borderRadius: '8px',
-                        color: '#F3F4F6'
+                        color: '#1F2937'
                       }} 
                     />
                   </PieChart>
@@ -265,23 +265,23 @@ export default function AdvancedAnalytics() {
               </CardContent>
             </Card>
 
-            <Card className="bg-slate-800 border-slate-700">
+            <Card className="bg-white border-gray-300 shadow-sm">
               <CardHeader>
-                <CardTitle className="text-white">Algorithm Performance</CardTitle>
+                <CardTitle className="text-gray-900">Algorithm Performance</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   {algorithmUsage.map((algo, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-slate-700 rounded-lg">
+                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
                       <div className="flex items-center space-x-3">
                         <div className="w-3 h-3 rounded-full" style={{ backgroundColor: algo.color }}></div>
                         <div>
-                          <div className="text-white font-medium">{algo.algorithm}</div>
-                          <div className="text-sm text-slate-400">{algo.operations.toLocaleString()} operations</div>
+                          <div className="text-gray-900 font-medium">{algo.algorithm}</div>
+                          <div className="text-sm text-gray-600">{algo.operations.toLocaleString()} operations</div>
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-white font-medium">{algo.percentage}%</div>
+                        <div className="text-gray-900 font-medium">{algo.percentage}%</div>
                         <Badge className="bg-green-600 text-white text-xs">Optimal</Badge>
                       </div>
                     </div>
@@ -293,29 +293,29 @@ export default function AdvancedAnalytics() {
         </TabsContent>
 
         <TabsContent value="security" className="space-y-4">
-          <Card className="bg-slate-800 border-slate-700">
+          <Card className="bg-white border-gray-300 shadow-sm">
             <CardHeader>
-              <CardTitle className="text-white">Security Event Dashboard</CardTitle>
-              <p className="text-slate-400">Real-time monitoring of cryptographic security events</p>
+              <CardTitle className="text-gray-900">Security Event Dashboard</CardTitle>
+              <p className="text-gray-600">Real-time monitoring of cryptographic security events</p>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 {securityEvents.map((event, index) => (
-                  <div key={index} className="flex items-center justify-between p-4 bg-slate-700 rounded-lg">
+                  <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
                     <div className="flex items-center space-x-4">
                       <AlertTriangle className={`w-5 h-5 ${
-                        event.severity === 'high' ? 'text-red-400' :
-                        event.severity === 'medium' ? 'text-orange-400' : 'text-yellow-400'
+                        event.severity === 'high' ? 'text-red-600' :
+                        event.severity === 'medium' ? 'text-orange-600' : 'text-yellow-600'
                       }`} />
                       <div>
-                        <div className="text-white font-medium">{event.type}</div>
-                        <div className="text-sm text-slate-400">{event.timestamp}</div>
+                        <div className="text-gray-900 font-medium">{event.type}</div>
+                        <div className="text-sm text-gray-600">{event.timestamp}</div>
                       </div>
                     </div>
                     <div className="flex items-center space-x-4">
                       <div className="text-right">
-                        <div className="text-white font-bold">{event.count}</div>
-                        <div className="text-xs text-slate-400">incidents</div>
+                        <div className="text-gray-900 font-bold">{event.count}</div>
+                        <div className="text-xs text-gray-600">incidents</div>
                       </div>
                       <Badge className={
                         event.severity === 'high' ? 'bg-red-600' :
@@ -332,31 +332,31 @@ export default function AdvancedAnalytics() {
         </TabsContent>
 
         <TabsContent value="geographic" className="space-y-4">
-          <Card className="bg-slate-800 border-slate-700">
+          <Card className="bg-white border-gray-300 shadow-sm">
             <CardHeader>
-              <CardTitle className="text-white">Geographic Performance</CardTitle>
-              <p className="text-slate-400">Regional operation statistics and performance metrics</p>
+              <CardTitle className="text-gray-900">Geographic Performance</CardTitle>
+              <p className="text-gray-600">Regional operation statistics and performance metrics</p>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 {geographicData.map((region, index) => (
-                  <div key={index} className="p-4 bg-slate-700 rounded-lg">
+                  <div key={index} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
                     <div className="flex items-center justify-between mb-3">
-                      <h3 className="font-semibold text-white">{region.region}</h3>
+                      <h3 className="font-semibold text-gray-900">{region.region}</h3>
                       <Badge className="bg-green-600">Active</Badge>
                     </div>
                     <div className="grid grid-cols-3 gap-4">
                       <div>
-                        <div className="text-2xl font-bold text-white">{region.operations}%</div>
-                        <div className="text-sm text-slate-400">Traffic Share</div>
+                        <div className="text-2xl font-bold text-gray-900">{region.operations}%</div>
+                        <div className="text-sm text-gray-600">Traffic Share</div>
                       </div>
                       <div>
-                        <div className="text-2xl font-bold text-white">{region.latency}ms</div>
-                        <div className="text-sm text-slate-400">Avg Latency</div>
+                        <div className="text-2xl font-bold text-gray-900">{region.latency}ms</div>
+                        <div className="text-sm text-gray-600">Avg Latency</div>
                       </div>
                       <div>
-                        <div className="text-2xl font-bold text-green-400">{region.uptime}%</div>
-                        <div className="text-sm text-slate-400">Uptime</div>
+                        <div className="text-2xl font-bold text-green-600">{region.uptime}%</div>
+                        <div className="text-sm text-gray-600">Uptime</div>
                       </div>
                     </div>
                   </div>
@@ -367,18 +367,18 @@ export default function AdvancedAnalytics() {
         </TabsContent>
 
         <TabsContent value="compliance" className="space-y-4">
-          <Card className="bg-slate-800 border-slate-700">
+          <Card className="bg-white border-gray-300 shadow-sm">
             <CardHeader>
-              <CardTitle className="text-white">Compliance Status</CardTitle>
-              <p className="text-slate-400">Regulatory and standards compliance monitoring</p>
+              <CardTitle className="text-gray-900">Compliance Status</CardTitle>
+              <p className="text-gray-600">Regulatory and standards compliance monitoring</p>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 {compliance.map((item, index) => (
-                  <div key={index} className="flex items-center justify-between p-4 bg-slate-700 rounded-lg">
+                  <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
                     <div className="flex-1">
                       <div className="flex items-center space-x-3">
-                        <h3 className="font-semibold text-white">{item.standard}</h3>
+                        <h3 className="font-semibold text-gray-900">{item.standard}</h3>
                         <Badge className={
                           item.status === 'Compliant' ? 'bg-green-600' :
                           item.status === 'In Progress' ? 'bg-orange-600' : 'bg-red-600'
@@ -386,11 +386,11 @@ export default function AdvancedAnalytics() {
                           {item.status}
                         </Badge>
                       </div>
-                      <div className="text-sm text-slate-400 mt-1">Last checked: {item.lastCheck}</div>
+                      <div className="text-sm text-gray-600 mt-1">Last checked: {item.lastCheck}</div>
                     </div>
                     <div className="text-right">
-                      <div className="text-white font-medium">{item.tests}</div>
-                      <div className="text-xs text-slate-400">tests passed</div>
+                      <div className="text-gray-900 font-medium">{item.tests}</div>
+                      <div className="text-xs text-gray-600">tests passed</div>
                     </div>
                   </div>
                 ))}
