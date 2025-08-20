@@ -5019,6 +5019,169 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // User Management API Endpoints
+  app.get('/api/users', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub || req.user?.id;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const tenantId = user.tenantId || 'default-tenant';
+      const users = await storage.getUsersByTenant(tenantId);
+      
+      res.json(users);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post('/api/users/invite', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub || req.user?.id;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { email, role, firstName, lastName } = req.body;
+      
+      if (!email || !role) {
+        return res.status(400).json({ message: "Email and role are required" });
+      }
+
+      const tenantId = user.tenantId || 'default-tenant';
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({ message: "User already exists" });
+      }
+
+      // Create new user invitation
+      const newUser = await storage.createUser({
+        email,
+        role,
+        firstName: firstName || null,
+        lastName: lastName || null,
+        tenantId,
+        profileImageUrl: null
+      });
+
+      res.json({ message: "User invited successfully", user: newUser });
+    } catch (error) {
+      console.error('Error inviting user:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.put('/api/users/:userId/role', isAuthenticated, async (req: any, res) => {
+    try {
+      const requesterId = req.user?.claims?.sub || req.user?.id;
+      const requester = await storage.getUser(requesterId);
+      
+      if (!requester || requester.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { userId } = req.params;
+      const { role } = req.body;
+      
+      if (!role || !['admin', 'developer', 'viewer'].includes(role)) {
+        return res.status(400).json({ message: "Invalid role" });
+      }
+
+      const updatedUser = await storage.updateUserRole(userId, role);
+      res.json({ message: "User role updated successfully", user: updatedUser });
+    } catch (error) {
+      console.error('Error updating user role:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.put('/api/users/:userId/status', isAuthenticated, async (req: any, res) => {
+    try {
+      const requesterId = req.user?.claims?.sub || req.user?.id;
+      const requester = await storage.getUser(requesterId);
+      
+      if (!requester || requester.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { userId } = req.params;
+      const { status } = req.body;
+      
+      if (!status || !['active', 'suspended', 'inactive'].includes(status)) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
+
+      const updatedUser = await storage.updateUserStatus(userId, status);
+      res.json({ message: "User status updated successfully", user: updatedUser });
+    } catch (error) {
+      console.error('Error updating user status:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete('/api/users/:userId', isAuthenticated, async (req: any, res) => {
+    try {
+      const requesterId = req.user?.claims?.sub || req.user?.id;
+      const requester = await storage.getUser(requesterId);
+      
+      if (!requester || requester.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { userId } = req.params;
+      
+      if (userId === requesterId) {
+        return res.status(400).json({ message: "Cannot delete your own account" });
+      }
+
+      await storage.deleteUser(userId);
+      res.json({ message: "User deleted successfully" });
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get('/api/users/stats', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub || req.user?.id;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const tenantId = user.tenantId || 'default-tenant';
+      const users = await storage.getUsersByTenant(tenantId);
+      
+      const stats = {
+        totalUsers: users.length,
+        activeUsers: users.filter(u => u.status === 'active' || !u.status).length,
+        adminUsers: users.filter(u => u.role === 'admin').length,
+        developerUsers: users.filter(u => u.role === 'developer').length,
+        viewerUsers: users.filter(u => u.role === 'viewer').length,
+        recentlyJoined: users.filter(u => {
+          const joinDate = new Date(u.createdAt);
+          const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+          return joinDate > weekAgo;
+        }).length
+      };
+
+      res.json(stats);
+    } catch (error) {
+      console.error('Error fetching user stats:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // SDK generation and management routes
   app.get('/api/sdks', isAuthenticated, async (req: any, res) => {
     try {

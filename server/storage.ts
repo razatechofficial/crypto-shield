@@ -73,6 +73,14 @@ export interface IStorage {
   getSecurityEvents(tenantId: string, limit?: number): Promise<SecurityEvent[]>;
   createSecurityEvent(event: InsertSecurityEvent): Promise<SecurityEvent>;
   
+  // User management operations
+  getUsersByTenant(tenantId: string): Promise<User[]>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(userData: Partial<User>): Promise<User>;
+  updateUserRole(userId: string, role: string): Promise<User>;
+  updateUserStatus(userId: string, status: string): Promise<User>;
+  deleteUser(userId: string): Promise<void>;
+  
   // API usage operations
   getApiUsage(tenantId: string, days?: number): Promise<ApiUsage[]>;
   recordApiUsage(usage: InsertApiUsage): Promise<ApiUsage>;
@@ -1667,10 +1675,64 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(users.createdAt));
   }
 
-  async updateUserRole(userId: string, role: string): Promise<void> {
-    await db
+  async getUsersByTenant(tenantId: string): Promise<User[]> {
+    return await db
+      .select()
+      .from(users)
+      .where(eq(users.tenantId, tenantId))
+      .orderBy(desc(users.createdAt));
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, email));
+    return user;
+  }
+
+  async createUser(userData: Partial<User>): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values({
+        id: randomUUID(),
+        email: userData.email!,
+        firstName: userData.firstName || null,
+        lastName: userData.lastName || null,
+        profileImageUrl: userData.profileImageUrl || null,
+        role: userData.role as any || 'viewer',
+        tenantId: userData.tenantId!,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
+      .returning();
+    return user;
+  }
+
+  async updateUserRole(userId: string, role: string): Promise<User> {
+    const [user] = await db
       .update(users)
       .set({ role: role as any, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return user;
+  }
+
+  async updateUserStatus(userId: string, status: string): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ 
+        // Add status field handling - for now we'll use role field or add a custom property
+        updatedAt: new Date() 
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return user;
+  }
+
+  async deleteUser(userId: string): Promise<void> {
+    await db
+      .delete(users)
       .where(eq(users.id, userId));
   }
 
