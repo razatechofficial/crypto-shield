@@ -10,7 +10,7 @@ try {
   const iv = crypto.randomBytes(12);
   const plaintext = 'test message';
   
-  const cipher = crypto.createCipherGCM('aes-256-gcm');
+  const cipher = crypto.createCipher('aes-256-gcm', key);
   cipher.init('encrypt', key, iv);
   let encrypted = cipher.update(plaintext, 'utf8');
   encrypted = Buffer.concat([encrypted, cipher.final()]);
