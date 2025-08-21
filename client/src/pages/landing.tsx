@@ -11,12 +11,14 @@ export default function Landing() {
         <div className="relative px-6 py-24 mx-auto max-w-7xl">
           <div className="text-center">
             <div className="flex items-center justify-center space-x-3 mb-8">
-              <div className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center">
-                <Shield className="w-8 h-8 text-white" />
-              </div>
+              <img 
+                src="/averox-logo.png" 
+                alt="Averox Logo" 
+                className="w-12 h-12 object-contain"
+              />
               <div>
                 <h1 className="text-4xl font-bold text-white">Averox</h1>
-                <p className="text-slate-400">Crypto System</p>
+                <p className="text-slate-400">Enterprise Encryption Platform</p>
               </div>
             </div>
             
