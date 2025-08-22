@@ -36,8 +36,8 @@ export default function Sidebar() {
   return (
     <div className="w-64 bg-background border-r border-border flex flex-col">
       {/* Logo */}
-      <div className="p-8 border-b border-border">
-        <div className="flex flex-col items-center text-center space-y-4">
+      <div className="px-4 py-4 border-b border-border">
+        <div className="flex flex-col items-center text-center space-y-2">
           <img 
             src="/averox-logo.png" 
             alt="Averox Logo" 
@@ -48,7 +48,7 @@ export default function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-4 py-6 space-y-2">
+      <nav className="flex-1 px-4 py-4 space-y-2">
         {navigation.map((item) => {
           const Icon = item.icon;
           const isActive = location === item.href;
