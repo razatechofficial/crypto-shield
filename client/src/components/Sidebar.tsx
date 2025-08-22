@@ -37,13 +37,13 @@ export default function Sidebar() {
     <div className="w-64 bg-background border-r border-border flex flex-col">
       {/* Logo */}
       <div className="p-6 border-b border-border">
-        <div className="flex flex-col items-center text-center space-y-2">
+        <div className="flex flex-col items-center text-center space-y-3">
           <img 
             src="/averox-logo.png" 
             alt="Averox Logo" 
-            className="w-16 h-16 object-contain"
+            className="w-24 h-24 object-contain"
           />
-          <p className="text-sm font-medium text-muted-foreground">Enterprise Encryption</p>
+          <p className="text-sm font-semibold text-foreground">Enterprise Encryption</p>
         </div>
       </div>
 
