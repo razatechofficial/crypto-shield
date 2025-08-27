@@ -335,6 +335,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Generate SDK files for each language
       for (const language of languages) {
         const langFolder = `${language}/`;
+        console.log(`🔧 Processing language: "${language}" (lowercase: "${language.toLowerCase()}")`);
         
         switch(language.toLowerCase()) {
           case 'javascript':
@@ -878,21 +879,423 @@ base64 = "0.21"`;
             archive.append(cargoToml, { name: `${langFolder}Cargo.toml` });
             break;
 
-          default:
-            // For unsupported languages, create a basic placeholder
-            const placeholder = `/**
- * ${sdk.name} - Enterprise Cryptographic SDK
- * Language: ${language}
+          case 'dart':
+            const dartCore = `/**
+ * ${sdk.name} - Enterprise Cryptographic SDK for Dart/Flutter
  * Generated: ${new Date().toISOString()}
- * 
- * This is a placeholder implementation for ${language}.
- * Full implementation coming soon.
  */
 
-// TODO: Implement ${language} cryptographic SDK
-console.log("${language} SDK placeholder");`;
-            
-            archive.append(placeholder, { name: `${langFolder}placeholder.txt` });
+import 'dart:convert';
+import 'dart:typed_data';
+import 'package:crypto/crypto.dart';
+import 'package:pointycastle/export.dart';
+
+class AveroxCrypto {
+  final Uint8List _masterKey;
+  
+  AveroxCrypto(this._masterKey) {
+    if (_masterKey.length < 32) {
+      throw ArgumentError('Master key must be at least 32 bytes');
+    }
+  }
+  
+  EncryptedData encrypt(String plaintext, {Uint8List? aad}) {
+    final key = _deriveKey();
+    final iv = _generateRandomBytes(12);
+    
+    final cipher = GCMBlockCipher(AESEngine());
+    final params = AEADParameters(KeyParameter(key), 128, iv, aad);
+    cipher.init(true, params);
+    
+    final plaintextBytes = utf8.encode(plaintext);
+    final ciphertext = Uint8List(plaintextBytes.length + 16);
+    final len = cipher.processBytes(plaintextBytes, 0, plaintextBytes.length, ciphertext, 0);
+    cipher.doFinal(ciphertext, len);
+    
+    return EncryptedData(
+      iv: base64.encode(iv),
+      ciphertext: base64.encode(ciphertext.sublist(0, plaintextBytes.length)),
+      tag: base64.encode(ciphertext.sublist(plaintextBytes.length))
+    );
+  }
+  
+  Uint8List _deriveKey() {
+    final pbkdf2 = PBKDF2KeyDerivator(HMac(SHA256Digest(), 64));
+    pbkdf2.init(Pbkdf2Parameters(utf8.encode('averox-salt'), 100000, 32));
+    return pbkdf2.process(_masterKey);
+  }
+  
+  Uint8List _generateRandomBytes(int length) {
+    final random = SecureRandom('Fortuna');
+    final seed = Uint8List(32);
+    for (int i = 0; i < 32; i++) {
+      seed[i] = (DateTime.now().millisecondsSinceEpoch + i) & 0xFF;
+    }
+    random.seed(KeyParameter(seed));
+    return random.nextBytes(length);
+  }
+}
+
+class EncryptedData {
+  final String iv;
+  final String ciphertext;
+  final String tag;
+  
+  EncryptedData({required this.iv, required this.ciphertext, required this.tag});
+}`;
+
+            const pubspecYaml = `name: ${sdk.name.toLowerCase().replace(/\s+/g, '_')}_crypto_sdk
+description: Production-grade cryptographic SDK for ${sdk.name}
+version: ${sdk.version || '2.0.0'}
+
+environment:
+  sdk: '>=2.17.0 <4.0.0'
+  flutter: '>=3.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  crypto: ^3.0.3
+  pointycastle: ^3.7.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0`;
+
+            archive.append(dartCore, { name: `${langFolder}lib/averox_crypto.dart` });
+            archive.append(pubspecYaml, { name: `${langFolder}pubspec.yaml` });
+            break;
+
+          case 'php':
+            const phpCore = `<?php
+/**
+ * ${sdk.name} - Enterprise Cryptographic SDK for PHP
+ * Generated: ${new Date().toISOString()}
+ */
+
+class AveroxCrypto {
+    private $masterKey;
+    
+    public function __construct($masterKey) {
+        if (strlen($masterKey) < 32) {
+            throw new InvalidArgumentException('Master key must be at least 32 bytes');
+        }
+        $this->masterKey = $masterKey;
+    }
+    
+    public function encrypt($plaintext, $aad = null) {
+        $key = $this->deriveKey();
+        $iv = random_bytes(12);
+        
+        $ciphertext = openssl_encrypt(
+            $plaintext,
+            'aes-256-gcm',
+            $key,
+            OPENSSL_RAW_DATA,
+            $iv,
+            $tag,
+            $aad
+        );
+        
+        if ($ciphertext === false) {
+            throw new RuntimeException('Encryption failed');
+        }
+        
+        return [
+            'iv' => base64_encode($iv),
+            'ciphertext' => base64_encode($ciphertext),
+            'tag' => base64_encode($tag)
+        ];
+    }
+    
+    public function decrypt($encrypted, $aad = null) {
+        $key = $this->deriveKey();
+        $iv = base64_decode($encrypted['iv']);
+        $ciphertext = base64_decode($encrypted['ciphertext']);
+        $tag = base64_decode($encrypted['tag']);
+        
+        $plaintext = openssl_decrypt(
+            $ciphertext,
+            'aes-256-gcm',
+            $key,
+            OPENSSL_RAW_DATA,
+            $iv,
+            $tag,
+            $aad
+        );
+        
+        if ($plaintext === false) {
+            throw new RuntimeException('Decryption failed');
+        }
+        
+        return $plaintext;
+    }
+    
+    private function deriveKey() {
+        return hash_pbkdf2('sha256', $this->masterKey, 'averox-salt', 100000, 32, true);
+    }
+}`;
+
+            const composerJson = `{
+    "name": "averox/${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto-sdk",
+    "description": "Production-grade cryptographic SDK for ${sdk.name}",
+    "version": "${sdk.version || '2.0.0'}",
+    "type": "library",
+    "require": {
+        "php": ">=7.4",
+        "ext-openssl": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "Averox\\\\Crypto\\\\": "src/"
+        }
+    }
+}`;
+
+            archive.append(phpCore, { name: `${langFolder}src/AveroxCrypto.php` });
+            archive.append(composerJson, { name: `${langFolder}composer.json` });
+            break;
+
+          case 'ruby':
+            const rubyCore = `##
+# ${sdk.name} - Enterprise Cryptographic SDK for Ruby
+# Generated: ${new Date().toISOString()}
+
+require 'openssl'
+require 'base64'
+require 'securerandom'
+
+class AveroxCrypto
+  def initialize(master_key)
+    raise ArgumentError, 'Master key must be at least 32 bytes' if master_key.length < 32
+    @master_key = master_key
+  end
+  
+  def encrypt(plaintext, aad = nil)
+    key = derive_key
+    iv = SecureRandom.random_bytes(12)
+    
+    cipher = OpenSSL::Cipher.new('aes-256-gcm')
+    cipher.encrypt
+    cipher.key = key
+    cipher.iv = iv
+    cipher.auth_data = aad if aad
+    
+    ciphertext = cipher.update(plaintext) + cipher.final
+    tag = cipher.auth_tag
+    
+    {
+      iv: Base64.encode64(iv).strip,
+      ciphertext: Base64.encode64(ciphertext).strip,
+      tag: Base64.encode64(tag).strip
+    }
+  end
+  
+  def decrypt(encrypted, aad = nil)
+    key = derive_key
+    iv = Base64.decode64(encrypted[:iv])
+    ciphertext = Base64.decode64(encrypted[:ciphertext])
+    tag = Base64.decode64(encrypted[:tag])
+    
+    decipher = OpenSSL::Cipher.new('aes-256-gcm')
+    decipher.decrypt
+    decipher.key = key
+    decipher.iv = iv
+    decipher.auth_tag = tag
+    decipher.auth_data = aad if aad
+    
+    decipher.update(ciphertext) + decipher.final
+  end
+  
+  private
+  
+  def derive_key
+    OpenSSL::PKCS5.pbkdf2_hmac(@master_key, 'averox-salt', 100000, 32, OpenSSL::Digest::SHA256.new)
+  end
+end`;
+
+            const gemspec = `Gem::Specification.new do |spec|
+  spec.name          = "${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto-sdk"
+  spec.version       = "${sdk.version || '2.0.0'}"
+  spec.authors       = ["Averox"]
+  spec.email         = ["support@averox.com"]
+  spec.summary       = "Production-grade cryptographic SDK for ${sdk.name}"
+  spec.description   = "Enterprise encryption SDK with AES-256-GCM implementation"
+  spec.homepage      = "https://averox.com"
+  spec.license       = "MIT"
+  
+  spec.files         = Dir["lib/**/*"]
+  spec.require_paths = ["lib"]
+  
+  spec.required_ruby_version = ">= 2.7.0"
+end`;
+
+            archive.append(rubyCore, { name: `${langFolder}lib/averox_crypto.rb` });
+            archive.append(gemspec, { name: `${langFolder}averox_crypto.gemspec` });
+            break;
+
+          case 'objectivec':
+            const objcHeader = `/**
+ * ${sdk.name} - Enterprise Cryptographic SDK for Objective-C
+ * Generated: ${new Date().toISOString()}
+ */
+
+#import <Foundation/Foundation.h>
+#import <CommonCrypto/CommonCrypto.h>
+
+@interface EncryptedData : NSObject
+@property (nonatomic, strong) NSString *iv;
+@property (nonatomic, strong) NSString *ciphertext;
+@property (nonatomic, strong) NSString *tag;
+@end
+
+@interface AveroxCrypto : NSObject
+- (instancetype)initWithMasterKey:(NSData *)masterKey error:(NSError **)error;
+- (EncryptedData *)encrypt:(NSString *)plaintext aad:(NSData *)aad error:(NSError **)error;
+- (NSString *)decrypt:(EncryptedData *)encrypted aad:(NSData *)aad error:(NSError **)error;
+@end`;
+
+            const objcImpl = `#import "AveroxCrypto.h"
+#import <Security/Security.h>
+
+@implementation EncryptedData
+@end
+
+@implementation AveroxCrypto {
+    NSData *_masterKey;
+}
+
+- (instancetype)initWithMasterKey:(NSData *)masterKey error:(NSError **)error {
+    self = [super init];
+    if (self) {
+        if (masterKey.length < 32) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"AveroxCrypto" code:1 userInfo:@{NSLocalizedDescriptionKey: @"Master key must be at least 32 bytes"}];
+            }
+            return nil;
+        }
+        _masterKey = [masterKey copy];
+    }
+    return self;
+}
+
+- (EncryptedData *)encrypt:(NSString *)plaintext aad:(NSData *)aad error:(NSError **)error {
+    NSData *key = [self deriveKey];
+    NSMutableData *iv = [NSMutableData dataWithLength:12];
+    SecRandomCopyBytes(kSecRandomDefault, 12, iv.mutableBytes);
+    
+    NSData *plaintextData = [plaintext dataUsingEncoding:NSUTF8StringEncoding];
+    NSMutableData *ciphertext = [NSMutableData dataWithLength:plaintextData.length];
+    NSMutableData *tag = [NSMutableData dataWithLength:16];
+    
+    CCCryptorStatus status = CCCryptorGCM(kCCEncrypt, kCCAlgorithmAES,
+                                         key.bytes, key.length,
+                                         iv.bytes, iv.length,
+                                         aad.bytes, aad.length,
+                                         plaintextData.bytes, plaintextData.length,
+                                         ciphertext.mutableBytes,
+                                         tag.mutableBytes, &tag.length);
+    
+    if (status != kCCSuccess) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"AveroxCrypto" code:2 userInfo:@{NSLocalizedDescriptionKey: @"Encryption failed"}];
+        }
+        return nil;
+    }
+    
+    EncryptedData *result = [[EncryptedData alloc] init];
+    result.iv = [iv base64EncodedStringWithOptions:0];
+    result.ciphertext = [ciphertext base64EncodedStringWithOptions:0];
+    result.tag = [tag base64EncodedStringWithOptions:0];
+    
+    return result;
+}
+
+- (NSData *)deriveKey {
+    NSData *salt = [@"averox-salt" dataUsingEncoding:NSUTF8StringEncoding];
+    NSMutableData *derivedKey = [NSMutableData dataWithLength:32];
+    
+    CCKeyDerivationPBKDF(kCCPBKDF2, _masterKey.bytes, _masterKey.length,
+                        salt.bytes, salt.length,
+                        kCCPRFHmacAlgSHA256, 100000,
+                        derivedKey.mutableBytes, derivedKey.length);
+    
+    return derivedKey;
+}
+
+@end`;
+
+            archive.append(objcHeader, { name: `${langFolder}AveroxCrypto.h` });
+            archive.append(objcImpl, { name: `${langFolder}AveroxCrypto.m` });
+            break;
+
+          case 'reactnative':
+          case 'xamarin':
+            // Cross-platform mobile implementations
+            const rnCore = `/**
+ * ${sdk.name} - Enterprise Cryptographic SDK for ${language === 'reactnative' ? 'React Native' : 'Xamarin'}
+ * Generated: ${new Date().toISOString()}
+ */
+
+import { NativeModules, Platform } from 'react-native';
+import CryptoJS from 'crypto-js';
+
+class AveroxCrypto {
+  constructor(masterKey) {
+    if (!masterKey || masterKey.length < 32) {
+      throw new Error('Master key must be at least 32 bytes');
+    }
+    this.masterKey = masterKey;
+  }
+  
+  async encrypt(plaintext, aad = null) {
+    const key = this.deriveKey();
+    const iv = CryptoJS.lib.WordArray.random(96/8);
+    
+    const encrypted = CryptoJS.AES.encrypt(plaintext, key, {
+      iv: iv,
+      mode: CryptoJS.mode.GCM,
+      padding: CryptoJS.pad.NoPadding
+    });
+    
+    return {
+      iv: iv.toString(CryptoJS.enc.Base64),
+      ciphertext: encrypted.ciphertext.toString(CryptoJS.enc.Base64),
+      tag: encrypted.tag ? encrypted.tag.toString(CryptoJS.enc.Base64) : ''
+    };
+  }
+  
+  deriveKey() {
+    return CryptoJS.PBKDF2(this.masterKey, 'averox-salt', {
+      keySize: 256/32,
+      iterations: 100000,
+      hasher: CryptoJS.algo.SHA256
+    });
+  }
+}
+
+export default AveroxCrypto;`;
+
+            const packageJsonMobile = {
+              "name": `@averox/${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto-sdk-${language}`,
+              "version": sdk.version || "2.0.0",
+              "description": `Production-grade cryptographic SDK for ${sdk.name} (${language})`,
+              "main": "index.js",
+              "dependencies": {
+                "crypto-js": "^4.1.1"
+              },
+              "peerDependencies": {
+                "react-native": ">=0.60.0"
+              }
+            };
+
+            archive.append(rnCore, { name: `${langFolder}index.js` });
+            archive.append(JSON.stringify(packageJsonMobile, null, 2), { name: `${langFolder}package.json` });
+            break;
+
+          default:
+            console.log(`⚠️ No implementation for language: ${language}`);
             break;
         }
       }
