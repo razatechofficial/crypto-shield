@@ -535,6 +535,365 @@ install(FILES include/averox_crypto.h DESTINATION include)`;
             archive.append(cppHeader, { name: `${langFolder}include/averox_crypto.h` });
             archive.append(cmakeLists, { name: `${langFolder}CMakeLists.txt` });
             break;
+
+          case 'swift':
+            const swiftCore = `/**
+ * ${sdk.name} - Enterprise Cryptographic SDK for iOS/macOS
+ * Generated: ${new Date().toISOString()}
+ */
+
+import Foundation
+import CryptoKit
+
+@available(iOS 13.0, macOS 10.15, *)
+public class AveroxCrypto {
+    private let masterKey: Data
+    
+    public init(masterKey: Data) throws {
+        guard masterKey.count >= 32 else {
+            throw CryptoError.invalidKeySize
+        }
+        self.masterKey = masterKey
+    }
+    
+    public func encrypt(_ plaintext: String, aad: Data? = nil) throws -> EncryptedData {
+        let key = try deriveKey()
+        let symmetricKey = SymmetricKey(data: key)
+        let data = Data(plaintext.utf8)
+        
+        let sealedBox = try AES.GCM.seal(data, using: symmetricKey, authenticating: aad)
+        
+        return EncryptedData(
+            iv: sealedBox.nonce.withUnsafeBytes { Data($0) }.base64EncodedString(),
+            ciphertext: sealedBox.ciphertext.base64EncodedString(),
+            tag: sealedBox.tag.base64EncodedString()
+        )
+    }
+    
+    private func deriveKey() throws -> Data {
+        let salt = "averox-salt".data(using: .utf8)!
+        return try HKDF<SHA256>.deriveKey(
+            inputKeyMaterial: SymmetricKey(data: masterKey),
+            salt: salt,
+            outputByteCount: 32
+        ).withUnsafeBytes { Data($0) }
+    }
+}
+
+public struct EncryptedData {
+    public let iv: String
+    public let ciphertext: String
+    public let tag: String
+}
+
+public enum CryptoError: Error {
+    case invalidKeySize
+}`;
+
+            const swiftPackage = `// swift-tools-version:5.5
+import PackageDescription
+
+let package = Package(
+    name: "${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto-sdk",
+    platforms: [.iOS(.v13), .macOS(.v10_15)],
+    products: [
+        .library(name: "AveroxCrypto", targets: ["AveroxCrypto"])
+    ],
+    targets: [
+        .target(name: "AveroxCrypto", dependencies: [])
+    ]
+)`;
+
+            archive.append(swiftCore, { name: `${langFolder}Sources/AveroxCrypto/AveroxCrypto.swift` });
+            archive.append(swiftPackage, { name: `${langFolder}Package.swift` });
+            break;
+
+          case 'java':
+            const javaCore = `/**
+ * ${sdk.name} - Enterprise Cryptographic SDK for Java
+ * Generated: ${new Date().toISOString()}
+ */
+
+package com.averox.crypto;
+
+import javax.crypto.Cipher;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.PBEKeySpec;
+import javax.crypto.spec.SecretKeySpec;
+import javax.crypto.SecretKeyFactory;
+import java.security.SecureRandom;
+import java.util.Base64;
+
+public class AveroxCrypto {
+    private final byte[] masterKey;
+    private static final String ALGORITHM = "AES";
+    private static final String TRANSFORMATION = "AES/GCM/NoPadding";
+    private static final int GCM_IV_LENGTH = 12;
+    private static final int GCM_TAG_LENGTH = 16;
+    
+    public AveroxCrypto(byte[] masterKey) throws Exception {
+        if (masterKey == null || masterKey.length < 32) {
+            throw new IllegalArgumentException("Master key must be at least 32 bytes");
+        }
+        this.masterKey = masterKey.clone();
+    }
+    
+    public EncryptedData encrypt(String plaintext, byte[] aad) throws Exception {
+        SecretKey key = deriveKey();
+        byte[] iv = new byte[GCM_IV_LENGTH];
+        new SecureRandom().nextBytes(iv);
+        
+        Cipher cipher = Cipher.getInstance(TRANSFORMATION);
+        GCMParameterSpec gcmSpec = new GCMParameterSpec(GCM_TAG_LENGTH * 8, iv);
+        cipher.init(Cipher.ENCRYPT_MODE, key, gcmSpec);
+        
+        if (aad != null) {
+            cipher.updateAAD(aad);
+        }
+        
+        byte[] ciphertext = cipher.doFinal(plaintext.getBytes("UTF-8"));
+        
+        return new EncryptedData(
+            Base64.getEncoder().encodeToString(iv),
+            Base64.getEncoder().encodeToString(ciphertext)
+        );
+    }
+    
+    private SecretKey deriveKey() throws Exception {
+        SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+        PBEKeySpec spec = new PBEKeySpec(
+            new String(masterKey, "UTF-8").toCharArray(),
+            "averox-salt".getBytes("UTF-8"),
+            100000,
+            256
+        );
+        return new SecretKeySpec(factory.generateSecret(spec).getEncoded(), ALGORITHM);
+    }
+    
+    public static class EncryptedData {
+        public final String iv;
+        public final String ciphertext;
+        
+        public EncryptedData(String iv, String ciphertext) {
+            this.iv = iv;
+            this.ciphertext = ciphertext;
+        }
+    }
+}`;
+
+            const gradleBuild = `plugins {
+    id 'java-library'
+    id 'maven-publish'
+}
+
+group = 'com.averox'
+version = '${sdk.version || '2.0.0'}'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
+
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            from components.java
+        }
+    }
+}`;
+
+            archive.append(javaCore, { name: `${langFolder}src/main/java/com/averox/crypto/AveroxCrypto.java` });
+            archive.append(gradleBuild, { name: `${langFolder}build.gradle` });
+            break;
+
+          case 'csharp':
+            const csharpCore = `/**
+ * ${sdk.name} - Enterprise Cryptographic SDK for .NET
+ * Generated: ${new Date().toISOString()}
+ */
+
+using System;
+using System.Security.Cryptography;
+using System.Text;
+
+namespace Averox.Crypto
+{
+    public class AveroxCrypto : IDisposable
+    {
+        private readonly byte[] masterKey;
+        private bool disposed = false;
+        
+        public AveroxCrypto(byte[] masterKey)
+        {
+            if (masterKey == null || masterKey.Length < 32)
+                throw new ArgumentException("Master key must be at least 32 bytes");
+            
+            this.masterKey = new byte[masterKey.Length];
+            Array.Copy(masterKey, this.masterKey, masterKey.Length);
+        }
+        
+        public EncryptedData Encrypt(string plaintext, byte[] aad = null)
+        {
+            using (var aes = Aes.Create())
+            {
+                aes.Key = DeriveKey();
+                aes.Mode = CipherMode.GCM;
+                
+                var iv = new byte[12];
+                RandomNumberGenerator.Fill(iv);
+                aes.IV = iv;
+                
+                var plaintextBytes = Encoding.UTF8.GetBytes(plaintext);
+                var ciphertext = new byte[plaintextBytes.Length];
+                var tag = new byte[16];
+                
+                using (var encryptor = aes.CreateEncryptor())
+                {
+                    ((AesGcm)encryptor).Encrypt(iv, plaintextBytes, ciphertext, tag, aad);
+                }
+                
+                return new EncryptedData
+                {
+                    IV = Convert.ToBase64String(iv),
+                    Ciphertext = Convert.ToBase64String(ciphertext),
+                    Tag = Convert.ToBase64String(tag)
+                };
+            }
+        }
+        
+        private byte[] DeriveKey()
+        {
+            using (var pbkdf2 = new Rfc2898DeriveBytes(masterKey, Encoding.UTF8.GetBytes("averox-salt"), 100000, HashAlgorithmName.SHA256))
+            {
+                return pbkdf2.GetBytes(32);
+            }
+        }
+        
+        public void Dispose()
+        {
+            if (!disposed)
+            {
+                Array.Clear(masterKey, 0, masterKey.Length);
+                disposed = true;
+            }
+        }
+    }
+    
+    public class EncryptedData
+    {
+        public string IV { get; set; }
+        public string Ciphertext { get; set; }
+        public string Tag { get; set; }
+    }
+}`;
+
+            const csprojFile = `<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <PackageId>${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto-sdk</PackageId>
+    <Version>${sdk.version || '2.0.0'}</Version>
+    <Description>Production-grade cryptographic SDK for ${sdk.name}</Description>
+  </PropertyGroup>
+</Project>`;
+
+            archive.append(csharpCore, { name: `${langFolder}AveroxCrypto.cs` });
+            archive.append(csprojFile, { name: `${langFolder}AveroxCrypto.csproj` });
+            break;
+
+          case 'rust':
+            const rustCore = `/**
+ * ${sdk.name} - Enterprise Cryptographic SDK for Rust
+ * Generated: ${new Date().toISOString()}
+ */
+
+use aes_gcm::{Aes256Gcm, Key, Nonce, AeadCore, AeadInPlace, KeyInit};
+use pbkdf2::{pbkdf2_hmac};
+use sha2::Sha256;
+use rand::RngCore;
+use base64::{Engine as _, engine::general_purpose};
+
+pub struct AveroxCrypto {
+    master_key: Vec<u8>,
+}
+
+impl AveroxCrypto {
+    pub fn new(master_key: Vec<u8>) -> Result<Self, &'static str> {
+        if master_key.len() < 32 {
+            return Err("Master key must be at least 32 bytes");
+        }
+        Ok(AveroxCrypto { master_key })
+    }
+    
+    pub fn encrypt(&self, plaintext: &str, aad: Option<&[u8]>) -> Result<EncryptedData, Box<dyn std::error::Error>> {
+        let key = self.derive_key()?;
+        let cipher = Aes256Gcm::new(&key);
+        
+        let mut nonce_bytes = [0u8; 12];
+        rand::thread_rng().fill_bytes(&mut nonce_bytes);
+        let nonce = Nonce::from_slice(&nonce_bytes);
+        
+        let mut buffer = plaintext.as_bytes().to_vec();
+        let tag = cipher.encrypt_in_place_detached(nonce, aad.unwrap_or(&[]), &mut buffer)?;
+        
+        Ok(EncryptedData {
+            iv: general_purpose::STANDARD.encode(&nonce_bytes),
+            ciphertext: general_purpose::STANDARD.encode(&buffer),
+            tag: general_purpose::STANDARD.encode(&tag),
+        })
+    }
+    
+    fn derive_key(&self) -> Result<Key<Aes256Gcm>, &'static str> {
+        let mut key = [0u8; 32];
+        pbkdf2_hmac::<Sha256>(&self.master_key, b"averox-salt", 100_000, &mut key);
+        Ok(*Key::<Aes256Gcm>::from_slice(&key))
+    }
+}
+
+pub struct EncryptedData {
+    pub iv: String,
+    pub ciphertext: String,
+    pub tag: String,
+}`;
+
+            const cargoToml = `[package]
+name = "${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto-sdk"
+version = "${sdk.version || '2.0.0'}"
+edition = "2021"
+description = "Production-grade cryptographic SDK for ${sdk.name}"
+
+[dependencies]
+aes-gcm = "0.10"
+pbkdf2 = "0.12"
+sha2 = "0.10"
+rand = "0.8"
+base64 = "0.21"`;
+
+            archive.append(rustCore, { name: `${langFolder}src/lib.rs` });
+            archive.append(cargoToml, { name: `${langFolder}Cargo.toml` });
+            break;
+
+          default:
+            // For unsupported languages, create a basic placeholder
+            const placeholder = `/**
+ * ${sdk.name} - Enterprise Cryptographic SDK
+ * Language: ${language}
+ * Generated: ${new Date().toISOString()}
+ * 
+ * This is a placeholder implementation for ${language}.
+ * Full implementation coming soon.
+ */
+
+// TODO: Implement ${language} cryptographic SDK
+console.log("${language} SDK placeholder");`;
+            
+            archive.append(placeholder, { name: `${langFolder}placeholder.txt` });
+            break;
         }
       }
 
