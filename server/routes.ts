@@ -286,16 +286,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // SDK download route with production generation
   app.get("/api/sdks/:downloadId/download", async (req, res) => {
     try {
+      console.log(`📦 Download request for SDK ID: ${req.params.downloadId}`);
+      
       // Get SDK from database
       const sdk = await storage.getSDK(req.params.downloadId);
       if (!sdk) {
+        console.error(`❌ SDK not found: ${req.params.downloadId}`);
         return res.status(404).json({ message: "SDK not found" });
       }
+
+      console.log(`✅ Found SDK: ${sdk.name} (version ${sdk.version})`);
 
       res.setHeader('Content-Type', 'application/zip');
       res.setHeader('Content-Disposition', `attachment; filename="${sdk.name.toLowerCase().replace(/\s+/g, '-')}-sdk-v${sdk.version}.zip"`);
       
       const archive = archiver('zip', { zlib: { level: 9 } });
+      
+      // Handle archive errors
+      archive.on('error', (err) => {
+        console.error('❌ Archive error:', err);
+        if (!res.headersSent) {
+          res.status(500).json({ message: 'Archive creation failed' });
+        }
+      });
+
+      archive.on('warning', (err) => {
+        console.warn('⚠️ Archive warning:', err);
+      });
+
       archive.pipe(res);
 
       // Parse JSON fields
@@ -542,9 +560,11 @@ Each language implementation provides AES-256-GCM encryption with:
       archive.append(readme, { name: 'README.md' });
       archive.append('MIT License\n\nGenerated SDK - See individual language implementations for specific licenses.', { name: 'LICENSE' });
 
+      console.log('📁 Finalizing archive...');
       await archive.finalize();
+      console.log('✅ Archive finalized successfully');
     } catch (error) {
-      console.error("Error downloading SDK:", error);
+      console.error("❌ Error downloading SDK:", error);
       if (!res.headersSent) {
         res.status(500).json({ message: "Failed to download SDK" });
       }
