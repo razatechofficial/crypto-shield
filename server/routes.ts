@@ -302,7 +302,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const archive = archiver('zip', { zlib: { level: 9 } });
       
-      // Handle archive errors
+      // Handle archive events
       archive.on('error', (err) => {
         console.error('❌ Archive error:', err);
         if (!res.headersSent) {
@@ -314,11 +314,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.warn('⚠️ Archive warning:', err);
       });
 
+      // Start piping to response
       archive.pipe(res);
+      console.log('📡 Archive piped to response');
 
       // Parse JSON fields
       const languages = JSON.parse(sdk.languages);
       const algorithms = JSON.parse(sdk.algorithms);
+      console.log(`🔧 Generating files for languages: ${languages.join(', ')}`);
+
+      // Add simple test file first
+      archive.append('Test SDK Generation\nThis file confirms ZIP creation is working.', { name: 'test.txt' });
+      console.log('📄 Added test file');
 
       // Generate SDK files for each language
       for (const language of languages) {
@@ -561,8 +568,21 @@ Each language implementation provides AES-256-GCM encryption with:
       archive.append('MIT License\n\nGenerated SDK - See individual language implementations for specific licenses.', { name: 'LICENSE' });
 
       console.log('📁 Finalizing archive...');
-      await archive.finalize();
-      console.log('✅ Archive finalized successfully');
+      
+      // Use promise-based finalization to ensure proper async handling
+      await new Promise<void>((resolve, reject) => {
+        archive.on('end', () => {
+          console.log('✅ Archive finalized successfully');
+          resolve();
+        });
+        
+        archive.on('error', (err) => {
+          console.error('❌ Archive finalization error:', err);
+          reject(err);
+        });
+        
+        archive.finalize();
+      });
     } catch (error) {
       console.error("❌ Error downloading SDK:", error);
       if (!res.headersSent) {
