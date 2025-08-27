@@ -1709,13 +1709,11 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async updateUserRole(userId: string, role: string): Promise<User> {
-    const [user] = await db
+  async updateUserRole(userId: string, role: string): Promise<void> {
+    await db
       .update(users)
       .set({ role: role as any, updatedAt: new Date() })
-      .where(eq(users.id, userId))
-      .returning();
-    return user;
+      .where(eq(users.id, userId));
   }
 
   async updateUserStatus(userId: string, status: string): Promise<User> {
@@ -1804,7 +1802,7 @@ export class DatabaseStorage implements IStorage {
 
     // Group by hour
     const hourlyCounts = operations.reduce((acc, op) => {
-      const hour = new Date(op.createdAt).getHours().toString().padStart(2, '0') + ':00';
+      const hour = new Date(op.createdAt || new Date()).getHours().toString().padStart(2, '0') + ':00';
       acc[hour] = (acc[hour] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
@@ -1942,8 +1940,8 @@ export class DatabaseStorage implements IStorage {
     
     if (deployment.length > 0) {
       const current = deployment[0];
-      const newTotal = current.totalOperations + 1;
-      const currentSuccessful = Math.round((current.successRate / 100) * current.totalOperations);
+      const newTotal = (current.totalOperations || 0) + 1;
+      const currentSuccessful = Math.round(((current.successRate || 0) / 100) * (current.totalOperations || 0));
       const newSuccessful = operationSuccess ? currentSuccessful + 1 : currentSuccessful;
       const newSuccessRate = Math.round((newSuccessful / newTotal) * 100);
       
