@@ -90,7 +90,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       const sdk = await storage.createSDK(sdkData);
-      res.json(sdk);
+      
+      // Set download URL after SDK is created (needs the SDK ID)
+      const downloadUrl = `/api/sdks/${sdk.id}/download`;
+      const updatedSdk = await storage.updateSDK(sdk.id, { downloadUrl });
+      
+      res.json(updatedSdk || { ...sdk, downloadUrl });
     } catch (error) {
       console.error("Error generating SDK:", error);
       if (error instanceof z.ZodError) {

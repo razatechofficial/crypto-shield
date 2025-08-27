@@ -203,6 +203,11 @@ export class DatabaseStorage implements IStorage {
     await db.delete(sdks).where(eq(sdks.id, id));
   }
 
+  async updateSDK(id: string, updates: Partial<Pick<Sdk, 'downloadUrl'>>): Promise<Sdk | undefined> {
+    const [updatedSDK] = await db.update(sdks).set(updates).where(eq(sdks.id, id)).returning();
+    return updatedSDK;
+  }
+
   async deleteAllSDKs(tenantId: string): Promise<void> {
     await db.delete(sdks).where(eq(sdks.tenantId, tenantId));
   }
