@@ -1,0 +1,21 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.4",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2025-08-20T07:55:35.544Z",
+    "component": {
+      "type": "library",
+      "name": "ProductionSDK",
+      "version": "2.0.0"
+    }
+  },
+  "components": [
+    {
+      "type": "library",
+      "name": "crypto",
+      "version": "1.0.1",
+      "scope": "required"
+    }
+  ]
+}

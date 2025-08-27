@@ -1,0 +1,28 @@
+{
+  "name": "@averox/productionsdk-crypto-sdk",
+  "version": "2.0.0",
+  "description": "Enterprise-grade cryptographic SDK - ALL 18 security gates implemented",
+  "main": "dist/cjs/index.js",
+  "module": "dist/esm/index.js",
+  "types": "dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js"
+    }
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE",
+    "SECURITY.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "npm run build:cjs && npm run build:esm && npm run build:types",
+    "test": "jest",
+    "test:nist": "node test/nist-vectors.js",
+    "test:security": "npm audit && npm run test:nist"
+  }
+}
