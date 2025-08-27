@@ -50,7 +50,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/sdks", isAuthenticated, async (req, res) => {
     try {
       const user = req.user as any;
-      const sdks = await storage.getSDKs(user.tenantId, user.id);
+      // Handle both new user format and legacy OIDC claims format
+      const userId = user.id || user.claims?.sub;
+      const userEmail = user.email || user.claims?.email;
+      
+      if (!userId || !userEmail) {
+        return res.status(401).json({ message: "Invalid user session" });
+      }
+      
+      // Get or create tenant for the user
+      const tenantId = user.tenantId || await storage.getOrCreateTenantForUser(userId, userEmail);
+      
+      const sdks = await storage.getSDKs(tenantId, userId);
       res.json(sdks);
     } catch (error) {
       console.error("Error fetching SDKs:", error);
@@ -61,10 +72,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/sdks/generate", isAuthenticated, async (req, res) => {
     try {
       const user = req.user as any;
+      // Handle both new user format and legacy OIDC claims format
+      const userId = user.id || user.claims?.sub;
+      const userEmail = user.email || user.claims?.email;
+      
+      if (!userId || !userEmail) {
+        return res.status(401).json({ message: "Invalid user session" });
+      }
+      
+      // Get or create tenant for the user
+      const tenantId = user.tenantId || await storage.getOrCreateTenantForUser(userId, userEmail);
+      
       const sdkData = insertSdkSchema.parse({
         ...req.body,
-        tenantId: user.tenantId,
-        userId: user.id,
+        tenantId: tenantId,
+        userId: userId,
       });
       
       const sdk = await storage.createSDK(sdkData);
