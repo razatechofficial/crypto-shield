@@ -218,6 +218,13 @@ export const insertSdkSchema = createInsertSchema(sdks).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  // Transform array fields to JSON strings for database storage
+  languages: z.array(z.string()).transform((val) => JSON.stringify(val)),
+  algorithms: z.array(z.string()).transform((val) => JSON.stringify(val)),
+  dataTypes: z.array(z.string()).optional().transform((val) => val ? JSON.stringify(val) : null),
+  complianceRequirements: z.array(z.string()).optional().transform((val) => val ? JSON.stringify(val) : null),
+  confidentialFeatures: z.array(z.string()).optional().transform((val) => val ? JSON.stringify(val) : null),
 });
 
 export const insertEncryptionKeySchema = createInsertSchema(encryptionKeys).omit({
