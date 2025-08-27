@@ -62,12 +62,16 @@ function updateUserSession(
 async function upsertUser(
   claims: any,
 ) {
-  await storage.upsertUser({
+  // Create or get tenant for user
+  const tenantId = await storage.getOrCreateTenantForUser(claims["sub"], claims["email"]);
+  
+  return await storage.upsertUser({
     id: claims["sub"],
     email: claims["email"],
     firstName: claims["first_name"],
     lastName: claims["last_name"],
     profileImageUrl: claims["profile_image_url"],
+    tenantId,
   });
 }
 
@@ -135,8 +139,16 @@ export async function setupAuth(app: Express) {
   const verify: VerifyFunction = async (tokens, userinfo, done) => {
     updateUserSession(userinfo, tokens);
     try {
-      await upsertUser(tokens.claims());
-      done(null, userinfo);
+      const dbUser = await upsertUser(tokens.claims());
+      // Store the full database user object in session, not just OIDC claims
+      const sessionUser = {
+        ...userinfo,
+        id: dbUser.id,
+        tenantId: dbUser.tenantId,
+        role: dbUser.role,
+        email: dbUser.email
+      };
+      done(null, sessionUser);
     } catch (error) {
       done(error, false);
     }
@@ -166,13 +178,13 @@ export async function setupAuth(app: Express) {
   });
 
   app.get("/api/login", (req, res, next) => {
-    passport.authenticate(`averoxauth:${req.hostname}`, {
+    passport.authenticate(`averoxauth:${req.hostname || 'localhost'}`, {
       scope: "openid email profile offline_access",
     })(req, res, next);
   });
 
   app.get("/api/callback", (req, res, next) => {
-    passport.authenticate(`averoxauth:${req.hostname}`, {
+    passport.authenticate(`averoxauth:${req.hostname || 'localhost'}`, {
       successReturnToOrRedirect: "/",
       failureRedirect: "/api/login",
     })(req, res, next);
@@ -182,8 +194,8 @@ export async function setupAuth(app: Express) {
     req.logout(() => {
       res.redirect(
         client.buildEndSessionUrl(config, {
-          client_id: OIDC_CLIENT_ID,
-          post_logout_redirect_uri: `${req.protocol}://${req.hostname}`,
+          client_id: OIDC_CLIENT_ID!,
+          post_logout_redirect_uri: `${req.protocol}://${req.hostname || 'localhost'}`,
         }).href
       );
     });

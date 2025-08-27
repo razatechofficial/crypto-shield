@@ -46,6 +46,7 @@ export interface IStorage {
   getTenant(id: string): Promise<Tenant | undefined>;
   getTenantByApiKey(apiKey: string): Promise<Tenant | undefined>;
   createTenant(tenant: InsertTenant): Promise<Tenant>;
+  getOrCreateTenantForUser(userId: string, email: string): Promise<string>;
   
   // SDK operations
   getSDKs(tenantId: string, userId?: string): Promise<Sdk[]>;
@@ -95,7 +96,6 @@ export interface IStorage {
   
   // User management
   getTenantUsers(tenantId: string): Promise<User[]>;
-  updateUserRole(userId: string, role: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -155,6 +155,23 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return tenant;
+  }
+
+  async getOrCreateTenantForUser(userId: string, email: string): Promise<string> {
+    // Check if user already exists with a tenant
+    const existingUser = await this.getUser(userId);
+    if (existingUser && existingUser.tenantId) {
+      return existingUser.tenantId;
+    }
+
+    // Create a new tenant for the user
+    const tenant = await this.createTenant({
+      name: `${email.split('@')[0]}'s Organization`,
+      subscriptionTier: 'trial' as any,
+      id: randomUUID(),
+    });
+
+    return tenant.id;
   }
 
   // SDK operations
