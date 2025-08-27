@@ -133,8 +133,9 @@ export default function SDKManagement() {
         return;
       }
 
-      // Extract download ID from URL
-      const downloadId = sdk.downloadUrl.split('/').pop()?.replace('/download', '');
+      // Extract download ID from URL (e.g., "/api/sdks/finance-secure-v2.1.0/download" -> "finance-secure-v2.1.0")
+      const urlParts = sdk.downloadUrl.split('/');
+      const downloadId = urlParts[urlParts.length - 2]; // Get the part before "/download"
       const response = await fetch(`/api/sdks/${downloadId}/download`, {
         method: 'GET',
         credentials: 'include',

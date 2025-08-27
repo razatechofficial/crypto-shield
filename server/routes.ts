@@ -515,10 +515,10 @@ Generated: ${new Date().toISOString()}
 Version: ${sdk.version || '2.0.0'}
 
 ## Languages Supported
-${languages.map(lang => `- ${lang.charAt(0).toUpperCase() + lang.slice(1)}`).join('\n')}
+${languages.map((lang: string) => `- ${lang.charAt(0).toUpperCase() + lang.slice(1)}`).join('\n')}
 
 ## Algorithms
-${algorithms.map(alg => `- ${alg}`).join('\n')}
+${algorithms.map((alg: string) => `- ${alg}`).join('\n')}
 
 ## Installation
 
