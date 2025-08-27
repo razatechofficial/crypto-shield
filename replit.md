@@ -32,7 +32,7 @@ Preferred communication style: Simple, everyday language.
 - **Runtime**: Node.js with Express.js
 - **Language**: TypeScript with ES modules
 - **Database Integration**: Drizzle ORM with PostgreSQL (Neon serverless)
-- **Authentication**: Replit OIDC with Passport.js and session management
+- **Authentication**: Generic OIDC with Passport.js and session management (development mode with mock auth)
 - **Session Storage**: PostgreSQL-based session storage
 - **API Design**: RESTful APIs organized by feature
 - **Development Setup**: Vite middleware integration with HMR
@@ -52,10 +52,11 @@ Preferred communication style: Simple, everyday language.
 - **Connection Strategy**: Connection pooling with WebSocket support
 
 ## Authentication & Authorization
-- **Provider**: Replit OIDC (OpenID Connect)
+- **Provider**: Generic OIDC (OpenID Connect) with development mode support
 - **Session Management**: Server-side sessions with PostgreSQL storage
 - **Security Features**: HTTPS-only cookies, CSRF protection, session timeout, failed attempt limiting
 - **Authorization Pattern**: Role-based access control with tenant-level data isolation
+- **Development Mode**: Mock authentication for local development and testing
 
 ## File Upload & Storage
 - **Cloud Storage**: Google Cloud Storage integration
@@ -74,7 +75,7 @@ Preferred communication style: Simple, everyday language.
 - **Connection Pooling**: Built-in pooling
 
 ## Authentication Services
-- **Replit OIDC**: Enterprise authentication provider
+- **Generic OIDC**: Configurable authentication provider
 - **OpenID Connect**: Standard protocol implementation
 
 ## Cloud Storage
@@ -87,5 +88,5 @@ Preferred communication style: Simple, everyday language.
 - **Chart.js**: Data visualization
 
 ## Development Tools
-- **Replit Integration**: Development environment integration
+- **Development Environment**: Platform-agnostic development setup
 - **Vite Plugins**: For HMR and development tooling
