@@ -362,6 +362,207 @@ export class DatabaseStorage implements IStorage {
     console.log('✅ Seeded test SDK data');
   }
 
+  // Seed comprehensive monitoring data for development
+  private async seedMonitoringData(tenantId: string): Promise<void> {
+    const now = new Date();
+    const userId = 'dev-user-123'; // Mock user for dev mode
+
+    // 1. Seed encryption keys
+    const encryptionKeysData = [
+      {
+        tenantId,
+        name: 'Production API Key',
+        description: 'Primary encryption key for production API endpoints',
+        algorithm: 'AES-256-GCM',
+        keySize: 256,
+        status: 'active' as const,
+        purpose: 'encryption',
+        rotationSchedule: '90_days',
+        createdAt: new Date(now.getTime() - 86400000 * 30), // 30 days ago
+      },
+      {
+        tenantId,
+        name: 'Backup Encryption Key',
+        description: 'Secondary key for data backup encryption',
+        algorithm: 'ChaCha20-Poly1305',
+        keySize: 256,
+        status: 'active' as const,
+        purpose: 'backup',
+        rotationSchedule: '30_days',
+        createdAt: new Date(now.getTime() - 86400000 * 15), // 15 days ago
+      },
+      {
+        tenantId,
+        name: 'Legacy Migration Key',
+        description: 'Temporary key for legacy data migration',
+        algorithm: 'AES-256-CBC',
+        keySize: 256,
+        status: 'rotating' as const,
+        purpose: 'migration',
+        rotationSchedule: '7_days',
+        createdAt: new Date(now.getTime() - 86400000 * 7), // 7 days ago
+      }
+    ];
+
+    await db.insert(encryptionKeys).values(encryptionKeysData);
+
+    // 2. Seed crypto operations (last 7 days of activity)
+    const operationsData = [];
+    for (let day = 0; day < 7; day++) {
+      const dayDate = new Date(now.getTime() - 86400000 * day);
+      const operationsPerDay = Math.floor(Math.random() * 500) + 200; // 200-700 operations per day
+      
+      for (let op = 0; op < operationsPerDay; op++) {
+        const opTime = new Date(dayDate.getTime() + Math.random() * 86400000);
+        operationsData.push({
+          tenantId,
+          operation: Math.random() > 0.6 ? 'encryption' : 'decryption',
+          algorithm: ['AES-256-GCM', 'ChaCha20-Poly1305', 'RSA-2048'][Math.floor(Math.random() * 3)],
+          keyId: encryptionKeysData[Math.floor(Math.random() * encryptionKeysData.length)].name,
+          dataSize: Math.floor(Math.random() * 10000) + 100, // 100-10KB
+          duration: Math.floor(Math.random() * 50) + 5, // 5-55ms
+          status: Math.random() > 0.05 ? 'success' : 'failure', // 95% success rate
+          metadata: { source: Math.random() > 0.5 ? 'api' : 'sdk' },
+          createdAt: opTime
+        });
+      }
+    }
+
+    await db.insert(cryptoOperations).values(operationsData);
+
+    // 3. Seed security incidents
+    const incidentsData = [
+      {
+        tenantId,
+        incidentType: 'failed_authentication',
+        severity: 'medium' as const,
+        status: 'resolved' as const,
+        description: 'Multiple failed authentication attempts detected from suspicious IP',
+        affectedSystems: JSON.stringify(['api', 'dashboard']),
+        resolution: 'IP blocked, monitoring enhanced',
+        createdAt: new Date(now.getTime() - 86400000 * 5),
+        resolvedAt: new Date(now.getTime() - 86400000 * 4),
+      },
+      {
+        tenantId,
+        incidentType: 'key_rotation_failed',
+        severity: 'high' as const,
+        status: 'investigating' as const,
+        description: 'Automated key rotation failed for backup encryption key',
+        affectedSystems: JSON.stringify(['backup_service']),
+        resolution: null,
+        createdAt: new Date(now.getTime() - 86400000 * 2),
+        resolvedAt: null,
+      },
+      {
+        tenantId,
+        incidentType: 'unusual_traffic_pattern',
+        severity: 'low' as const,
+        status: 'resolved' as const,
+        description: 'Spike in encryption requests detected outside normal hours',
+        affectedSystems: JSON.stringify(['encryption_api']),
+        resolution: 'Confirmed as legitimate batch processing job',
+        createdAt: new Date(now.getTime() - 86400000 * 1),
+        resolvedAt: new Date(now.getTime() - 86400000 * 1 + 7200000), // 2 hours later
+      }
+    ];
+
+    await db.insert(securityIncidents).values(incidentsData);
+
+    // 4. Seed SDK deployments
+    const deploymentsData = [
+      {
+        tenantId,
+        sdkId: 'finance-sdk-prod',
+        version: '2.1.0',
+        environment: 'production',
+        platform: 'nodejs',
+        region: 'us-east-1',
+        instanceCount: 5,
+        healthStatus: 'healthy' as const,
+        totalOperations: 15420,
+        successRate: 99.2,
+        lastHeartbeat: new Date(now.getTime() - 300000), // 5 minutes ago
+        createdAt: new Date(now.getTime() - 86400000 * 14)
+      },
+      {
+        tenantId,
+        sdkId: 'healthcare-sdk-staging',
+        version: '1.8.3',
+        environment: 'staging',
+        platform: 'python',
+        region: 'us-west-2',
+        instanceCount: 2,
+        healthStatus: 'healthy' as const,
+        totalOperations: 3240,
+        successRate: 97.8,
+        lastHeartbeat: new Date(now.getTime() - 180000), // 3 minutes ago
+        createdAt: new Date(now.getTime() - 86400000 * 10)
+      },
+      {
+        tenantId,
+        sdkId: 'mobile-sdk-prod',
+        version: '2.0.1',
+        environment: 'production',
+        platform: 'swift',
+        region: 'eu-west-1',
+        instanceCount: 8,
+        healthStatus: 'degraded' as const,
+        totalOperations: 8750,
+        successRate: 94.5,
+        lastHeartbeat: new Date(now.getTime() - 900000), // 15 minutes ago (degraded)
+        createdAt: new Date(now.getTime() - 86400000 * 21)
+      }
+    ];
+
+    await db.insert(sdkDeployments).values(deploymentsData);
+
+    // 5. Seed performance metrics
+    const metricsData = [];
+    for (let hour = 0; hour < 24; hour++) {
+      const hourTime = new Date(now.getTime() - 3600000 * hour);
+      metricsData.push({
+        tenantId,
+        metricType: 'encryption_latency',
+        value: Math.floor(Math.random() * 30) + 15, // 15-45ms
+        unit: 'milliseconds',
+        timestamp: hourTime,
+        metadata: { algorithm: 'AES-256-GCM' }
+      });
+      metricsData.push({
+        tenantId,
+        metricType: 'throughput',
+        value: Math.floor(Math.random() * 1000) + 500, // 500-1500 ops/min
+        unit: 'operations_per_minute',
+        timestamp: hourTime,
+        metadata: { endpoint: '/api/encrypt' }
+      });
+    }
+
+    await db.insert(performanceMetrics).values(metricsData);
+
+    // 6. Seed API usage data
+    const usageData = [];
+    for (let day = 0; day < 30; day++) {
+      const dayDate = new Date(now.getTime() - 86400000 * day);
+      usageData.push({
+        tenantId,
+        date: dayDate,
+        apiCalls: Math.floor(Math.random() * 5000) + 2000,
+        encryptionRequests: Math.floor(Math.random() * 3000) + 1000,
+        decryptionRequests: Math.floor(Math.random() * 2500) + 800,
+        keyRotations: Math.floor(Math.random() * 5) + 1,
+        threatsBlocked: Math.floor(Math.random() * 20),
+        bytesProcessed: BigInt(Math.floor(Math.random() * 100000000) + 50000000),
+        uniqueUsers: Math.floor(Math.random() * 200) + 50
+      });
+    }
+
+    await db.insert(apiUsage).values(usageData);
+
+    console.log('✅ Seeded comprehensive monitoring data (keys, operations, incidents, deployments, metrics, usage)');
+  }
+
   // Seed encryption algorithms - COMPREHENSIVE MARKET COVERAGE
   private async seedEncryptionAlgorithms(): Promise<void> {
     const algorithms = [
@@ -1607,6 +1808,12 @@ export class DatabaseStorage implements IStorage {
 
   // Key management operations
   async getEncryptionKeys(tenantId: string): Promise<EncryptionKey[]> {
+    // Check if keys exist, if not, seed monitoring data
+    const existing = await db.select().from(encryptionKeys).where(eq(encryptionKeys.tenantId, tenantId)).limit(1);
+    if (existing.length === 0) {
+      await this.seedMonitoringData(tenantId);
+    }
+    
     return await db
       .select()
       .from(encryptionKeys)
