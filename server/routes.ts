@@ -545,21 +545,21 @@ class KeyDerivation {
 class AveroxEnvelope {
   static VERSION = 1;
   
-  static create(nonce, tag, ciphertext, algorithm, keyId, aad = null) {
+  static create(iv, tag, ciphertext, keyId, aad = null) {
     return {
       v: this.VERSION,                           // GATE 5: Version field
-      alg: algorithm,                           // GATE 5: Algorithm field  
-      kid: keyId,                              // GATE 5: Key ID field
-      nonce: nonce.toString('base64'),         // GATE 4: Unified nonce field
-      tag: tag.toString('base64'),             // GATE 4: Unified tag field
-      ct: ciphertext.toString('base64'),       // GATE 4: Unified ciphertext field
+      alg: 'aes-256-gcm',                       // GATE 5: Algorithm field  
+      kid: keyId,                               // GATE 5: Key ID field
+      iv: iv.toString('base64'),                // GATE 4: Unified IV field (12 bytes)
+      tag: tag.toString('base64'),              // GATE 4: Unified tag field
+      ct: ciphertext.toString('base64'),        // GATE 4: Unified ciphertext field
       aad: aad ? aad.toString('base64') : null, // GATE 2: AAD preservation
-      ts: Date.now()                           // Timestamp
+      ts: Date.now()                            // Timestamp
     };
   }
   
   static validate(envelope) {
-    const required = ['v', 'alg', 'kid', 'nonce', 'tag', 'ct'];
+    const required = ['v', 'alg', 'kid', 'iv', 'tag', 'ct'];
     for (const field of required) {
       if (!envelope.hasOwnProperty(field)) {
         throw new AveroxCryptoError('INVALID_ENVELOPE', \`Missing required field: \${field}\`, { field });
@@ -580,7 +580,7 @@ class AveroxEnvelope {
       version: envelope.v,
       algorithm: envelope.alg,
       keyId: envelope.kid,
-      nonce: Buffer.from(envelope.nonce, 'base64'),
+      iv: Buffer.from(envelope.iv, 'base64'),
       tag: Buffer.from(envelope.tag, 'base64'),
       ciphertext: Buffer.from(envelope.ct, 'base64'),
       aad: envelope.aad ? Buffer.from(envelope.aad, 'base64') : null
@@ -636,12 +636,18 @@ class AveroxCrypto {
       // GATE 7: Key derivation
       derivedKey = this.deriveKey('encryption');
       
-      // GATE 3: 12-byte nonce policy
+      // GATE 3: 12-byte nonce policy (96-bit IV for GCM)
       const nonce = this.generateNonce();
       
-      // GATE 1: AES-256-GCM implementation
-      const cipher = crypto.createCipher('aes-256-gcm');
-      cipher.setAAD(aad || Buffer.alloc(0)); // GATE 2: AAD support
+      // GATE 1: AES-256-GCM implementation (FIXED: using proper GCM cipher)
+      const cipher = crypto.createCipherGCM('aes-256-gcm');
+      cipher.setIVLength(12);
+      cipher.init('encrypt', derivedKey, nonce);
+      
+      // GATE 2: AAD support (FIXED: set AAD after initialization)
+      if (aad) {
+        cipher.setAAD(aad);
+      }
       
       const plaintextBuffer = Buffer.isBuffer(plaintext) ? plaintext : Buffer.from(plaintext, 'utf8');
       
@@ -649,8 +655,8 @@ class AveroxCrypto {
       ciphertext = Buffer.concat([ciphertext, cipher.final()]);
       const tag = cipher.getAuthTag();
       
-      // GATE 4-5: Unified envelope with metadata
-      const envelope = AveroxEnvelope.create(nonce, tag, ciphertext, algorithm, this.keyId, aad);
+      // GATE 4-5: Unified envelope with metadata (FIXED: use 'iv' not 'nonce')
+      const envelope = AveroxEnvelope.create(nonce, tag, ciphertext, this.keyId, aad);
       
       const duration = Number(process.hrtime.bigint() - startTime) / 1000000;
       
@@ -658,7 +664,7 @@ class AveroxCrypto {
         AveroxTelemetry.recordOperation('encryption', duration, true, algorithm);
       }
       
-      return envelope;
+      return JSON.stringify(envelope);
       
     } catch (error) {
       const duration = Number(process.hrtime.bigint() - startTime) / 1000000;
@@ -678,27 +684,34 @@ class AveroxCrypto {
   }
 
   // GATE 2: AAD wired through decryption
-  decrypt(envelope, aad = null) {
+  decrypt(encryptedEnvelope, aad = null) {
     const startTime = process.hrtime.bigint();
     let derivedKey = null;
     
     try {
-      const parsed = AveroxEnvelope.parse(envelope);
+      const parsed = AveroxEnvelope.parse(JSON.parse(encryptedEnvelope));
       
       // GATE 7: Key derivation
       derivedKey = this.deriveKey('encryption');
       
-      // GATE 3: Validate nonce length
-      if (parsed.nonce.length !== 12) {
-        throw new AveroxCryptoError('INVALID_NONCE_LENGTH', 'Nonce must be exactly 12 bytes', { 
+      // GATE 3: Validate IV length (FIXED: use 'iv' not 'nonce')
+      if (parsed.iv.length !== 12) {
+        throw new AveroxCryptoError('INVALID_IV_LENGTH', 'IV must be exactly 12 bytes', { 
           expected: 12, 
-          actual: parsed.nonce.length 
+          actual: parsed.iv.length 
         });
       }
       
-      // GATE 1: AES-256-GCM decryption
-      const decipher = crypto.createDecipher('aes-256-gcm');
-      decipher.setAAD(aad || Buffer.alloc(0)); // GATE 2: AAD support
+      // GATE 1: AES-256-GCM decryption (FIXED: using proper GCM decipher)
+      const decipher = crypto.createDecipherGCM('aes-256-gcm');
+      decipher.setIVLength(12);
+      decipher.init('decrypt', derivedKey, parsed.iv);
+      
+      // GATE 2: AAD support (FIXED: set AAD after initialization)
+      if (aad) {
+        decipher.setAAD(aad);
+      }
+      
       decipher.setAuthTag(parsed.tag);
       
       let plaintext = decipher.update(parsed.ciphertext);
@@ -716,7 +729,7 @@ class AveroxCrypto {
       const duration = Number(process.hrtime.bigint() - startTime) / 1000000;
       
       if (this.enableTelemetry) {
-        AveroxTelemetry.recordOperation('decryption', duration, false, envelope?.alg || 'unknown');
+        AveroxTelemetry.recordOperation('decryption', duration, false, 'unknown');
       }
       
       throw new AveroxCryptoError('DECRYPTION_FAILED', 'Decryption operation failed', { 
