@@ -495,22 +495,32 @@ function zeroizeBuffer(buffer) {
 class KeyDerivation {
   static hkdf(ikm, salt, info, length = 32) {
     try {
-      const extractedKey = crypto.createHmac('sha256', salt || Buffer.alloc(32)).update(ikm).digest();
+      // GATE 7: RFC 5869 compliant HKDF implementation
+      const saltBuffer = salt || Buffer.alloc(32, 0); // Use zero salt if none provided
+      const infoBuffer = info || Buffer.alloc(0);
       
-      const okm = Buffer.alloc(0);
-      const n = Math.ceil(length / 32);
+      // Extract phase: HMAC-SHA256(salt, IKM)
+      const extractedKey = crypto.createHmac('sha256', saltBuffer).update(ikm).digest();
+      
+      // Expand phase: generate OKM
+      let okm = Buffer.alloc(0);
+      const n = Math.ceil(length / 32); // 32 bytes per SHA256 output
+      let t = Buffer.alloc(0);
       
       for (let i = 1; i <= n; i++) {
         const hmac = crypto.createHmac('sha256', extractedKey);
-        if (i > 1) hmac.update(okm.slice((i - 2) * 32, (i - 1) * 32));
-        hmac.update(info || Buffer.alloc(0));
-        hmac.update(Buffer.from([i]));
+        hmac.update(t); // T(i-1)
+        hmac.update(infoBuffer); // info
+        hmac.update(Buffer.from([i])); // counter
         
-        const t = hmac.digest();
+        t = hmac.digest();
         okm = Buffer.concat([okm, t]);
       }
       
+      // Clean up intermediate key material
       zeroizeBuffer(extractedKey);
+      zeroizeBuffer(t);
+      
       return okm.slice(0, length);
     } catch (error) {
       throw new AveroxCryptoError('HKDF_FAILED', 'Key derivation using HKDF failed', { error: error.message });
@@ -636,27 +646,26 @@ class AveroxCrypto {
       // GATE 7: Key derivation
       derivedKey = this.deriveKey('encryption');
       
-      // GATE 3: 12-byte nonce policy (96-bit IV for GCM)
-      const nonce = this.generateNonce();
+      // GATE 3: 12-byte IV policy (96-bit IV for GCM)
+      const iv = this.generateNonce();
       
-      // GATE 1: AES-256-GCM implementation (FIXED: using proper GCM cipher)
-      const cipher = crypto.createCipherGCM('aes-256-gcm');
-      cipher.setIVLength(12);
-      cipher.init('encrypt', derivedKey, nonce);
+      // GATE 1: AES-256-GCM implementation (CORRECT Node.js API with explicit key/IV)
+      const cipher = crypto.createCipheriv('aes-256-gcm', derivedKey, iv);
       
-      // GATE 2: AAD support (FIXED: set AAD after initialization)
-      if (aad) {
+      // GATE 2: AAD support - must be set before any updates
+      if (aad && aad.length > 0) {
         cipher.setAAD(aad);
       }
       
       const plaintextBuffer = Buffer.isBuffer(plaintext) ? plaintext : Buffer.from(plaintext, 'utf8');
       
+      // Encrypt the data
       let ciphertext = cipher.update(plaintextBuffer);
       ciphertext = Buffer.concat([ciphertext, cipher.final()]);
       const tag = cipher.getAuthTag();
       
-      // GATE 4-5: Unified envelope with metadata (FIXED: use 'iv' not 'nonce')
-      const envelope = AveroxEnvelope.create(nonce, tag, ciphertext, this.keyId, aad);
+      // GATE 4-5: Unified envelope with metadata
+      const envelope = AveroxEnvelope.create(iv, tag, ciphertext, this.keyId, aad);
       
       const duration = Number(process.hrtime.bigint() - startTime) / 1000000;
       
@@ -694,7 +703,7 @@ class AveroxCrypto {
       // GATE 7: Key derivation
       derivedKey = this.deriveKey('encryption');
       
-      // GATE 3: Validate IV length (FIXED: use 'iv' not 'nonce')
+      // GATE 3: Validate IV length
       if (parsed.iv.length !== 12) {
         throw new AveroxCryptoError('INVALID_IV_LENGTH', 'IV must be exactly 12 bytes', { 
           expected: 12, 
@@ -702,18 +711,18 @@ class AveroxCrypto {
         });
       }
       
-      // GATE 1: AES-256-GCM decryption (FIXED: using proper GCM decipher)
-      const decipher = crypto.createDecipherGCM('aes-256-gcm');
-      decipher.setIVLength(12);
-      decipher.init('decrypt', derivedKey, parsed.iv);
+      // GATE 1: AES-256-GCM decryption (CORRECT Node.js API with explicit key/IV)
+      const decipher = crypto.createDecipheriv('aes-256-gcm', derivedKey, parsed.iv);
       
-      // GATE 2: AAD support (FIXED: set AAD after initialization)
-      if (aad) {
+      // GATE 2: AAD support - must be set before auth tag
+      if (aad && aad.length > 0) {
         decipher.setAAD(aad);
       }
       
+      // Set authentication tag before decryption
       decipher.setAuthTag(parsed.tag);
       
+      // Decrypt the data
       let plaintext = decipher.update(parsed.ciphertext);
       plaintext = Buffer.concat([plaintext, decipher.final()]);
       
@@ -780,6 +789,31 @@ class AveroxCrypto {
     if (this.masterKey) {
       zeroizeBuffer(this.masterKey);
       this.masterKey = null;
+    }
+  }
+  
+  // Quick self-test to verify crypto implementation works
+  static selfTest() {
+    try {
+      const testKey = Buffer.from('603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4', 'hex');
+      const testCrypto = new AveroxCrypto(testKey);
+      const testData = 'Hello, World!';
+      const testAAD = Buffer.from('test-aad');
+      
+      // Test encryption/decryption cycle
+      const encrypted = testCrypto.encrypt(testData, testAAD);
+      const decrypted = testCrypto.decrypt(encrypted, testAAD);
+      
+      if (decrypted === testData) {
+        console.log('✅ Crypto self-test PASSED - AES-256-GCM working correctly');
+        return true;
+      } else {
+        console.log('❌ Crypto self-test FAILED - decrypted text does not match');
+        return false;
+      }
+    } catch (error) {
+      console.log('❌ Crypto self-test FAILED - error:', error.message);
+      return false;
     }
   }
 }
