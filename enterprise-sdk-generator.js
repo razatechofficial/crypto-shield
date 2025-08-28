@@ -186,7 +186,7 @@ class KeyDerivation {
   
   static scrypt(password, salt, length = 32) {
     try {
-      return crypto.scryptSync(password, salt, length, { N: 32768, r: 8, p: 1 });
+      return crypto.scryptSync(password, salt, length, { N: 16384, r: 8, p: 1, maxmem: 64 * 1024 * 1024 });
     } catch (error) {
       throw new AveroxCryptoError('SCRYPT_FAILED', 'Key derivation using Scrypt failed', { error: error.message });
     }
@@ -263,9 +263,7 @@ class AveroxCrypto {
       derivedKey = this.deriveKey('encryption');
       iv = this.generateIV(); // 12-byte IV policy
       
-      const cipher = crypto.createCipherGCM('aes-256-gcm');
-      cipher.setIVLength(12);
-      cipher.init('encrypt', derivedKey, iv);
+      const cipher = crypto.createCipheriv('aes-256-gcm', derivedKey, iv);
       
       if (aad) cipher.setAAD(aad); // AAD wired across stacks
       
@@ -294,9 +292,7 @@ class AveroxCrypto {
       const parsed = AveroxEnvelope.parse(envelope);
       
       derivedKey = this.deriveKey('encryption');
-      const decipher = crypto.createDecipherGCM('aes-256-gcm');
-      decipher.setIVLength(12);
-      decipher.init('decrypt', derivedKey, parsed.iv);
+      const decipher = crypto.createDecipheriv('aes-256-gcm', derivedKey, parsed.iv);
       decipher.setAuthTag(parsed.tag);
       
       if (aad) decipher.setAAD(aad); // AAD validation

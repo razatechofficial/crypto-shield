@@ -137,7 +137,7 @@ class KeyDerivation {
   
   static scrypt(password, salt, length = 32) {
     try {
-      return crypto.scryptSync(password, salt, length, { N: 32768, r: 8, p: 1 });
+      return crypto.scryptSync(password, salt, length, { N: 16384, r: 8, p: 1, maxmem: 64 * 1024 * 1024 });
     } catch (error) {
       throw new AveroxCryptoError('SCRYPT_FAILED', 'Key derivation using Scrypt failed', { error: error.message });
     }
@@ -155,12 +155,12 @@ class KeyDerivation {
 class AveroxEnvelope {
   static VERSION = 1;
   
-  static create(nonce, tag, ciphertext, algorithm, keyId, aad = null) {
+  static create(iv, tag, ciphertext, algorithm, keyId, aad = null) {
     return {
       v: this.VERSION,                           // GATE 5: Version field
       alg: algorithm,                           // GATE 5: Algorithm field  
       kid: keyId,                              // GATE 5: Key ID field
-      nonce: nonce.toString('base64'),         // GATE 4: Unified nonce field
+      iv: iv.toString('base64'),               // GATE 4: Unified iv field
       tag: tag.toString('base64'),             // GATE 4: Unified tag field
       ct: ciphertext.toString('base64'),       // GATE 4: Unified ciphertext field
       aad: aad ? aad.toString('base64') : null, // GATE 2: AAD preservation
@@ -169,7 +169,7 @@ class AveroxEnvelope {
   }
   
   static validate(envelope) {
-    const required = ['v', 'alg', 'kid', 'nonce', 'tag', 'ct'];
+    const required = ['v', 'alg', 'kid', 'iv', 'tag', 'ct'];
     for (const field of required) {
       if (!envelope.hasOwnProperty(field)) {
         throw new AveroxCryptoError('INVALID_ENVELOPE', `Missing required field: ${field}`, { field });
@@ -190,7 +190,7 @@ class AveroxEnvelope {
       version: envelope.v,
       algorithm: envelope.alg,
       keyId: envelope.kid,
-      nonce: Buffer.from(envelope.nonce, 'base64'),
+      iv: Buffer.from(envelope.iv, 'base64'),
       tag: Buffer.from(envelope.tag, 'base64'),
       ciphertext: Buffer.from(envelope.ct, 'base64'),
       aad: envelope.aad ? Buffer.from(envelope.aad, 'base64') : null

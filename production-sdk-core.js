@@ -203,10 +203,8 @@ class AveroxCrypto {
       // Generate 12-byte IV
       iv = this.generateIV();
       
-      // Create cipher
-      const cipher = crypto.createCipherGCM('aes-256-gcm');
-      cipher.setIVLength(12); // Enforce 12-byte IV
-      cipher.init('encrypt', derivedKey, iv);
+      // Create cipher with correct Node.js API
+      const cipher = crypto.createCipheriv('aes-256-gcm', derivedKey, iv);
       
       // SECURITY GATE: AAD wired across stacks
       if (aad) {
@@ -250,10 +248,8 @@ class AveroxCrypto {
       // Derive decryption key
       derivedKey = this.deriveKey('encryption');
       
-      // Create decipher
-      const decipher = crypto.createDecipherGCM('aes-256-gcm');
-      decipher.setIVLength(12);
-      decipher.init('decrypt', derivedKey, parsed.iv);
+      // Create decipher with correct Node.js API
+      const decipher = crypto.createDecipheriv('aes-256-gcm', derivedKey, parsed.iv);
       
       // Set auth tag
       decipher.setAuthTag(parsed.tag);
@@ -283,11 +279,12 @@ class AveroxCrypto {
 const NIST_TEST_VECTORS = {
   'aes-256-gcm': [
     {
-      key: '603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4',
-      iv: '000102030405060708090a0b',
-      plaintext: 'Hello World',
-      aad: 'test-aad',
-      expected_tag_length: 16
+      key: 'feffe9928665731c6d6a8f9467308308feffe9928665731c6d6a8f9467308308',
+      iv: 'cafebabefacedbaddecaf888',
+      plaintext: 'd9313225f88406e5a55909c5aff5269a86a7a9531534f7da2e4c303d8a318a721c3c0c95956809532fcf0e2449a6b525b16aedf5aa0de657ba637b391aafd255',
+      aad: 'feedfacedeadbeeffeedfacedeadbeefabaddad2',
+      expected_ciphertext: '522dc1f099567d07f47f37a32a84427d643a8cdcbfe5c0c97598a2bd2555d1aa8cb08e48590dbb3da7b08b1056828838c5f61e6393ba7a0abcc9f662898015ad',
+      expected_tag: '5bc94fbc3221a5db94fae95ae7121a47'
     }
   ]
 };

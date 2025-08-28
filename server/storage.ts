@@ -167,7 +167,7 @@ export class DatabaseStorage implements IStorage {
     // Create a new tenant for the user
     const tenant = await this.createTenant({
       name: `${email.split('@')[0]}'s Organization`,
-      subscriptionTier: 'trial' as any,
+      subscriptionTier: 'starter',
       id: randomUUID(),
     });
 

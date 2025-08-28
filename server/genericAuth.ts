@@ -95,29 +95,44 @@ export async function setupAuth(app: Express) {
     });
 
     // Mock authentication routes for development
-    app.get("/api/login", (req, res) => {
-      // Create a mock user for development
-      const mockUser = {
-        claims: {
+    app.get("/api/login", async (req, res) => {
+      try {
+        // Create a mock user for development
+        const mockClaims = {
           sub: "dev-user-001",
-          email: "dev@averox.com",
+          email: "dev@averox.com", 
           username: "developer",
           first_name: "Development",
           last_name: "User",
           exp: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
-        },
-        access_token: "dev-access-token",
-        refresh_token: "dev-refresh-token",
-        expires_at: Math.floor(Date.now() / 1000) + 3600,
-      };
-      
-      req.login(mockUser, (err) => {
-        if (err) {
-          console.error('Mock login error:', err);
-          return res.redirect('/?error=login_failed');
-        }
-        res.redirect('/');
-      });
+        };
+        
+        // Create the user in the database (same as production flow)
+        const dbUser = await upsertUser(mockClaims);
+        
+        const mockUser = {
+          claims: mockClaims,
+          access_token: "dev-access-token",
+          refresh_token: "dev-refresh-token", 
+          expires_at: Math.floor(Date.now() / 1000) + 3600,
+          // Include database user info (same as production)
+          id: dbUser.id,
+          tenantId: dbUser.tenantId,
+          role: dbUser.role,
+          email: dbUser.email
+        };
+        
+        req.login(mockUser, (err) => {
+          if (err) {
+            console.error('Mock login error:', err);
+            return res.redirect('/?error=login_failed');
+          }
+          res.redirect('/');
+        });
+      } catch (error) {
+        console.error('Mock user creation error:', error);
+        res.redirect('/?error=user_creation_failed');
+      }
     });
 
     app.get("/api/callback", (req, res) => {
