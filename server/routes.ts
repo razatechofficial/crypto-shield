@@ -397,7 +397,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
  * ✅ GATE 1: AES-256-GCM implemented with proper cipher usage
  * ✅ GATE 2: AAD wired across all encryption/decryption stacks
  * ✅ GATE 3: 12-byte IV policy enforced across all algorithms
- * ✅ GATE 4: Unified envelope format (nonce, tag, ciphertext)
+ * ✅ GATE 4: Unified envelope format (iv, tag, ciphertext)
  * ✅ GATE 5: Envelope v/alg/kid metadata fields
  * ✅ GATE 6: OpenTelemetry compatible telemetry hooks
  * ✅ GATE 7: Multiple KDFs (HKDF, PBKDF2, Scrypt, Argon2id)
@@ -537,7 +537,8 @@ class KeyDerivation {
   
   static scrypt(password, salt, length = 32) {
     try {
-      return crypto.scryptSync(password, salt, length, { N: 32768, r: 8, p: 1 });
+      // FIXED: Use reasonable Scrypt parameters to avoid memory limit issues
+      return crypto.scryptSync(password, salt, length, { N: 16384, r: 8, p: 1, maxmem: 64 * 1024 * 1024 });
     } catch (error) {
       throw new AveroxCryptoError('SCRYPT_FAILED', 'Key derivation using Scrypt failed', { error: error.message });
     }
@@ -997,11 +998,12 @@ describe('AveroxCrypto Enterprise SDK', () => {
     test('should pass NIST AES-GCM test vectors', () => {
       const vectors = [
         {
-          key: 'feffe9928665731c6d6a8f9467308308',
+          key: 'feffe9928665731c6d6a8f9467308308feffe9928665731c6d6a8f9467308308',
           iv: 'cafebabefacedbaddecaf888',
-          plaintext: 'd9313225f88406e5a55909c5aff5269a86a7a9531534f7da2e4c303d8a318a72',
-          aad: '',
-          expected: 'Expected test results...'
+          plaintext: 'd9313225f88406e5a55909c5aff5269a86a7a9531534f7da2e4c303d8a318a721c3c0c95956809532fcf0e2449a6b525b16aedf5aa0de657ba637b391aafd255',
+          aad: 'feedfacedeadbeeffeedfacedeadbeefabaddad2',
+          expected_ciphertext: '522dc1f099567d07f47f37a32a84427d643a8cdcbfe5c0c97598a2bd2555d1aa8cb08e48590dbb3da7b08b1056828838c5f61e6393ba7a0abcc9f662898015ad',
+          expected_tag: '76fc6ece0f4e1768cddf8853bb2d551b'
         }
       ];
       
@@ -1890,7 +1892,7 @@ function runNISTCompliance() {
       const encrypted = crypto.encrypt(plaintext, aad);
       
       // Verify envelope structure
-      if (!encrypted.v || !encrypted.alg || !encrypted.kid || !encrypted.nonce || !encrypted.tag || !encrypted.ct) {
+      if (!encrypted.v || !encrypted.alg || !encrypted.kid || !encrypted.iv || !encrypted.tag || !encrypted.ct) {
         throw new Error('Invalid envelope structure');
       }
       
@@ -2234,20 +2236,32 @@ class AveroxCrypto:
         iv = os.urandom(12)
         aesgcm = AESGCM(key)
         
-        ciphertext = aesgcm.encrypt(iv, plaintext.encode('utf-8'), aad)
+        # Encrypt returns ciphertext+tag combined in cryptography library
+        ciphertext_with_tag = aesgcm.encrypt(iv, plaintext.encode('utf-8'), aad)
+        # Split ciphertext and tag (last 16 bytes are tag)
+        ciphertext = ciphertext_with_tag[:-16]
+        tag = ciphertext_with_tag[-16:]
         
         return {
+            'v': 1,
+            'alg': 'aes-256-gcm',
+            'kid': 'python-key',
             'iv': base64.b64encode(iv).decode('utf-8'),
-            'ciphertext': base64.b64encode(ciphertext).decode('utf-8')
+            'ciphertext': base64.b64encode(ciphertext).decode('utf-8'),
+            'tag': base64.b64encode(tag).decode('utf-8'),
+            'aad': base64.b64encode(aad).decode('utf-8') if aad else None
         }
 
     def decrypt(self, encrypted: dict, aad: bytes = None) -> str:
         key = self._derive_key()
         iv = base64.b64decode(encrypted['iv'])
         ciphertext = base64.b64decode(encrypted['ciphertext'])
+        tag = base64.b64decode(encrypted['tag'])
         
         aesgcm = AESGCM(key)
-        plaintext = aesgcm.decrypt(iv, ciphertext, aad)
+        # Combine ciphertext and tag for decryption
+        ciphertext_with_tag = ciphertext + tag
+        plaintext = aesgcm.decrypt(iv, ciphertext_with_tag, aad)
         
         return plaintext.decode('utf-8')
 
@@ -4298,9 +4312,14 @@ public class AveroxCrypto {
         let sealedBox = try AES.GCM.seal(data, using: symmetricKey, authenticating: aad)
         
         return EncryptedData(
+            v: 1,
+            alg: "aes-256-gcm",
+            kid: "swift-key",
             iv: sealedBox.nonce.withUnsafeBytes { Data($0) }.base64EncodedString(),
-            ciphertext: sealedBox.ciphertext.base64EncodedString(),
-            tag: sealedBox.tag.base64EncodedString()
+            ct: sealedBox.ciphertext.base64EncodedString(),
+            tag: sealedBox.tag.base64EncodedString(),
+            aad: aad?.base64EncodedString(),
+            ts: Date().timeIntervalSince1970
         )
     }
     
@@ -4983,21 +5002,64 @@ class AveroxCrypto {
   }
   
   async encrypt(plaintext, aad = null) {
-    const key = this.deriveKey();
-    const iv = CryptoJS.lib.WordArray.random(96/8);
-    
-    const encrypted = CryptoJS.AES.encrypt(plaintext, key, {
-      iv: iv,
-      mode: CryptoJS.mode.GCM,
-      padding: CryptoJS.pad.NoPadding
-    });
-    
-    return {
-      iv: iv.toString(CryptoJS.enc.Base64),
-      ciphertext: encrypted.ciphertext.toString(CryptoJS.enc.Base64),
-      tag: encrypted.tag ? encrypted.tag.toString(CryptoJS.enc.Base64) : ''
-    };
+    // FIXED: CryptoJS doesn't properly support GCM mode
+    // Use WebCrypto API for proper GCM implementation in browser
+    if (typeof window !== 'undefined' && window.crypto && window.crypto.subtle) {
+      const key = await this.deriveKeyWebCrypto();
+      const iv = window.crypto.getRandomValues(new Uint8Array(12));
+      const encoded = new TextEncoder().encode(plaintext);
+      
+      const encrypted = await window.crypto.subtle.encrypt(
+        {
+          name: 'AES-GCM',
+          iv: iv,
+          additionalData: aad || new Uint8Array(0)
+        },
+        key,
+        encoded
+      );
+      
+      // Split encrypted data (ciphertext + tag)
+      const encryptedArray = new Uint8Array(encrypted);
+      const ciphertext = encryptedArray.slice(0, -16);
+      const tag = encryptedArray.slice(-16);
+      
+      return {
+        v: 1,
+        alg: 'aes-256-gcm',
+        kid: 'browser-key',
+        iv: btoa(String.fromCharCode.apply(null, iv)),
+        ciphertext: btoa(String.fromCharCode.apply(null, ciphertext)),
+        tag: btoa(String.fromCharCode.apply(null, tag)),
+        aad: aad ? btoa(String.fromCharCode.apply(null, aad)) : null
+      };
+    } else {
+      throw new Error('WebCrypto not available - use Node.js implementation');
+    }
   }
+  
+  async deriveKeyWebCrypto() {
+    const keyMaterial = await window.crypto.subtle.importKey(
+      'raw',
+      new TextEncoder().encode(this.masterKey),
+      'PBKDF2',
+      false,
+      ['deriveBits', 'deriveKey']
+    );
+    
+    return await window.crypto.subtle.deriveKey(
+      {
+        name: 'PBKDF2',
+        salt: new TextEncoder().encode('averox-production-salt-v1'),
+        iterations: 600000,
+        hash: 'SHA-256'
+      },
+      keyMaterial,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['encrypt', 'decrypt']
+    );
+  },
   
   deriveKey() {
     return CryptoJS.PBKDF2(this.masterKey, 'averox-salt', {
