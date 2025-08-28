@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <PackageId>salman-40-crypto-sdk</PackageId>
+    <Version>2.0.0</Version>
+    <Description>Production-grade cryptographic SDK for salman 40</Description>
+  </PropertyGroup>
+</Project>

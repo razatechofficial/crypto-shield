@@ -1,0 +1,12 @@
+[package]
+name = "salman-40-crypto-sdk"
+version = "2.0.0"
+edition = "2021"
+description = "Production-grade cryptographic SDK for salman 40"
+
+[dependencies]
+aes-gcm = "0.10"
+pbkdf2 = "0.12"
+sha2 = "0.10"
+rand = "0.8"
+base64 = "0.21"

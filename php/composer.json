@@ -1,0 +1,15 @@
+{
+    "name": "averox/salman-40-crypto-sdk",
+    "description": "Production-grade cryptographic SDK for salman 40",
+    "version": "2.0.0",
+    "type": "library",
+    "require": {
+        "php": ">=7.4",
+        "ext-openssl": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "Averox\\Crypto\\": "src/"
+        }
+    }
+}

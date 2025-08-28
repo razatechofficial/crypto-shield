@@ -1,0 +1,12 @@
+{
+  "name": "@averox/salman-40-crypto-sdk-xamarin",
+  "version": "2.0.0",
+  "description": "Production-grade cryptographic SDK for salman 40 (xamarin)",
+  "main": "index.js",
+  "dependencies": {
+    "crypto-js": "^4.1.1"
+  },
+  "peerDependencies": {
+    "react-native": ">=0.60.0"
+  }
+}

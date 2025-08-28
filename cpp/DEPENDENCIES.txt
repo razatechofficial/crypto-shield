@@ -1,0 +1,1 @@
+OpenSSL >= 1.1.0\nGoogleTest >= 1.10.0\nCMake >= 3.15

@@ -1,0 +1,97 @@
+name: C++ Enterprise SDK CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        compiler: [gcc, clang]
+        exclude:
+          - os: windows-latest
+            compiler: clang
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev libgtest-dev cmake ninja-build
+          
+      - name: Install dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install openssl googletest cmake ninja
+          
+      - name: Install dependencies (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          vcpkg install openssl gtest
+          
+      - name: Configure CMake
+        run: |
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          
+      - name: Build
+        run: cmake --build build
+        
+      - name: Run tests
+        run: |
+          cd build
+          ctest --output-on-failure
+          
+      - name: Run benchmarks
+        run: |
+          cd build
+          ./benchmark
+          
+      - name: Run security tests
+        run: |
+          cd build
+          ./security_tests
+
+  static-analysis:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install static analysis tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cppcheck clang-tidy
+          
+      - name: Run cppcheck
+        run: |
+          cppcheck --enable=all --std=c++17 --error-exitcode=1 src/ include/
+          
+      - name: Run clang-tidy
+        run: |
+          clang-tidy src/*.cpp -- -Iinclude -std=c++17
+
+  memory-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install valgrind
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y valgrind libssl-dev cmake
+          
+      - name: Build with debug info
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Debug
+          cmake --build build
+          
+      - name: Run memory checks
+        run: |
+          cd build
+          valgrind --tool=memcheck --leak-check=full --error-exitcode=1 ./crypto_tests

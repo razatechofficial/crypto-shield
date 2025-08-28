@@ -1,0 +1,1 @@
+bandit==1.7.5\nsafety==2.3.0\npsutil==5.9.0\naiofiles==23.1.0
