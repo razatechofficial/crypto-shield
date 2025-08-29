@@ -1,0 +1,2 @@
+Test SDK Generation
+This file confirms ZIP creation is working.

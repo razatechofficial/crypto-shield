@@ -1,0 +1,28 @@
+apply plugin: 'com.android.library'
+
+android {
+    compileSdkVersion 33
+    ndkVersion "25.1.8937393"
+    
+    defaultConfig {
+        minSdkVersion 21
+        targetSdkVersion 33
+        
+        externalNativeBuild {
+            cmake {
+                cppFlags "-std=c++17 -fstack-protector-strong"
+                arguments "-DANDROID_STL=c++_shared"
+            }
+        }
+    }
+    
+    externalNativeBuild {
+        cmake {
+            path "CMakeLists.txt"
+        }
+    }
+}
+
+dependencies {
+    implementation 'androidx.annotation:annotation:1.6.0'
+}
