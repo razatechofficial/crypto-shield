@@ -1,0 +1,179 @@
+A. Generator contract (what every SDK it emits MUST include)
+
+Canonical envelope (JSON)
+
+{ "v":"2", "alg":"AES-256-GCM", "kid": "<string|optional>", "iv":"<b64url>", "tag":"<b64url>", "ct":"<b64url>" }
+
+
+Policy: 12-byte random IV, 16-byte tag, base64url, AAD supported (but not stored).
+
+Versioning: v is mandatory; only emit known algs from a registry.
+
+Crypto primitives
+
+AEAD: AES-256-GCM single-shot helper with AAD (+ streaming optional).
+
+KDF: HKDF-SHA256 as default; Argon2id/PBKDF2 available behind flags.
+
+RNG: OS CSPRNG only (Node crypto.randomBytes, Web getRandomValues, OpenSSL RAND_bytes, etc.).
+
+Constant-time & zeroization: timing-safe compare helpers; zero out key/IV buffers where the platform supports it.
+
+Telemetry (zero-config, opt-in)
+
+OpenTelemetry hooks (disabled by default). Counters: encrypt_ok, decrypt_ok, auth_fail. Histogram: aead_latency_ms. No secrets or IDs in labels.
+
+Packaging, docs & governance
+
+Docs: README with Quickstart; CHANGELOG; SECURITY.md (reporting + hardening notes).
+
+Compliance: LICENSE (Apache-2.0 or your choice) + SBOM (CycloneDX) generated at build.
+
+CI: language-specific workflows run build + tests; C builds with ASan/UBSan; fuzz job scaffold.
+
+Tests: golden vectors (cross-language), AAD mismatch, tag tamper, IV policy test.
+
+Language deliverables (per SDK)
+
+Node/TS: ESM + CJS builds, .d.ts, typed errors; NPM-ready package.json.
+
+C: OpenSSL EVP; CMake with install() + optional pkg-config .pc.
+
+Java/Kotlin: Gradle/Maven module; use Cipher(GCMParameterSpec).
+
+Swift: SwiftPM; CryptoKit AES-GCM wrapper (or BoringSSL if needed).
+
+.NET: NuGet project; AesGcm API.
+
+Go: crypto/aes GCM; module initialized.
+
+Python: cryptography’s AESGCM; wheels metadata.
+
+Rust: aes-gcm crate wrapper; no_std optional.
+
+B. How to change your generator to enforce all that
+1) Template architecture
+
+Keep a /templates/ tree per language:
+
+sdk/ (source files for AEAD/KDF/envelope/errors/telemetry)
+
+packaging/ (build files: package.json, CMakeLists.txt, pom.xml, Package.swift, etc.)
+
+tests/ (golden vectors, aad/tag tests)
+
+.github/workflows/ (language CI)
+
+docs/ (README, SECURITY, CHANGELOG)
+
+Render with your templater (Jinja/Mustache/etc.) using a generator manifest like:
+
+{
+  "name": "YourSDK",
+  "version": "2.0.0",
+  "algorithms": ["AES-256-GCM"],
+  "kdf": "HKDF-SHA256",
+  "envelope_version": "2",
+  "telemetry": { "enabled_by_default": false }
+}
+
+2) Crypto core once, bindings many
+
+Put a reference implementation (Node + C) in the generator repo and mirror it into each language’s template. The Node & C versions act as the truth for behavior and vectors.
+
+3) Golden-vector pipeline (cross-language)
+
+At generation time, emit a tiny cross-lang test suite:
+
+Generate K test cases: random key, IV (12-byte), plaintexts of varied sizes, optional AAD.
+
+Encrypt in reference impl → write envelopes to tests/vectors/*.json.
+
+Each language’s tests must decrypt all vectors and re-encrypt to match reference outputs (ct+tag identical for same IV).
+
+Include negative tests: wrong AAD, wrong tag, truncated ciphertext.
+
+4) Automatic CI & SBOM
+
+Drop ready-to-run GitHub Actions per language (build + test; C job uses ASan/UBSan).
+
+After build, run SBOM generation (CycloneDX or Syft), ship as artifact + commit to repo.
+
+5) Policy gates at generation time (fail fast)
+
+Before writing archives, run a preflight gate that checks the rendered tree:
+
+Envelope fields present; AES-GCM and KDF symbols detected; 12-byte IV policy literal; typed errors for Node/TS; OpenTelemetry imports guarded; packaging files exist; CI file exists; LICENSE/SECURITY/CHANGELOG present.
+
+If any check fails → do not emit the SDK (surface a human-readable report).
+
+6) Zero-config “plug & play”
+
+Each template exports two simple APIs:
+
+encrypt(plaintext: bytes, key: bytes, opts{aad?, kid?}) -> string(envelope)
+
+decrypt(envelope: string, key: bytes, opts{aad?, expectKid?}) -> bytes
+
+Provide a KeyProvider interface with a default EnvVarKeyProvider so users can start without wiring KMS; add optional adapters (AWS KMS, HashiCorp Vault, GCP KMS) as future toggles.
+
+C. Acceptance criteria (Definition of Done for the generator)
+
+Generate SDKs for any selected language set → all build successfully with one command.
+
+All SDKs pass the same vectors (round-trip + negative tests).
+
+Lint/static gate passes (envelope, IV, KDF, telemetry hooks, typed errors, packaging).
+
+CI files present and green on first run.
+
+SBOM, LICENSE, SECURITY.md, CHANGELOG included.
+
+Public API exactly: encrypt/decrypt, generateKey (where applicable), and typed error(s) for auth failure.
+
+D. Concrete backlogs (give these to your dev)
+Sprint 1 (plumbing)
+
+ Add /templates per language (start with Node/TS and C).
+
+ Implement envelope v2 + AES-256-GCM + HKDF in both references.
+
+ Emit golden vectors on generation; add tests to templates to consume them.
+
+ Add CI templates (Node, C with ASan/UBSan).
+
+ Add docs + LICENSE + SECURITY + CHANGELOG to templates.
+
+Sprint 2 (hardening + breadth)
+
+ Add OpenTelemetry hooks (off by default) across templates.
+
+ Add policy preflight gate (fail if any enterprise requirement missing).
+
+ Add SBOM generation to CI.
+
+ Expand to Java/Kotlin and Swift templates; reuse vectors.
+
+ Fuzz target for C AEAD (libFuzzer harness scaffold).
+
+Sprint 3 (distribution + DX)
+
+ Package managers: NPM, Maven/Gradle, SwiftPM, NuGet, PyPI, Go, Cargo (metadata templates).
+
+ “Zero-config” KeyProvider interface + default env-var provider.
+
+ Optional FIPS mode flag (detect OpenSSL FIPS module or platform capability; otherwise no-op).
+
+E. Common pitfalls to block in preflight
+
+Non-12-byte IVs or reused IVs.
+
+Missing AAD plumbing.
+
+Logging secrets (key/IV/tag/ct) or envelope bodies.
+
+Catch-all error swallowing auth failures (must map to a distinct InvalidTag/AuthError).
+
+Shipping SDK without CI/tests or without .d.ts for Node.
+
+Missing install() in CMake / no .pc file.

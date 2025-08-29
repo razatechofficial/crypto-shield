@@ -370,7 +370,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 "sbom": "cyclonedx-bom -o sbom.json"
               },
               "keywords": ["cryptography", "aes", "gcm", "encryption", "enterprise", "security", "audit-compliant"],
-              "license": "MIT",
+              "license": "Apache-2.0",
               "files": ["dist/", "LICENSE", "README.md", "SECURITY.md", "CHANGELOG.md"],
               "devDependencies": {
                 "@babel/cli": "^7.22.0",
@@ -552,21 +552,35 @@ class KeyDerivation {
   }
 }
 
-// GATE 4-5: Unified envelope format with v/alg/kid fields
+// Base64url encoding utility (required by specification)
+function toBase64url(buffer) {
+  return buffer.toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
+}
+
+function fromBase64url(str) {
+  // Add padding if needed
+  const padding = '='.repeat((4 - (str.length % 4)) % 4);
+  const base64 = str.replace(/-/g, '+').replace(/_/g, '/') + padding;
+  return Buffer.from(base64, 'base64');
+}
+
+// SPECIFICATION COMPLIANT: Envelope format v2 with base64url
 class AveroxEnvelope {
-  static VERSION = 1;
+  static VERSION = "2";
   
-  static create(iv, tag, ciphertext, keyId, aad = null) {
+  static create(iv, tag, ciphertext, keyId) {
     return {
-      v: this.VERSION,                           // GATE 5: Version field
-      alg: 'aes-256-gcm',                       // GATE 5: Algorithm field  
-      kid: keyId,                               // GATE 5: Key ID field
-      iv: iv.toString('base64'),                // GATE 4: Unified IV field (12 bytes)
-      tag: tag.toString('base64'),              // GATE 4: Unified tag field
-      ct: ciphertext.toString('base64'),        // GATE 4: Unified ciphertext field
-      aad: aad ? aad.toString('base64') : null, // GATE 2: AAD preservation
-      ts: Date.now()                            // Timestamp
+      v: this.VERSION,                     // Version "2" as string
+      alg: 'AES-256-GCM',                  // Algorithm as per spec
+      kid: keyId || undefined,             // Key ID (optional)
+      iv: toBase64url(iv),                 // 12-byte IV as base64url
+      tag: toBase64url(tag),               // 16-byte tag as base64url
+      ct: toBase64url(ciphertext)          // Ciphertext as base64url
     };
+    // Note: AAD supported but NOT stored per specification
   }
   
   static validate(envelope) {
@@ -591,10 +605,9 @@ class AveroxEnvelope {
       version: envelope.v,
       algorithm: envelope.alg,
       keyId: envelope.kid,
-      iv: Buffer.from(envelope.iv, 'base64'),
-      tag: Buffer.from(envelope.tag, 'base64'),
-      ciphertext: Buffer.from(envelope.ct, 'base64'),
-      aad: envelope.aad ? Buffer.from(envelope.aad, 'base64') : null
+      iv: fromBase64url(envelope.iv),
+      tag: fromBase64url(envelope.tag),
+      ciphertext: fromBase64url(envelope.ct)
     };
   }
 }
@@ -639,23 +652,27 @@ class AveroxCrypto {
   }
 
   // GATE 1: AES-256-GCM with GATE 2: AAD wired across stacks
-  encrypt(plaintext, aad = null, algorithm = 'aes-256-gcm') {
+  static encrypt(plaintext, key, opts = {}) {
+    const { aad, kid, algorithm = 'aes-256-gcm' } = opts;
     const startTime = process.hrtime.bigint();
-    let derivedKey = null;
     
     try {
-      // GATE 7: Key derivation
-      derivedKey = this.deriveKey('encryption');
+      // Validate key
+      if (!key || key.length < 32) {
+        throw new AveroxCryptoError('INVALID_KEY_SIZE', 'Key must be at least 32 bytes', { required: 32, provided: key?.length || 0 });
+      }
+      
+      const keyBuffer = Buffer.from(key);
       
       // GATE 3: 12-byte IV policy (96-bit IV for GCM)
-      const iv = this.generateNonce();
+      const iv = crypto.randomBytes(12);
       
-      // GATE 1: AES-256-GCM implementation (CORRECT Node.js API with explicit key/IV)
-      const cipher = crypto.createCipheriv('aes-256-gcm', derivedKey, iv);
+      // GATE 1: AES-256-GCM implementation
+      const cipher = crypto.createCipheriv('aes-256-gcm', keyBuffer, iv);
       
-      // GATE 2: AAD support - must be set before any updates
+      // GATE 2: AAD support - set before any updates
       if (aad && aad.length > 0) {
-        cipher.setAAD(aad);
+        cipher.setAAD(Buffer.from(aad));
       }
       
       const plaintextBuffer = Buffer.isBuffer(plaintext) ? plaintext : Buffer.from(plaintext, 'utf8');
@@ -665,44 +682,55 @@ class AveroxCrypto {
       ciphertext = Buffer.concat([ciphertext, cipher.final()]);
       const tag = cipher.getAuthTag();
       
-      // GATE 4-5: Unified envelope with metadata
-      const envelope = AveroxEnvelope.create(iv, tag, ciphertext, this.keyId, aad);
+      // SPECIFICATION COMPLIANT: Envelope v2 with base64url, no AAD storage
+      const envelope = AveroxEnvelope.create(iv, tag, ciphertext, kid);
       
       const duration = Number(process.hrtime.bigint() - startTime) / 1000000;
       
-      if (this.enableTelemetry) {
-        AveroxTelemetry.recordOperation('encryption', duration, true, algorithm);
-      }
+      AveroxTelemetry.recordOperation('encryption', duration, true, algorithm);
       
       return JSON.stringify(envelope);
       
     } catch (error) {
       const duration = Number(process.hrtime.bigint() - startTime) / 1000000;
       
-      if (this.enableTelemetry) {
-        AveroxTelemetry.recordOperation('encryption', duration, false, algorithm);
-      }
+      AveroxTelemetry.recordOperation('encryption', duration, false, algorithm);
       
       throw new AveroxCryptoError('ENCRYPTION_FAILED', 'Encryption operation failed', { 
         algorithm, 
         originalError: error.message 
       });
-    } finally {
       // GATE 8: Secure zeroization
-      if (derivedKey) zeroizeBuffer(derivedKey);
+      zeroizeBuffer(keyBuffer);
     }
   }
 
   // GATE 2: AAD wired through decryption
-  decrypt(encryptedEnvelope, aad = null) {
+  static decrypt(envelope, key, opts = {}) {
+    const { aad, expectKid } = opts;
     const startTime = process.hrtime.bigint();
-    let derivedKey = null;
     
     try {
-      const parsed = AveroxEnvelope.parse(JSON.parse(encryptedEnvelope));
+      // Validate key
+      if (!key || key.length < 32) {
+        throw new AveroxCryptoError('INVALID_KEY_SIZE', 'Key must be at least 32 bytes', { required: 32, provided: key?.length || 0 });
+      }
       
-      // GATE 7: Key derivation
-      derivedKey = this.deriveKey('encryption');
+      // Parse envelope string
+      if (typeof envelope !== 'string') {
+        throw new AveroxCryptoError('INVALID_ENVELOPE_TYPE', 'Envelope must be a JSON string', { type: typeof envelope });
+      }
+      
+      const parsed = AveroxEnvelope.parse(JSON.parse(envelope));
+      const keyBuffer = Buffer.from(key);
+      
+      // Validate key ID if expected
+      if (expectKid && parsed.keyId !== expectKid) {
+        throw new AveroxCryptoError('KEY_ID_MISMATCH', 'Key ID does not match expected value', { 
+          expected: expectKid, 
+          actual: parsed.keyId 
+        });
+      }
       
       // GATE 3: Validate IV length
       if (parsed.iv.length !== 12) {
@@ -712,12 +740,12 @@ class AveroxCrypto {
         });
       }
       
-      // GATE 1: AES-256-GCM decryption (CORRECT Node.js API with explicit key/IV)
-      const decipher = crypto.createDecipheriv('aes-256-gcm', derivedKey, parsed.iv);
+      // GATE 1: AES-256-GCM decryption
+      const decipher = crypto.createDecipheriv('aes-256-gcm', keyBuffer, parsed.iv);
       
-      // GATE 2: AAD support - must be set before auth tag
+      // GATE 2: AAD support - set before auth tag
       if (aad && aad.length > 0) {
-        decipher.setAAD(aad);
+        decipher.setAAD(Buffer.from(aad));
       }
       
       // Set authentication tag before decryption
@@ -733,21 +761,25 @@ class AveroxCrypto {
         AveroxTelemetry.recordOperation('decryption', duration, true, parsed.algorithm);
       }
       
-      return plaintext.toString('utf8');
+      // GATE 8: Secure zeroization
+      zeroizeBuffer(keyBuffer);
+      
+      return plaintext;  // Return bytes as per specification
       
     } catch (error) {
       const duration = Number(process.hrtime.bigint() - startTime) / 1000000;
+      AveroxTelemetry.recordOperation('decryption', duration, false, 'unknown');
       
-      if (this.enableTelemetry) {
-        AveroxTelemetry.recordOperation('decryption', duration, false, 'unknown');
+      // Map authentication failures to specific error
+      if (error.message.includes('Unsupported state or unable to authenticate data')) {
+        throw new AveroxCryptoError('AUTHENTICATION_FAILED', 'Message authentication failed', { 
+          originalError: error.message 
+        });
       }
       
       throw new AveroxCryptoError('DECRYPTION_FAILED', 'Decryption operation failed', { 
         originalError: error.message 
       });
-    } finally {
-      // GATE 8: Secure zeroization
-      if (derivedKey) zeroizeBuffer(derivedKey);
     }
   }
 
