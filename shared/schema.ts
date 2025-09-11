@@ -46,6 +46,36 @@ export const securityLevelEnum = pgEnum('security_level', ['standard', 'enhanced
 // Confidential computing features enum
 export const confidentialFeatureEnum = pgEnum('confidential_feature', ['teeEncryption', 'homomorphicEncryption', 'multiPartyComputation', 'zeroKnowledgeProofs', 'differentialPrivacy', 'secureAggregation']);
 
+// HSM provider enum
+export const hsmProviderEnum = pgEnum('hsm_provider', ['safenet', 'thales', 'ncipher', 'aws_cloudhsm', 'azure_dedicated_hsm', 'utimaco', 'yubico', 'nitrokey', 'gemalto', 'securenet']);
+
+// HSM connection type enum
+export const hsmConnectionTypeEnum = pgEnum('hsm_connection_type', ['pkcs11', 'kmip', 'rest_api', 'proprietary']);
+
+// HSM device status enum
+export const hsmDeviceStatusEnum = pgEnum('hsm_device_status', ['online', 'offline', 'maintenance', 'error', 'initializing', 'tampered']);
+
+// Smart token type enum
+export const smartTokenTypeEnum = pgEnum('smart_token_type', ['yubikey_piv', 'yubikey_fido2', 'smartcard_piv', 'smartcard_cac', 'pkcs15_token', 'tpm2_token', 'mobile_secure_element']);
+
+// HSM session status enum
+export const hsmSessionStatusEnum = pgEnum('hsm_session_status', ['active', 'idle', 'expired', 'terminated', 'error']);
+
+// FIPS validation level enum
+export const fipsValidationLevelEnum = pgEnum('fips_validation_level', ['level_1', 'level_2', 'level_3', 'level_4']);
+
+// Government compliance framework enum
+export const complianceFrameworkEnum = pgEnum('compliance_framework', ['fips_140_2', 'fips_140_3', 'common_criteria', 'federal_pki', 'dod_pki', 'fisma', 'fedramp', 'itar', 'cnssi_1253']);
+
+// HSM key usage policy enum
+export const keyUsagePolicyEnum = pgEnum('key_usage_policy', ['unrestricted', 'sign_only', 'encrypt_only', 'time_limited', 'operation_limited', 'single_use', 'escrow_required']);
+
+// HSM operation type enum
+export const hsmOperationTypeEnum = pgEnum('hsm_operation_type', ['key_generate', 'key_import', 'key_export', 'key_delete', 'sign', 'encrypt', 'decrypt', 'verify', 'key_derive', 'certificate_generate', 'attestation']);
+
+// HSM audit event type enum
+export const hsmAuditEventTypeEnum = pgEnum('hsm_audit_event_type', ['login', 'logout', 'key_access', 'key_modification', 'configuration_change', 'security_violation', 'maintenance_access', 'backup_operation', 'recovery_operation']);
+
 // User storage table for Replit Auth
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -160,6 +190,206 @@ export const apiUsage = pgTable("api_usage", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// HSM Providers table
+export const hsmProviders = pgTable("hsm_providers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  name: varchar("name").notNull(),
+  provider: hsmProviderEnum("provider").notNull(),
+  connectionType: hsmConnectionTypeEnum("connection_type").notNull(),
+  configuration: jsonb("configuration").notNull().default({}), // PKCS#11 lib path, KMIP endpoint, credentials
+  isActive: boolean("is_active").default(true),
+  fipsValidationLevel: fipsValidationLevelEnum("fips_validation_level"),
+  commonCriteriaLevel: varchar("common_criteria_level"), // EAL4+, EAL5+, EAL6+, EAL7
+  certifications: text("certifications"), // JSON array of certifications
+  maxSessions: integer("max_sessions").default(10),
+  healthCheckUrl: varchar("health_check_url"),
+  lastHealthCheck: timestamp("last_health_check"),
+  metadata: jsonb("metadata").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// HSM Devices table
+export const hsmDevices = pgTable("hsm_devices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  providerId: varchar("provider_id").references(() => hsmProviders.id).notNull(),
+  deviceId: varchar("device_id").notNull(), // HSM device identifier
+  serialNumber: varchar("serial_number").unique(),
+  model: varchar("model"),
+  firmwareVersion: varchar("firmware_version"),
+  status: hsmDeviceStatusEnum("status").default('offline'),
+  capabilities: text("capabilities"), // JSON array of supported operations
+  slotCount: integer("slot_count"),
+  usedSlots: integer("used_slots").default(0),
+  maxKeys: integer("max_keys"),
+  usedKeys: integer("used_keys").default(0),
+  batteryLevel: integer("battery_level"), // For portable HSMs
+  temperature: integer("temperature"), // Celsius
+  tamperStatus: varchar("tamper_status").default('secure'), // secure, warning, violated
+  lastAttestation: timestamp("last_attestation"),
+  attestationData: jsonb("attestation_data").default({}),
+  location: varchar("location"), // Physical location
+  responsible: varchar("responsible").references(() => users.id), // Responsible person
+  metadata: jsonb("metadata").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// HSM Sessions table
+export const hsmSessions = pgTable("hsm_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  deviceId: varchar("device_id").references(() => hsmDevices.id).notNull(),
+  sessionId: varchar("session_id").notNull(), // HSM session handle
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  status: hsmSessionStatusEnum("status").default('active'),
+  authMethod: varchar("auth_method").notNull(), // password, smart_card, biometric, multi_factor
+  slotId: integer("slot_id"),
+  loginTime: timestamp("login_time").defaultNow(),
+  lastActivity: timestamp("last_activity").defaultNow(),
+  expiresAt: timestamp("expires_at"),
+  operationCount: integer("operation_count").default(0),
+  ipAddress: varchar("ip_address"),
+  userAgent: varchar("user_agent"),
+  metadata: jsonb("metadata").default({}),
+});
+
+// Smart Tokens table
+export const smartTokens = pgTable("smart_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  tokenType: smartTokenTypeEnum("token_type").notNull(),
+  serialNumber: varchar("serial_number").unique().notNull(),
+  manufacturer: varchar("manufacturer"),
+  model: varchar("model"),
+  firmwareVersion: varchar("firmware_version"),
+  status: varchar("status").default('active'), // active, suspended, revoked, lost
+  capabilities: text("capabilities"), // JSON array of supported operations
+  certificates: jsonb("certificates").default({}), // Stored certificates metadata
+  keySlots: integer("key_slots"),
+  usedSlots: integer("used_slots").default(0),
+  pivSupported: boolean("piv_supported").default(false),
+  fido2Supported: boolean("fido2_supported").default(false),
+  lastSeen: timestamp("last_seen"),
+  enrollmentDate: timestamp("enrollment_date").defaultNow(),
+  expirationDate: timestamp("expiration_date"),
+  pinRetries: integer("pin_retries").default(3),
+  pukRetries: integer("puk_retries").default(3),
+  isBlocked: boolean("is_blocked").default(false),
+  metadata: jsonb("metadata").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// HSM Keys table (extends encryption_keys with HSM specifics)
+export const hsmKeys = pgTable("hsm_keys", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  deviceId: varchar("device_id").references(() => hsmDevices.id),
+  tokenId: varchar("token_id").references(() => smartTokens.id),
+  keyId: varchar("key_id").notNull().unique(), // HSM key handle/identifier
+  keyLabel: varchar("key_label").notNull(),
+  algorithmId: varchar("algorithm_id").references(() => encryptionAlgorithms.id).notNull(),
+  keyType: varchar("key_type").notNull(), // 'master', 'signing', 'encryption', 'authentication'
+  keyUsagePolicy: keyUsagePolicyEnum("key_usage_policy").default('unrestricted'),
+  status: keyStatusEnum("status").default('active'),
+  isExportable: boolean("is_exportable").default(false),
+  isSensitive: boolean("is_sensitive").default(true),
+  isExtractable: boolean("is_extractable").default(false),
+  keySize: integer("key_size").notNull(),
+  publicKey: text("public_key"), // PEM formatted public key
+  keyFingerprint: varchar("key_fingerprint").unique(),
+  createdInHsm: timestamp("created_in_hsm").notNull(),
+  expiresAt: timestamp("expires_at"),
+  rotationInterval: integer("rotation_interval").default(30), // days
+  usageLimit: integer("usage_limit"), // Max operations before rotation
+  usageCount: integer("usage_count").default(0),
+  lastUsed: timestamp("last_used"),
+  backupStatus: varchar("backup_status").default('none'), // none, backed_up, escrow
+  escrowedBy: varchar("escrowed_by"), // Escrow authority
+  attestationData: jsonb("attestation_data").default({}),
+  complianceFlags: text("compliance_flags"), // JSON array of compliance requirements
+  metadata: jsonb("metadata").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// HSM Operations Audit table
+export const hsmAuditLog = pgTable("hsm_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  deviceId: varchar("device_id").references(() => hsmDevices.id),
+  sessionId: varchar("session_id").references(() => hsmSessions.id),
+  keyId: varchar("key_id").references(() => hsmKeys.id),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  operationType: hsmOperationTypeEnum("operation_type").notNull(),
+  eventType: hsmAuditEventTypeEnum("event_type").notNull(),
+  status: varchar("status").notNull(), // success, failure, denied, error
+  requestData: jsonb("request_data").default({}), // Sanitized request parameters
+  responseData: jsonb("response_data").default({}), // Operation results (no sensitive data)
+  errorCode: varchar("error_code"),
+  errorMessage: text("error_message"),
+  duration: integer("duration"), // milliseconds
+  ipAddress: varchar("ip_address"),
+  userAgent: varchar("user_agent"),
+  complianceContext: jsonb("compliance_context").default({}), // FIPS, CC context
+  riskScore: integer("risk_score"), // 1-100 risk assessment
+  requiresApproval: boolean("requires_approval").default(false),
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  eventTime: timestamp("event_time").defaultNow(),
+});
+
+// Government Compliance Assessments table
+export const complianceAssessments = pgTable("compliance_assessments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  assessmentName: varchar("assessment_name").notNull(),
+  framework: complianceFrameworkEnum("framework").notNull(),
+  assessmentDate: timestamp("assessment_date").defaultNow(),
+  assessor: varchar("assessor").references(() => users.id).notNull(),
+  scope: text("scope"), // JSON array of systems/components assessed
+  findings: jsonb("findings").default({}), // Assessment results
+  recommendations: text("recommendations").array(),
+  riskLevel: varchar("risk_level").notNull(), // low, medium, high, critical
+  status: varchar("status").default('draft'), // draft, in_review, approved, rejected
+  validUntil: timestamp("valid_until"),
+  evidence: jsonb("evidence").default({}), // Supporting evidence metadata
+  reportUrl: varchar("report_url"),
+  metadata: jsonb("metadata").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Certificate Authority table for PKI integration
+export const certificateAuthorities = pgTable("certificate_authorities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  name: varchar("name").notNull(),
+  type: varchar("type").notNull(), // 'root', 'intermediate', 'issuing'
+  keyId: varchar("key_id").references(() => hsmKeys.id).notNull(), // HSM-bound CA key
+  certificate: text("certificate").notNull(), // PEM formatted certificate
+  certificateChain: text("certificate_chain"), // Full certificate chain
+  serialNumber: varchar("serial_number").unique().notNull(),
+  issuer: varchar("issuer"),
+  subject: varchar("subject").notNull(),
+  validFrom: timestamp("valid_from").notNull(),
+  validTo: timestamp("valid_to").notNull(),
+  keyUsage: text("key_usage").array(),
+  extendedKeyUsage: text("extended_key_usage").array(),
+  isActive: boolean("is_active").default(true),
+  revocationList: varchar("revocation_list_url"),
+  ocspResponder: varchar("ocsp_responder_url"),
+  issuedCertificates: integer("issued_certificates").default(0),
+  revokedCertificates: integer("revoked_certificates").default(0),
+  complianceLevel: varchar("compliance_level"), // FPKI, DoD PKI compliant
+  auditTrail: jsonb("audit_trail").default({}),
+  metadata: jsonb("metadata").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Relations
 export const tenantRelations = relations(tenants, ({ many }) => ({
   users: many(users),
@@ -167,6 +397,12 @@ export const tenantRelations = relations(tenants, ({ many }) => ({
   encryptionKeys: many(encryptionKeys),
   securityEvents: many(securityEvents),
   apiUsage: many(apiUsage),
+  hsmProviders: many(hsmProviders),
+  smartTokens: many(smartTokens),
+  hsmKeys: many(hsmKeys),
+  hsmAuditLog: many(hsmAuditLog),
+  complianceAssessments: many(complianceAssessments),
+  certificateAuthorities: many(certificateAuthorities),
 }));
 
 export const userRelations = relations(users, ({ one, many }) => ({
@@ -175,6 +411,10 @@ export const userRelations = relations(users, ({ one, many }) => ({
     references: [tenants.id],
   }),
   sdks: many(sdks),
+  smartTokens: many(smartTokens),
+  hsmSessions: many(hsmSessions),
+  hsmAuditLog: many(hsmAuditLog),
+  complianceAssessments: many(complianceAssessments),
 }));
 
 export const sdkRelations = relations(sdks, ({ one }) => ({
@@ -362,7 +602,53 @@ export const insertSdkDeploymentSchema = createInsertSchema(sdkDeployments).omit
   updatedAt: true,
 });
 
-// Types for new tables
+// HSM Insert schemas
+export const insertHsmProviderSchema = createInsertSchema(hsmProviders).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertHsmDeviceSchema = createInsertSchema(hsmDevices).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertHsmSessionSchema = createInsertSchema(hsmSessions).omit({
+  id: true,
+});
+
+export const insertSmartTokenSchema = createInsertSchema(smartTokens).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertHsmKeySchema = createInsertSchema(hsmKeys).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertHsmAuditLogSchema = createInsertSchema(hsmAuditLog).omit({
+  id: true,
+  eventTime: true,
+});
+
+export const insertComplianceAssessmentSchema = createInsertSchema(complianceAssessments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCertificateAuthoritySchema = createInsertSchema(certificateAuthorities).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Types for existing tables
 export type CryptoOperation = typeof cryptoOperations.$inferSelect;
 export type InsertCryptoOperation = z.infer<typeof insertCryptoOperationSchema>;
 export type PerformanceMetric = typeof performanceMetrics.$inferSelect;
@@ -371,6 +657,24 @@ export type SecurityIncident = typeof securityIncidents.$inferSelect;
 export type InsertSecurityIncident = z.infer<typeof insertSecurityIncidentSchema>;
 export type SdkDeployment = typeof sdkDeployments.$inferSelect;
 export type InsertSdkDeployment = z.infer<typeof insertSdkDeploymentSchema>;
+
+// HSM Types
+export type HsmProvider = typeof hsmProviders.$inferSelect;
+export type InsertHsmProvider = z.infer<typeof insertHsmProviderSchema>;
+export type HsmDevice = typeof hsmDevices.$inferSelect;
+export type InsertHsmDevice = z.infer<typeof insertHsmDeviceSchema>;
+export type HsmSession = typeof hsmSessions.$inferSelect;
+export type InsertHsmSession = z.infer<typeof insertHsmSessionSchema>;
+export type SmartToken = typeof smartTokens.$inferSelect;
+export type InsertSmartToken = z.infer<typeof insertSmartTokenSchema>;
+export type HsmKey = typeof hsmKeys.$inferSelect;
+export type InsertHsmKey = z.infer<typeof insertHsmKeySchema>;
+export type HsmAuditLog = typeof hsmAuditLog.$inferSelect;
+export type InsertHsmAuditLog = z.infer<typeof insertHsmAuditLogSchema>;
+export type ComplianceAssessment = typeof complianceAssessments.$inferSelect;
+export type InsertComplianceAssessment = z.infer<typeof insertComplianceAssessmentSchema>;
+export type CertificateAuthority = typeof certificateAuthorities.$inferSelect;
+export type InsertCertificateAuthority = z.infer<typeof insertCertificateAuthoritySchema>;
 
 // Relations for new tables
 export const cryptoOperationRelations = relations(cryptoOperations, ({ one }) => ({
@@ -418,5 +722,118 @@ export const sdkDeploymentRelations = relations(sdkDeployments, ({ one }) => ({
   sdk: one(sdks, {
     fields: [sdkDeployments.sdkId],
     references: [sdks.id],
+  }),
+}));
+
+// HSM Relations
+export const hsmProviderRelations = relations(hsmProviders, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [hsmProviders.tenantId],
+    references: [tenants.id],
+  }),
+  devices: many(hsmDevices),
+}));
+
+export const hsmDeviceRelations = relations(hsmDevices, ({ one, many }) => ({
+  provider: one(hsmProviders, {
+    fields: [hsmDevices.providerId],
+    references: [hsmProviders.id],
+  }),
+  responsible: one(users, {
+    fields: [hsmDevices.responsible],
+    references: [users.id],
+  }),
+  sessions: many(hsmSessions),
+  keys: many(hsmKeys),
+}));
+
+export const hsmSessionRelations = relations(hsmSessions, ({ one }) => ({
+  device: one(hsmDevices, {
+    fields: [hsmSessions.deviceId],
+    references: [hsmDevices.id],
+  }),
+  user: one(users, {
+    fields: [hsmSessions.userId],
+    references: [users.id],
+  }),
+}));
+
+export const smartTokenRelations = relations(smartTokens, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [smartTokens.tenantId],
+    references: [tenants.id],
+  }),
+  user: one(users, {
+    fields: [smartTokens.userId],
+    references: [users.id],
+  }),
+  keys: many(hsmKeys),
+}));
+
+export const hsmKeyRelations = relations(hsmKeys, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [hsmKeys.tenantId],
+    references: [tenants.id],
+  }),
+  device: one(hsmDevices, {
+    fields: [hsmKeys.deviceId],
+    references: [hsmDevices.id],
+  }),
+  token: one(smartTokens, {
+    fields: [hsmKeys.tokenId],
+    references: [smartTokens.id],
+  }),
+  algorithm: one(encryptionAlgorithms, {
+    fields: [hsmKeys.algorithmId],
+    references: [encryptionAlgorithms.id],
+  }),
+}));
+
+export const hsmAuditLogRelations = relations(hsmAuditLog, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [hsmAuditLog.tenantId],
+    references: [tenants.id],
+  }),
+  device: one(hsmDevices, {
+    fields: [hsmAuditLog.deviceId],
+    references: [hsmDevices.id],
+  }),
+  session: one(hsmSessions, {
+    fields: [hsmAuditLog.sessionId],
+    references: [hsmSessions.id],
+  }),
+  key: one(hsmKeys, {
+    fields: [hsmAuditLog.keyId],
+    references: [hsmKeys.id],
+  }),
+  user: one(users, {
+    fields: [hsmAuditLog.userId],
+    references: [users.id],
+  }),
+  approver: one(users, {
+    fields: [hsmAuditLog.approvedBy],
+    references: [users.id],
+  }),
+}));
+
+export const complianceAssessmentRelations = relations(complianceAssessments, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [complianceAssessments.tenantId],
+    references: [tenants.id],
+  }),
+  assessor: one(users, {
+    fields: [complianceAssessments.assessor],
+    references: [users.id],
+  }),
+}));
+
+export const certificateAuthorityRelations = relations(certificateAuthorities, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [certificateAuthorities.tenantId],
+    references: [tenants.id],
+  }),
+  key: one(hsmKeys, {
+    fields: [certificateAuthorities.keyId],
+    references: [hsmKeys.id],
   }),
 }));
