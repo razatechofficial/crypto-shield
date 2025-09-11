@@ -15,6 +15,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 // Import security hardening components
 const { 
@@ -429,7 +430,7 @@ class AveroxCrypto {
   }
 }
 
-module.exports = { AveroxCrypto, AveroxEnvelope, AveroxTelemetry, AveroxCryptoError, hkdf, timingSafeEqual, zeroizeBuffer };`;
+module.exports = { AveroxCrypto, AveroxEnvelope, AveroxTelemetry, AveroxCryptoError, KeyDerivation, timingSafeEqual, zeroizeBuffer };`;
 
     // SPECIFICATION: Golden vector generation at SDK creation time
     const goldenVectors = [];
@@ -441,14 +442,14 @@ module.exports = { AveroxCrypto, AveroxEnvelope, AveroxTelemetry, AveroxCryptoEr
       const kid = `test-key-${i}`;
       const aad = i % 2 === 0 ? Buffer.from(`test-aad-${i}`, 'utf8') : null;
       
-      // Encrypt using specification API
-      const cipher = crypto.createCipheriv('aes-256-gcm', key, Buffer.from(crypto.randomBytes(12)));
+      // Encrypt using specification API with correct IV handling
+      const iv = RNGHealthMonitor.getSecureRandomBytes(12); // SECURITY HARDENING: Use health-monitored RNG
+      const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
       if (aad) cipher.setAAD(aad);
       
       let ciphertext = cipher.update(plaintext, 'utf8');
       ciphertext = Buffer.concat([ciphertext, cipher.final()]);
       const tag = cipher.getAuthTag();
-      const iv = RNGHealthMonitor.getSecureRandomBytes(12); // SECURITY HARDENING: Use health-monitored RNG
       
       // Create specification-compliant envelope
       function toBase64url(buf) {
@@ -505,7 +506,8 @@ for (const vector of GOLDEN_VECTORS) {
       try {
         const key = Buffer.from(vector.key, 'hex');
         const wrongAAD = Buffer.from(vector.test_aad, 'hex');
-        AveroxCrypto.decrypt(JSON.stringify(vector.envelope), key, { aad: wrongAAD });
+        const cryptoInstance = new AveroxCrypto(key);
+        cryptoInstance.decrypt(JSON.stringify(vector.envelope), { aad: wrongAAD });
         console.error('❌', vector.name, '- Should have failed with wrong AAD');
         failed++;
       } catch (error) {
@@ -523,7 +525,8 @@ for (const vector of GOLDEN_VECTORS) {
       const envelope = JSON.stringify(vector.envelope);
       const aad = vector.aad ? Buffer.from(vector.aad, 'hex') : null;
       
-      const decrypted = AveroxCrypto.decrypt(envelope, key, { aad });
+      const cryptoInstance = new AveroxCrypto(key);
+      const decrypted = cryptoInstance.decrypt(envelope, { aad });
       
       if (decrypted.toString('utf8') === vector.expected_plaintext) {
         console.log('✅', vector.name, '- Vector passed');
