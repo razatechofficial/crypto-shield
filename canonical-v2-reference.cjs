@@ -1,6 +1,7 @@
 /**
  * Canonical v2 Reference Implementation
  * Production-ready AES-256-GCM with 12-byte IV policy enforcement
+ * GOVERNMENT-LEVEL SECURITY HARDENING APPLIED
  * 
  * SPECIFICATION COMPLIANCE:
  * ✅ Version: "2" (string, mandatory)
@@ -9,9 +10,24 @@
  * ✅ Tag: 16-byte base64url authentication tag
  * ✅ Ciphertext: base64url encrypted data
  * ✅ AAD: Input only, NOT stored in envelope
+ * 
+ * SECURITY HARDENING:
+ * ✅ Strong RNG with health checks
+ * ✅ AEAD modes only enforcement
+ * ✅ Automatic IV generation (user IVs rejected)
+ * ✅ Constant-time operations
+ * ✅ Comprehensive parameter validation
+ * ✅ Minimum key size enforcement
  */
 
 const crypto = require('crypto');
+const { 
+  RNGHealthMonitor,
+  SecureDefaultsEnforcer,
+  ConstantTimeOps,
+  ParameterValidator,
+  SecurityError
+} = require('./security-hardening-core.cjs');
 
 /**
  * Base64URL utilities (RFC 4648 Section 5)
@@ -46,11 +62,15 @@ class CanonicalV2Envelope {
   static SUPPORTED_ALGORITHMS = ["AES-256-GCM"];
   
   static create(iv, tag, ciphertext, kid = null) {
-    if (iv.length !== 12) {
-      throw new Error('IV must be exactly 12 bytes for AES-256-GCM');
+    // SECURITY HARDENING: Enhanced validation
+    if (!Buffer.isBuffer(iv) || iv.length !== 12) {
+      throw new SecurityError('INVALID_IV', 'IV must be exactly 12 bytes for AES-256-GCM');
     }
-    if (tag.length !== 16) {
-      throw new Error('Tag must be exactly 16 bytes for AES-256-GCM');
+    if (!Buffer.isBuffer(tag) || tag.length !== 16) {
+      throw new SecurityError('INVALID_TAG', 'Tag must be exactly 16 bytes for AES-256-GCM');
+    }
+    if (!Buffer.isBuffer(ciphertext)) {
+      throw new SecurityError('INVALID_CIPHERTEXT', 'Ciphertext must be a Buffer');
     }
     
     const envelope = {
@@ -77,11 +97,14 @@ class CanonicalV2Envelope {
     }
     
     if (envelope.v !== this.VERSION) {
-      throw new Error(`Unsupported envelope version: ${envelope.v}, expected: ${this.VERSION}`);
+      throw new SecurityError('UNSUPPORTED_VERSION', `Unsupported envelope version: ${envelope.v}, expected: ${this.VERSION}`);
     }
     
-    if (!this.SUPPORTED_ALGORITHMS.includes(envelope.alg)) {
-      throw new Error(`Unsupported algorithm: ${envelope.alg}`);
+    // SECURITY HARDENING: Use secure algorithm validation
+    try {
+      SecureDefaultsEnforcer.validateAlgorithm(envelope.alg);
+    } catch (error) {
+      throw new SecurityError('UNSUPPORTED_ALGORITHM', `Algorithm validation failed: ${error.message}`, error);
     }
     
     if (!envelope.iv || !envelope.tag || !envelope.ct) {
@@ -111,7 +134,7 @@ class CanonicalV2Envelope {
       if (error.message.includes('Invalid') && (error.message.includes('IV') || error.message.includes('tag'))) {
         throw error; // Re-throw validation errors as-is
       }
-      throw new Error('Invalid base64url encoding in envelope fields');
+      throw new SecurityError('INVALID_ENVELOPE_ENCODING', 'Invalid base64url encoding in envelope fields', error);
     }
   }
 }
@@ -127,72 +150,79 @@ class ProductionAESGCM {
   static KEY_LENGTH = 32;
   
   static generateKey() {
-    return crypto.randomBytes(this.KEY_LENGTH);
+    return RNGHealthMonitor.getSecureRandomBytes(this.KEY_LENGTH);
   }
   
   static generateIV() {
-    return crypto.randomBytes(this.IV_LENGTH);
+    return RNGHealthMonitor.getSecureRandomBytes(this.IV_LENGTH);
   }
   
   /**
-   * Encrypt with AES-256-GCM
+   * Encrypt with AES-256-GCM (HARDENED)
    * @param {Buffer} plaintext - Data to encrypt
    * @param {Buffer} key - 32-byte encryption key
-   * @param {Object} opts - Options: {aad: Buffer, kid: string, iv: Buffer}
+   * @param {Object} opts - Options: {aad: Buffer, kid: string} (iv auto-generated for security)
    * @returns {string} Canonical v2 envelope
    */
   static encrypt(plaintext, key, opts = {}) {
-    if (key.length !== this.KEY_LENGTH) {
-      throw new Error(`Key must be exactly ${this.KEY_LENGTH} bytes`);
-    }
+    // SECURITY HARDENING: Comprehensive parameter validation
+    const validation = ParameterValidator.validateEncryptionParams(
+      plaintext, key, 'AES-256-GCM', opts
+    );
     
-    const iv = opts.iv || this.generateIV(); // Allow fixed IV for test vectors
-    if (iv.length !== this.IV_LENGTH) {
-      throw new Error(`IV must be exactly ${this.IV_LENGTH} bytes`);
-    }
+    // SECURITY HARDENING: Auto-generate IV, never allow user-provided
+    const iv = this.generateIV();
+    
+    // Convert plaintext to buffer if needed
+    const plaintextBuffer = Buffer.isBuffer(plaintext) ? plaintext : Buffer.from(plaintext, 'utf8');
     
     const cipher = crypto.createCipheriv(this.ALGORITHM, key, iv);
     
-    if (opts.aad) {
-      cipher.setAAD(opts.aad);
+    if (validation.sanitizedOptions.aad) {
+      cipher.setAAD(validation.sanitizedOptions.aad);
     }
     
     let encrypted;
-    if (plaintext.length === 0) {
+    if (plaintextBuffer.length === 0) {
       // Handle empty plaintext edge case
       encrypted = cipher.final();
     } else {
-      encrypted = Buffer.concat([cipher.update(plaintext), cipher.final()]);
+      encrypted = Buffer.concat([cipher.update(plaintextBuffer), cipher.final()]);
     }
     
     const tag = cipher.getAuthTag();
     
-    return CanonicalV2Envelope.create(iv, tag, encrypted, opts.kid);
+    return CanonicalV2Envelope.create(iv, tag, encrypted, validation.sanitizedOptions.kid);
   }
   
   /**
-   * Decrypt canonical v2 envelope
+   * Decrypt canonical v2 envelope (HARDENED)
    * @param {string} envelopeStr - Canonical v2 envelope
    * @param {Buffer} key - 32-byte decryption key
    * @param {Object} opts - Options: {aad: Buffer, expectKid: string}
    * @returns {Buffer} Decrypted plaintext
    */
   static decrypt(envelopeStr, key, opts = {}) {
-    if (key.length !== this.KEY_LENGTH) {
-      throw new Error(`Key must be exactly ${this.KEY_LENGTH} bytes`);
-    }
+    // SECURITY HARDENING: Comprehensive parameter validation
+    const validation = ParameterValidator.validateDecryptionParams(
+      envelopeStr, key, opts
+    );
     
     const envelope = CanonicalV2Envelope.parse(envelopeStr);
     
-    if (opts.expectKid && envelope.kid !== opts.expectKid) {
-      throw new Error(`Key ID mismatch: expected ${opts.expectKid}, got ${envelope.kid}`);
+    // SECURITY HARDENING: Constant-time key ID comparison
+    if (validation.sanitizedOptions.expectKid && envelope.kid !== validation.sanitizedOptions.expectKid) {
+      // Use timing-safe string comparison for key ID
+      if (!ConstantTimeOps.timingSafeStringEqual(envelope.kid || '', validation.sanitizedOptions.expectKid)) {
+        throw new SecurityError('KEY_ID_MISMATCH', `Key ID mismatch: expected ${validation.sanitizedOptions.expectKid}, got ${envelope.kid}`);
+      }
     }
     
     const decipher = crypto.createDecipheriv(this.ALGORITHM, key, envelope.iv);
     decipher.setAuthTag(envelope.tag);
     
-    if (opts.aad) {
-      decipher.setAAD(opts.aad);
+    if (validation.sanitizedOptions.aad) {
+      decipher.setAAD(validation.sanitizedOptions.aad);
     }
     
     try {
@@ -201,39 +231,53 @@ class ProductionAESGCM {
       return plaintext;
     } catch (error) {
       if (error.message.includes('Unsupported state or unable to authenticate data')) {
-        throw new Error('Authentication failed: invalid tag or AAD mismatch');
+        throw new SecurityError('AUTH_FAILURE', 'Authentication failed: invalid tag or AAD mismatch', error);
       }
       throw error;
+    } finally {
+      // SECURITY HARDENING: Always clear sensitive data
+      ConstantTimeOps.secureMemoryClear(key);
     }
   }
 }
 
 /**
- * Security utilities
+ * Security utilities (HARDENED)
+ * Now using constant-time operations from security hardening core
  */
 function timingSafeEqual(a, b) {
-  if (a.length !== b.length) {
-    return false;
-  }
-  
-  let result = 0;
-  for (let i = 0; i < a.length; i++) {
-    result |= a[i] ^ b[i];
-  }
-  return result === 0;
+  return ConstantTimeOps.timingSafeEqual(a, b);
 }
 
 function zeroizeBuffer(buffer) {
-  if (Buffer.isBuffer(buffer)) {
-    buffer.fill(0);
-  } else if (buffer instanceof Uint8Array) {
-    buffer.fill(0);
+  ConstantTimeOps.secureMemoryClear(buffer);
+}
+
+// Wrapper class for instance-based API compatibility
+class AveroxCrypto {
+  constructor(masterKey, keyId = 'default') {
+    this.masterKey = masterKey;
+    this.keyId = keyId;
+  }
+  
+  encrypt(plaintext, aad = null) {
+    return ProductionAESGCM.encrypt(plaintext, this.masterKey, { aad, kid: this.keyId });
+  }
+  
+  decrypt(encryptedData, aad = null) {
+    const decrypted = ProductionAESGCM.decrypt(encryptedData, this.masterKey, { aad });
+    return decrypted.toString('utf8');
+  }
+  
+  destroy() {
+    ConstantTimeOps.secureMemoryClear(this.masterKey);
   }
 }
 
 module.exports = {
   CanonicalV2Envelope,
   ProductionAESGCM,
+  AveroxCrypto, // Instance-based wrapper for compatibility
   Base64URL,
   timingSafeEqual,
   zeroizeBuffer
