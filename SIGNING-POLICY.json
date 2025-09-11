@@ -1,0 +1,36 @@
+{
+  "version": "1.0",
+  "effectiveDate": "2025-09-11T10:58:35.444Z",
+  "scope": "All Averox Crypto SDK artifacts",
+  "requirements": {
+    "mandatory": [
+      "All build artifacts MUST be digitally signed",
+      "Minimum of two independent signature methods required",
+      "Cryptographic hashes MUST be documented",
+      "Signature verification instructions MUST be provided"
+    ],
+    "algorithms": {
+      "signing": [
+        "RSA-4096",
+        "Ed25519"
+      ],
+      "hashing": [
+        "SHA-256",
+        "SHA-512"
+      ]
+    },
+    "keyManagement": [
+      "Private keys stored in secure hardware modules",
+      "Public keys distributed through secure channels",
+      "Key rotation every 24 months"
+    ]
+  },
+  "compliance": {
+    "standards": [
+      "NIST SP 800-208",
+      "FIPS 186-5"
+    ],
+    "auditability": "Full signature verification logs required",
+    "retention": "Signatures retained for 7 years minimum"
+  }
+}

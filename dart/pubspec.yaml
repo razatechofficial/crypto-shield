@@ -1,18 +1,48 @@
-name: salman_40_crypto_sdk
-description: Production-grade cryptographic SDK for salman 40
+name: averox_crypto
+description: Government-grade cryptographic SDK for Dart/Flutter
 version: 2.0.0
+homepage: https://averox.com
 
 environment:
-  sdk: '>=2.17.0 <4.0.0'
-  flutter: '>=3.0.0'
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: '>=3.10.0'
 
 dependencies:
+  # Cryptographic primitives
+  crypto: 3.0.3
+  pointycastle: 3.7.3
+  asn1lib: 1.5.0
+  
+  # Secure storage and utilities
+  encrypt: 5.0.1
+  convert: 3.1.1
+  typed_data: 1.3.2
+  
+  # Flutter-specific (for mobile SDKs)
   flutter:
     sdk: flutter
-  crypto: ^3.0.3
-  pointycastle: ^3.7.3
 
 dev_dependencies:
+  # Testing framework
+  test: 1.24.9
   flutter_test:
     sdk: flutter
-  flutter_lints: ^2.0.0
+    
+  # Code analysis
+  flutter_lints: 3.0.1
+  dart_code_metrics: 5.7.6
+
+# Government compliance configuration
+flutter:
+  "uses-material-design": false
+  
+# Security configuration
+security:
+  fips_mode: true
+  constant_time: true
+  secure_random: true
+  
+# Dependency overrides for security
+dependency_overrides:
+  crypto: 3.0.3
+  pointycastle: 3.7.3

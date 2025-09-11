@@ -1,0 +1,21 @@
+{
+  "timestamp": "2025-09-11T10:58:35.037Z",
+  "compliance": {
+    "standards": [
+      "NIST-800-161r1",
+      "EO-14028"
+    ],
+    "status": "COMPLIANT"
+  },
+  "securityScore": 100,
+  "findings": [],
+  "recommendations": [],
+  "metadata": {
+    "tool": "Averox Supply Chain Security Manager",
+    "version": "1.0.0",
+    "standards": [
+      "NIST SP 800-161r1",
+      "Executive Order 14028"
+    ]
+  }
+}

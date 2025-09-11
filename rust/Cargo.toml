@@ -1,12 +1,57 @@
 [package]
-name = "salman-40-crypto-sdk"
+name = "averox-crypto"
 version = "2.0.0"
 edition = "2021"
-description = "Production-grade cryptographic SDK for salman 40"
+rust-version = "1.70"
+description = "Government-grade cryptographic SDK for Rust"
+license = "MIT"
+repository = "https://github.com/averox/crypto-sdk"
+keywords = ["cryptography", "government", "fips", "security"]
+categories = ["cryptography", "api-bindings"]
 
 [dependencies]
-aes-gcm = "0.10"
-pbkdf2 = "0.12"
-sha2 = "0.10"
-rand = "0.8"
-base64 = "0.21"
+# FIPS 140-2 validated cryptographic primitives
+ring = "0.17.7"
+aes-gcm = "0.10.3"
+chacha20poly1305 = "0.10.1"
+sha2 = "0.10.8"
+hmac = "0.12.1"
+
+# Secure random number generation
+rand = "0.8.5"
+rand_chacha = "0.3.1"
+
+# Constant-time operations
+subtle = "2.5.0"
+constant_time_eq = "0.3.0"
+
+# Serialization with security
+serde = { version = "1.0.193", features = ["derive"] }
+serde_json = "1.0.108"
+base64ct = "1.6.0"
+
+# Error handling
+thiserror = "1.0.50"
+anyhow = "1.0.76"
+
+[dev-dependencies]
+criterion = "0.5.1"
+proptest = "1.4.0"
+tokio = { version = "1.35.1", features = ["full"] }
+
+[features]
+default = ["std"]
+std = []
+fips = ["ring/fips"]
+government = ["fips", "std"]
+
+[profile.release]
+codegen-units = 1
+lto = true
+panic = "abort"
+strip = true
+
+[profile.release-fips]
+inherits = "release"
+debug = 1
+overflow-checks = true

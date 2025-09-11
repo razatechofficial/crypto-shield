@@ -1,0 +1,36 @@
+{
+  "title": "Averox Crypto SDK - Public Key Verification",
+  "lastUpdated": "2025-09-11T10:58:35.444Z",
+  "keys": {
+    "minisign": {
+      "privateKey": "signing-keys/averox-signing.key",
+      "publicKey": "signing-keys/averox-signing.pub",
+      "fingerprint": "d9d402334aa6201e",
+      "mock": true,
+      "developmentOnly": true
+    },
+    "gpg": {
+      "keyId": "averox-crypto-sdk@averox.com",
+      "fingerprint": "Mock key for development",
+      "mock": true
+    }
+  },
+  "verification": {
+    "minisign": {
+      "publicKey": "signing-keys/averox-signing.pub",
+      "fingerprint": "d9d402334aa6201e",
+      "usage": "Primary signing key for SDK artifacts"
+    },
+    "gpg": {
+      "keyId": "averox-crypto-sdk@averox.com",
+      "fingerprint": "Mock key for development",
+      "usage": "Secondary compatibility signing"
+    }
+  },
+  "instructions": [
+    "1. Download artifact and signature files",
+    "2. Verify using appropriate tool (minisign/gpg)",
+    "3. Check signature against documented fingerprints",
+    "4. Report any verification failures immediately"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "deterministic": true,
+  "reproducible": true,
+  "environment": {
+    "nodeVersion": "v20.19.3",
+    "npmVersion": "10.8.2",
+    "os": "linux",
+    "arch": "x64",
+    "timestamp": "2025-09-11T10:58:35.035Z"
+  },
+  "buildFlags": {
+    "npm_config_audit": false,
+    "npm_config_fund": false
+  }
+}
