@@ -1,0 +1,58 @@
+# ========================================
+# SIGNING KEYS SECURITY POLICY
+# ========================================
+# 
+# CRITICAL: NEVER commit private keys to repository
+# 
+# All private key material must be:
+# - Generated in secure temporary locations only
+# - Stored in HSM/KMS for production
+# - Protected by secure environment variables
+# - Automatically cleaned up after use
+#
+# This .gitignore prevents accidental key commits
+# ========================================
+
+# Private key files - NEVER commit these
+*.key
+*.pem
+*.p12
+*.pfx
+*.sec
+*private*
+*secret*
+
+# GPG batch files with passphrases - NEVER commit these
+*batch*.txt
+*gpg-config*
+
+# Temporary signing artifacts
+*.sig.tmp
+*.minisig.tmp
+*.asc.tmp
+
+# Development key directories
+dev-keys/
+temp-keys/
+mock-keys/
+
+# Passphrase and secret files
+*.passphrase
+*.password
+*secret*.txt
+*private*.txt
+
+# HSM/PKCS#11 artifacts
+*.so
+*.dll
+*.dylib
+*.token
+
+# Backup files that might contain secrets
+*.bak
+*.backup
+*~
+
+# OS-specific files that might contain secrets
+.DS_Store
+Thumbs.db

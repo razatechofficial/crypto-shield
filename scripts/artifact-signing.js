@@ -37,13 +37,14 @@ validateNoHardcodedSecrets();
 
 class ArtifactSigning {
   constructor() {
+    const developmentMode = process.env.NODE_ENV !== 'production';
     this.config = {
       signingMethods: ['minisign', 'gpg', 'sigstore'],
-      keyDirectory: './signing-keys',
+      keyDirectory: developmentMode ? '/tmp/averox-dev-keys' : './signing-keys',
       artifactDirectory: './artifacts',
       signatureExtensions: ['.sig', '.minisig', '.asc'],
       hashAlgorithms: ['sha256', 'sha512'],
-      developmentMode: process.env.NODE_ENV !== 'production'
+      developmentMode: developmentMode
     };
     
     this.signingKeys = {};
@@ -74,9 +75,9 @@ class ArtifactSigning {
 
   getSecurePassphrase(envVar) {
     if (this.config.developmentMode) {
-      // In development, use a predictable but clearly marked insecure passphrase
-      console.log(`⚠️  [DEV] Using development passphrase for ${envVar}`);
-      return `dev-only-${envVar.toLowerCase()}-2025`;
+      // In development, generate random passphrase - no hardcoded secrets
+      console.log(`⚠️  [DEV] Generating secure random passphrase for ${envVar}`);
+      return crypto.randomBytes(32).toString('hex');
     }
     
     const passphrase = process.env[envVar];
