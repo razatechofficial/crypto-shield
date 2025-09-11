@@ -1,0 +1,151 @@
+{
+  "version": "2",
+  "specification": "Averox Canonical v2 Envelope Format",
+  "generator": "Comprehensive Golden Vector Suite",
+  "generated_at": "2025-09-11T07:54:41.895Z",
+  "total_vectors": 16,
+  "positive_vectors": 11,
+  "negative_vectors": 5,
+  "vectors": [
+    {
+      "name": "minimal_encryption",
+      "key": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "plaintext": "Hi",
+      "iv": "000102030405060708090a0b",
+      "aad": null,
+      "kid": null,
+      "type": "positive",
+      "expected_envelope": "{\"v\":\"2\",\"alg\":\"AES-256-GCM\",\"iv\":\"AAECAwQFBgcICQoL\",\"tag\":\"hJZoPLhV5r-xxR3WbjPlPg\",\"ct\":\"yW0\"}"
+    },
+    {
+      "name": "basic_encryption",
+      "key": "1111111111111111111111111111111111111111111111111111111111111111",
+      "plaintext": "Hello, World!",
+      "iv": "111111111111111111111111",
+      "aad": null,
+      "kid": null,
+      "type": "positive",
+      "expected_envelope": "{\"v\":\"2\",\"alg\":\"AES-256-GCM\",\"iv\":\"ERERERERERERERER\",\"tag\":\"ukC0Z7BA-T5MyZQytzoCyQ\",\"ct\":\"XrI2blnYTVr7QLj1ig\"}"
+    },
+    {
+      "name": "encryption_with_aad",
+      "key": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+      "plaintext": "Sensitive data with authentication",
+      "iv": "0b0a09080706050403020100",
+      "aad": "user-context",
+      "kid": null,
+      "type": "positive",
+      "expected_envelope": "{\"v\":\"2\",\"alg\":\"AES-256-GCM\",\"iv\":\"CwoJCAcGBQQDAgEA\",\"tag\":\"sks3OJYGsX0hOM0JVmEbdQ\",\"ct\":\"heQ07_sF-2UWviUzBKR4_0r2s_nLstv3KGCJbwzkRlpu4w\"}"
+    },
+    {
+      "name": "encryption_with_kid",
+      "key": "2222222222222222222222222222222222222222222222222222222222222222",
+      "plaintext": "Data with key rotation support",
+      "iv": "222222222222222222222222",
+      "aad": null,
+      "kid": "primary-key-2024",
+      "type": "positive",
+      "expected_envelope": "{\"v\":\"2\",\"alg\":\"AES-256-GCM\",\"iv\":\"IiIiIiIiIiIiIiIi\",\"tag\":\"68ED9yQ_518Nz4-t6FV5Og\",\"ct\":\"0rvz-jiyC1WJ2ArBOp0HPGrWc007pjtjlLTwtL9V\",\"kid\":\"primary-key-2024\"}"
+    },
+    {
+      "name": "full_configuration",
+      "key": "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+      "plaintext": "Maximum security configuration",
+      "iv": "ccbbaa998877665544332211",
+      "aad": "audit:transaction=tx_456,amount=1000.00",
+      "kid": "hsm-prod-2024",
+      "type": "positive",
+      "expected_envelope": "{\"v\":\"2\",\"alg\":\"AES-256-GCM\",\"iv\":\"zLuqmYh3ZlVEMyIR\",\"tag\":\"Xt_t6McScqz9xIWEyOGCfw\",\"ct\":\"b8001jr4DVXNKyb7Dnp-OplvVATspokbHtPQ3lez\",\"kid\":\"hsm-prod-2024\"}"
+    },
+    {
+      "name": "single_character",
+      "key": "3333333333333333333333333333333333333333333333333333333333333333",
+      "plaintext": "X",
+      "iv": "333333333333333333333333",
+      "aad": null,
+      "kid": null,
+      "type": "positive",
+      "expected_envelope": "{\"v\":\"2\",\"alg\":\"AES-256-GCM\",\"iv\":\"MzMzMzMzMzMzMzMz\",\"tag\":\"aWdXaqzEE-UzLoRVpCpkTQ\",\"ct\":\"pA\"}"
+    },
+    {
+      "name": "unicode_content",
+      "key": "4444444444444444444444444444444444444444444444444444444444444444",
+      "plaintext": "🔒 Encrypted: 中文 العربية русский",
+      "iv": "444444444444444444444444",
+      "aad": "charset=utf-8",
+      "kid": null,
+      "type": "positive",
+      "expected_envelope": "{\"v\":\"2\",\"alg\":\"AES-256-GCM\",\"iv\":\"RERERERERERERERE\",\"tag\":\"ii3Wjs2rMTofpoiHjG8uxA\",\"ct\":\"cS21xqiJldtHpUEdPKtT2dU9y9kPATgqV3sQ5L2FcVuhpTVkTfgV1orwIYSwm8rJbylS9g\"}"
+    },
+    {
+      "name": "large_payload_1kb",
+      "key": "5555555555555555555555555555555555555555555555555555555555555555",
+      "plaintext": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "iv": "555555555555555555555555",
+      "aad": null,
+      "kid": null,
+      "type": "positive",
+      "expected_envelope": "{\"v\":\"2\",\"alg\":\"AES-256-GCM\",\"iv\":\"VVVVVVVVVVVVVVVV\",\"tag\":\"MI5dRD7RnEa0ZtFy7O0t2A\",\"ct\":\"fTANj0nGui6LZMp9033v_ZzRqvhoz5Lb2Cwlgyx9z7lFbaPx0J3VdV_26Pc57_nwZD4d7vrv4ZwfK3stZEBUGekxwZZ_sdpt0dNBYqXG4_BCMoGHYJDGk_643SPdIIbkgJKQFBByIl0Kpfk0woCS_bDn3SaDclANlq5DOPhKBeqjRRDfgFNZbI55gyt-FMSZ0I1IOF_kragYfaqiJZ7aDD3w8dXNSxTunT6tWc_9peeILWiyflaFV_6OBEX9SC0K554V9IHNyJBi3NwYmUpdFutuhgeOWygpYWyrOB-aHsJi2BlwHlRipvq299QoU9zl3ucnbiVM8QxhuveDJRu3WV98LUgRjDa6Y9Mk1itxIPyrLDM62YpaEFirlLYJjoVUZUuurSZXWkPDEtH32UcMPaQWsixYYWppNgDlS5rpK1V7CutVi184658BpPDqtp8ykX9qt3y-rED30lQXcGLwGR7e2m62xnpkTAlrtXfUjkQUrzHfHYGNw8Z3DZQ-goAOdqHXyjlqiZFKa0zEZNP0AY_HUS-4LZyIaWg0dSvLD9jHIxH3QKWDVWQMKK3sAj7xMFkFDMXbFGWb4IwVzsXYdXuJ0aVgDcrrgd4sRiYL-eSDWhGzzHFjoE5xmSrmWlpf0XheQYs96-mVasJkbxBZEQMvtam2pe7xR3Jv8l5Ry5dti_vuBMcLXQecuKDlVkv7uWcaXbQgIywiuj6QurvskhTfVCo6geWuZwz-1ItQP6ee5yOHRnObqDX1wbmKJzVaY0bmNQ0OstzR1kOO7TSTMsN-vPsgKJ329SM5M5JB2i8uZCpZbSrZCh08ZiPN8phyCB2QO61G1DDS1P8jiQ86vCS2azq1WonSOWovw6cneU0ZsvyLLaEqKGNJllc5p4BTGlpklN0yh54gUqumAznW05NZw4wEdCz7TOsku8JIrV8YcnZmJaF-DRu61-WwtRVX7cmBvAHysPs--wfGV5D7XSFYWk3WK-IgmGJNi_0sLInDwGBTRVj1ThlTHaDzZiG-cfvHR2phgPprmTVEeVJ_9x1WEvXmln5K9XMjW_KkzRdyFBcy1kfsHivtiAha9in-VrC_0XQxaBdKZlywc1Wz7klpr9SadmR8k-pBiXI3u_d_3mMSED8gb-Wu9ZXs3igunqSQNeagn_ZcAq7U5G5nqJnXYytwm-1DBo8bDWua1WNSCZeDvHujRWhyB1FXqsVFglqICKIkKWRWlku9vlnj1sEvfS8d95uco0i0YvMDkhQbMVeK9RH0u7HoWwLKwOiXa-Ghlxrr_UQ8k4UniGYg4INgU3TXgG4N0zOYvoACWaUhpyNX91Mqn7YQEZngvlIF3jRGp5Q3ITBdAhbIH39xxQ\"}"
+    },
+    {
+      "name": "json_payload",
+      "key": "6666666666666666666666666666666666666666666666666666666666666666",
+      "plaintext": "{\"user_id\": 12345, \"role\": \"admin\", \"permissions\": [\"read\", \"write\", \"delete\"]}",
+      "iv": "666666666666666666666666",
+      "aad": "content-type:application/json",
+      "kid": "api-key-v2",
+      "type": "positive",
+      "expected_envelope": "{\"v\":\"2\",\"alg\":\"AES-256-GCM\",\"iv\":\"ZmZmZmZmZmZmZmZm\",\"tag\":\"TATTLHYqd_Cbva0OT7JdJg\",\"ct\":\"SRBjR3QwQpUhtOyMVwVpT4F3GGGYONfXjFzIdVNqTxNRmOqPJhxQxay6BSErueZifDJ5yGEJE0OBtg6itzuF6f7IRcZbXyC8o7whfg1JlA\",\"kid\":\"api-key-v2\"}"
+    },
+    {
+      "name": "complex_aad",
+      "key": "7777777777777777777777777777777777777777777777777777777777777777",
+      "plaintext": "Enterprise data with complex metadata",
+      "iv": "777777777777777777777777",
+      "aad": "tenant=acme-corp|dept=finance|class=pii|retention=7y|region=us-east-1",
+      "kid": "tenant-key-finance",
+      "type": "positive",
+      "expected_envelope": "{\"v\":\"2\",\"alg\":\"AES-256-GCM\",\"iv\":\"d3d3d3d3d3d3d3d3\",\"tag\":\"elbyNCQR4MavYqc8Vsx-7A\",\"ct\":\"hNkU-z9c_Rzyc1ryERR4kcK9AD_2MqrBYAOdbyhPcNM1jAo15Q\",\"kid\":\"tenant-key-finance\"}"
+    },
+    {
+      "name": "realistic_random",
+      "key": "8888888888888888888888888888888888888888888888888888888888888888",
+      "plaintext": "Customer PII: John Doe, SSN: 123-45-6789, DOB: 1985-03-15",
+      "iv": "888888888888888888888888",
+      "aad": "purpose=storage|compliance=gdpr,hipaa|masked=false",
+      "kid": "customer-data-key-2024-q1",
+      "type": "positive",
+      "expected_envelope": "{\"v\":\"2\",\"alg\":\"AES-256-GCM\",\"iv\":\"iIiIiIiIiIiIiIiI\",\"tag\":\"LiS5gbalY_D5Rex5nCf_AQ\",\"ct\":\"C_Odp9SZp0Lyvqr62pfdUtLjLTblSu675dkDdAzoz_D43kJZDmvwdXqb4NGXXQOuoVSwBB34uhzN\",\"kid\":\"customer-data-key-2024-q1\"}"
+    },
+    {
+      "name": "wrong_envelope_version",
+      "type": "negative",
+      "invalid_envelope": "{\"v\":\"1\",\"alg\":\"AES-256-GCM\",\"iv\":\"AAECAwQFBgcICQoL\",\"tag\":\"AAAAAAAAAAAAAAAAAAAAAA\",\"ct\":\"SGVsbG8sIFdvcmxkIQ\"}",
+      "expected_error": "Unsupported envelope version: 1, expected: 2"
+    },
+    {
+      "name": "unsupported_algorithm",
+      "type": "negative",
+      "invalid_envelope": "{\"v\":\"2\",\"alg\":\"ChaCha20-Poly1305\",\"iv\":\"AAECAwQFBgcICQoL\",\"tag\":\"AAAAAAAAAAAAAAAAAAAAAA\",\"ct\":\"SGVsbG8sIFdvcmxkIQ\"}",
+      "expected_error": "Unsupported algorithm: ChaCha20-Poly1305"
+    },
+    {
+      "name": "missing_envelope_fields",
+      "type": "negative",
+      "invalid_envelope": "{\"v\":\"2\",\"alg\":\"AES-256-GCM\",\"iv\":\"AAECAwQFBgcICQoL\"}",
+      "expected_error": "Missing required envelope fields: iv, tag, ct"
+    },
+    {
+      "name": "invalid_base64url",
+      "type": "negative",
+      "invalid_envelope": "{\"v\":\"2\",\"alg\":\"AES-256-GCM\",\"iv\":\"AAECAwQFBgcICQo@\",\"tag\":\"AAAAAAAAAAAAAAAAAAAAAA\",\"ct\":\"SGVsbG8sIFdvcmxkIQ\"}",
+      "expected_error": "Invalid base64url encoding in envelope fields"
+    },
+    {
+      "name": "malformed_json",
+      "type": "negative",
+      "invalid_envelope": "{\"v\":\"2\",\"alg\":\"AES-256-GCM\",\"iv\":\"AAECAwQFBgcICQoL\"",
+      "expected_error": "Invalid envelope: not valid JSON"
+    }
+  ]
+}

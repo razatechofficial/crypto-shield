@@ -117,12 +117,13 @@ function hkdf(ikm, salt, info, length = 32) {
   }
 }
 
-// SECURITY GATE: Unified envelope format with version/algorithm/kid
+// SECURITY GATE: Canonical v2 envelope format per specification
 class AveroxEnvelope {
-  static VERSION = 1;
+  static VERSION = "2";
   static ALGORITHM = 'AES-256-GCM';
   
-  static create(iv, tag, ciphertext, kid = null, aad = null) {
+  static create(iv, tag, ciphertext, kid = null) {
+    // AAD is NOT stored in envelope per specification
     const envelope = {
       v: this.VERSION,    // version field - SECURITY GATE
       alg: this.ALGORITHM, // algorithm field - SECURITY GATE  
