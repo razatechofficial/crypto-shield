@@ -183,7 +183,7 @@ export default function Settings() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {algorithms?.map((algorithm: any) => (
+                      {(algorithms as any[])?.map((algorithm: any) => (
                         <SelectItem key={algorithm.id} value={algorithm.name.toLowerCase()}>
                           {algorithm.displayName}
                         </SelectItem>

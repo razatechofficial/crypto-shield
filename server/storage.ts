@@ -180,6 +180,7 @@ export class DatabaseStorage implements IStorage {
     const tenant = await this.createTenant({
       name: `${email.split('@')[0]}'s Organization`,
       subscriptionTier: 'starter',
+      apiKey: `ak_${randomUUID().replace(/-/g, '')}`,
     });
 
     return tenant.id;
@@ -382,35 +383,50 @@ export class DatabaseStorage implements IStorage {
     const encryptionKeysData = [
       {
         tenantId,
-        name: 'Production API Key',
-        description: 'Primary encryption key for production API endpoints',
-        algorithm: 'AES-256-GCM',
-        keySize: 256,
+        keyId: `key_${randomUUID().replace(/-/g, '')}`,
+        keyType: 'primary',
+        algorithmId: 'aes-256-gcm',
         status: 'active' as const,
-        purpose: 'encryption',
-        rotationSchedule: '90_days',
+        rotationInterval: 90,
+        metadata: {
+          name: 'Production API Key',
+          description: 'Primary encryption key for production API endpoints',
+          algorithm: 'AES-256-GCM',
+          keySize: 256,
+          purpose: 'encryption'
+        },
         createdAt: new Date(now.getTime() - 86400000 * 30), // 30 days ago
       },
       {
         tenantId,
-        name: 'Backup Encryption Key',
-        description: 'Secondary key for data backup encryption',
-        algorithm: 'ChaCha20-Poly1305',
-        keySize: 256,
+        keyId: `key_${randomUUID().replace(/-/g, '')}`,
+        keyType: 'backup',
+        algorithmId: 'chacha20-poly1305',
         status: 'active' as const,
-        purpose: 'backup',
-        rotationSchedule: '30_days',
+        rotationInterval: 30,
+        metadata: {
+          name: 'Backup Encryption Key',
+          description: 'Secondary key for data backup encryption',
+          algorithm: 'ChaCha20-Poly1305',
+          keySize: 256,
+          purpose: 'backup'
+        },
         createdAt: new Date(now.getTime() - 86400000 * 15), // 15 days ago
       },
       {
         tenantId,
-        name: 'Legacy Migration Key',
-        description: 'Temporary key for legacy data migration',
-        algorithm: 'AES-256-CBC',
-        keySize: 256,
+        keyId: `key_${randomUUID().replace(/-/g, '')}`,
+        keyType: 'session',
+        algorithmId: 'aes-256-cbc',
         status: 'rotating' as const,
-        purpose: 'migration',
-        rotationSchedule: '7_days',
+        rotationInterval: 7,
+        metadata: {
+          name: 'Legacy Migration Key',
+          description: 'Temporary key for legacy data migration',
+          algorithm: 'AES-256-CBC',
+          keySize: 256,
+          purpose: 'migration'
+        },
         createdAt: new Date(now.getTime() - 86400000 * 7), // 7 days ago
       }
     ];
@@ -429,7 +445,7 @@ export class DatabaseStorage implements IStorage {
           tenantId,
           operation: Math.random() > 0.6 ? 'encryption' : 'decryption',
           algorithm: ['AES-256-GCM', 'ChaCha20-Poly1305', 'RSA-2048'][Math.floor(Math.random() * 3)],
-          keyId: encryptionKeysData[Math.floor(Math.random() * encryptionKeysData.length)].name,
+          keyId: encryptionKeysData[Math.floor(Math.random() * encryptionKeysData.length)].keyId,
           dataSize: Math.floor(Math.random() * 10000) + 100, // 100-10KB
           duration: Math.floor(Math.random() * 50) + 5, // 5-55ms
           status: Math.random() > 0.05 ? 'success' : 'failure', // 95% success rate
