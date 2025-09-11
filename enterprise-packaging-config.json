@@ -1,0 +1,187 @@
+{
+  "packaging": {
+    "version": "2.0.0",
+    "license": "Apache-2.0",
+    "description": "Enterprise-grade cryptographic SDK with comprehensive security features",
+    "repository": "https://github.com/averox/enterprise-crypto-sdk",
+    "homepage": "https://averox.com",
+    "bugs": "https://github.com/averox/enterprise-crypto-sdk/issues",
+    "author": "Averox Security Team <security@averox.com>",
+    "keywords": [
+      "cryptography",
+      "encryption",
+      "aes-gcm",
+      "enterprise",
+      "security",
+      "kdf",
+      "telemetry",
+      "cross-platform"
+    ]
+  },
+  "languages": {
+    "javascript": {
+      "package_name": "@averox/enterprise-crypto-sdk",
+      "exports": {
+        ".": {
+          "types": "./dist/types/index.d.ts",
+          "import": "./dist/esm/index.js",
+          "require": "./dist/cjs/index.js"
+        }
+      },
+      "scripts": {
+        "build": "npm run build:cjs && npm run build:esm && npm run build:types",
+        "build:cjs": "babel src --out-dir dist/cjs --env-name cjs",
+        "build:esm": "babel src --out-dir dist/esm --env-name esm",
+        "build:types": "tsc --emitDeclarationOnly --outDir dist/types",
+        "test": "jest --coverage",
+        "test:nist": "node test/nist-vectors.js",
+        "test:security": "npm audit && npm run test:nist && npm run test:interop",
+        "test:interop": "node test/cross-language-interop.js",
+        "lint": "eslint src/ test/ --ext .js,.ts",
+        "prebuild": "npm run lint && npm run test:security",
+        "prepublish": "npm run build",
+        "benchmark": "node benchmark/crypto-benchmarks.js"
+      },
+      "devDependencies": {
+        "@babel/core": "^7.22.0",
+        "@babel/preset-env": "^7.22.0",
+        "@types/node": "^20.0.0",
+        "eslint": "^8.44.0",
+        "jest": "^29.5.0",
+        "typescript": "^5.1.0"
+      },
+      "optionalDependencies": {
+        "argon2": "^0.31.0"
+      },
+      "engines": {
+        "node": ">=16.0.0"
+      }
+    },
+    "python": {
+      "package_name": "averox-enterprise-crypto",
+      "python_requires": ">=3.8",
+      "install_requires": [
+        "cryptography>=3.4.0",
+        "argon2-cffi>=21.0.0"
+      ],
+      "extras_require": {
+        "dev": [
+          "pytest>=7.0.0",
+          "pytest-cov>=4.0.0",
+          "black>=22.0.0",
+          "mypy>=1.0.0",
+          "nist-test-vectors>=1.0.0"
+        ]
+      },
+      "classifiers": [
+        "Development Status :: 5 - Production/Stable",
+        "Intended Audience :: Developers",
+        "License :: OSI Approved :: Apache Software License",
+        "Operating System :: OS Independent",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Topic :: Security :: Cryptography"
+      ]
+    },
+    "swift": {
+      "package_name": "AveroxEnterpriseCrypto",
+      "platforms": {
+        "iOS": "13.0",
+        "macOS": "10.15",
+        "watchOS": "6.0",
+        "tvOS": "13.0"
+      },
+      "dependencies": {
+        "CryptoKit": null,
+        "Argon2Swift": {
+          "url": "https://github.com/tmthecoder/Argon2Swift",
+          "from": "2.0.0"
+        }
+      },
+      "targets": [
+        {
+          "name": "AveroxEnterpriseCrypto",
+          "type": "library"
+        },
+        {
+          "name": "AveroxEnterpriseCryptoTests",
+          "type": "test",
+          "dependencies": ["AveroxEnterpriseCrypto"]
+        }
+      ]
+    },
+    "kotlin": {
+      "package_name": "com.averox.enterprise.crypto",
+      "android_min_sdk": 21,
+      "android_target_sdk": 34,
+      "kotlin_version": "1.9.0",
+      "dependencies": {
+        "androidx.security:security-crypto": "1.1.0-alpha06",
+        "org.bouncycastle:bcprov-jdk15on": "1.70",
+        "org.springframework.security:spring-security-crypto": "6.1.0"
+      },
+      "test_dependencies": {
+        "junit:junit": "4.13.2",
+        "org.jetbrains.kotlin:kotlin-test-junit": "1.9.0",
+        "androidx.test:core": "1.5.0"
+      }
+    },
+    "c": {
+      "library_name": "averox_enterprise_crypto",
+      "version": "2.0.0",
+      "dependencies": {
+        "openssl": ">=1.1.1",
+        "libargon2": ">=20190702"
+      },
+      "cmake_minimum_version": "3.16",
+      "c_standard": "99",
+      "install_components": [
+        "headers",
+        "libraries",
+        "pkg-config"
+      ],
+      "pkg_config": {
+        "description": "Averox Enterprise Cryptographic Library",
+        "libs": "-laverox_enterprise_crypto -lssl -lcrypto -largon2",
+        "cflags": "-I${includedir}/averox"
+      }
+    }
+  },
+  "compliance_artifacts": {
+    "required_files": [
+      "LICENSE",
+      "README.md",
+      "SECURITY.md",
+      "CHANGELOG.md",
+      "THREAT-MODEL.md",
+      "VERSIONING.md"
+    ],
+    "sbom_format": "CycloneDX",
+    "security_policy": "https://averox.com/security-policy",
+    "vulnerability_disclosure": "security@averox.com"
+  },
+  "ci_security_gates": {
+    "required_checks": [
+      "unit_tests",
+      "integration_tests",
+      "nist_test_vectors",
+      "cross_language_interop",
+      "security_audit",
+      "dependency_scan",
+      "static_analysis",
+      "fuzz_testing",
+      "memory_safety"
+    ],
+    "coverage_threshold": 95,
+    "security_tools": {
+      "c": ["AddressSanitizer", "UBSan", "Valgrind", "libFuzzer"],
+      "python": ["bandit", "safety", "Atheris"],
+      "javascript": ["npm audit", "semgrep", "CodeQL"],
+      "swift": ["SwiftLint", "swift-format"],
+      "kotlin": ["detekt", "SpotBugs", "Jazzer"]
+    }
+  }
+}

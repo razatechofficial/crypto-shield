@@ -1,13 +1,24 @@
-# Security Implementation Details
+# Security Policy
 
-## Cryptographic Standards
+## Supported Versions
 
-### AES-256-GCM Implementation
-- **Algorithm**: Advanced Encryption Standard, 256-bit key
-- **Mode**: Galois/Counter Mode for authenticated encryption
-- **IV Size**: 96 bits (12 bytes) for optimal security/performance
-- **Tag Size**: 128 bits (16 bytes) for authentication
-- **Compliance**: NIST SP 800-38D
+We actively maintain and provide security updates for the following versions:
+
+| Version | Supported          |
+| ------- | ------------------ |
+| 2.0.x   | ✅ Full support    |
+| 1.5.x   | ⚠️ Security fixes only |
+| < 1.5   | ❌ End of life     |
+
+## Security Features
+
+### Cryptographic Implementation
+
+- **AES-256-GCM**: NIST-compliant authenticated encryption with 256-bit keys
+- **12-byte IV Policy**: Enforced across all operations for optimal security/performance
+- **AAD Support**: Additional authenticated data for context binding
+- **Memory Protection**: Automatic zeroization of sensitive data
+- **Timing-Safe Operations**: Constant-time comparisons to prevent side-channel attacks
 
 ### ChaCha20-Poly1305 Implementation
 - **Algorithm**: ChaCha20 stream cipher with Poly1305 MAC
