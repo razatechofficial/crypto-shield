@@ -4,18 +4,44 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import SecurityChart from "@/components/SecurityChart";
-import { AlertTriangle, CheckCircle, Shield, Activity } from "lucide-react";
+import { AlertTriangle, CheckCircle, Shield, Activity, Play } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 export default function Monitoring() {
   const { toast } = useToast();
+
+  // Get benchmark results
+  const { data: benchmarkResults, isLoading: benchmarkLoading, refetch: refetchBenchmarks } = useQuery({
+    queryKey: ["/api/benchmarks/basic"],
+    retry: false,
+  });
 
   // Get real crypto operations and incidents
   const { data: operationsData, isLoading: operationsLoading } = useQuery({
     queryKey: ["/api/monitoring/operations"],
     retry: false,
   });
+
+  // Run benchmark on demand
+  const runBenchmark = async () => {
+    try {
+      toast({ title: "Running benchmarks...", description: "Please wait while we measure performance." });
+      await apiRequest('/api/benchmarks/run', 'POST', {
+        algorithms: ['AES-256-GCM', 'ChaCha20-Poly1305'],
+        payloadSizes: [64, 256, 1024, 4096],
+        iterations: 500
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/benchmarks/basic"] });
+      refetchBenchmarks();
+      toast({ title: "Benchmarks completed", description: "Performance results updated." });
+    } catch (error) {
+      toast({ title: "Benchmark failed", description: "Unable to run performance tests.", variant: "destructive" });
+    }
+  };
 
   const { data: healthData } = useQuery({
     queryKey: ["/api/monitoring/health"],
@@ -238,6 +264,76 @@ export default function Monitoring() {
           }}
         />
       </div>
+
+      {/* Performance Benchmark Results */}
+      <Card className="bg-card border-border mb-8">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-foreground">Performance Benchmark Results</CardTitle>
+          <Button 
+            onClick={runBenchmark}
+            disabled={benchmarkLoading}
+            className="flex items-center gap-2"
+            data-testid="button-run-benchmark"
+          >
+            <Play className="w-4 h-4" />
+            Run Benchmark
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {benchmarkLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-12 bg-muted rounded animate-pulse"></div>
+              ))}
+            </div>
+          ) : benchmarkResults && Array.isArray(benchmarkResults) && benchmarkResults.length > 0 ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Algorithm</TableHead>
+                    <TableHead>Operation</TableHead>
+                    <TableHead>Payload Size</TableHead>
+                    <TableHead>Avg Latency (ms)</TableHead>
+                    <TableHead>P50 Latency (ms)</TableHead>
+                    <TableHead>P95 Latency (ms)</TableHead>
+                    <TableHead>Throughput (ops/sec)</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {benchmarkResults.map((result: any, index: number) => (
+                    <TableRow key={index} data-testid={`benchmark-row-${index}`}>
+                      <TableCell className="font-medium">{result.algorithm}</TableCell>
+                      <TableCell>
+                        <Badge variant={result.operation === 'encrypt' ? 'default' : 'secondary'}>
+                          {result.operation}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{result.payloadSize} bytes</TableCell>
+                      <TableCell data-testid={`latency-avg-${index}`}>
+                        {result.avgLatencyMs ? result.avgLatencyMs.toFixed(3) : 'N/A'}
+                      </TableCell>
+                      <TableCell data-testid={`latency-p50-${index}`}>
+                        {result.p50LatencyMs ? result.p50LatencyMs.toFixed(3) : 'N/A'}
+                      </TableCell>
+                      <TableCell data-testid={`latency-p95-${index}`}>
+                        {result.p95LatencyMs ? result.p95LatencyMs.toFixed(3) : 'N/A'}
+                      </TableCell>
+                      <TableCell data-testid={`throughput-${index}`}>
+                        {result.throughputOpsPerSec ? Math.round(result.throughputOpsPerSec).toLocaleString() : 'N/A'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">No benchmark data available. Click "Run Benchmark" to start performance testing.</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Security Events */}
       <Card className="bg-card border-border">

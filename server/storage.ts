@@ -108,6 +108,10 @@ export interface IStorage {
   
   // Quantum Security
   getQuantumReadiness(tenantId: string): Promise<any>;
+  
+  // Performance metrics operations (simple CRUD)
+  getPerformanceMetrics(tenantId: string, limit?: number): Promise<PerformanceMetric[]>;
+  createPerformanceMetric(metric: InsertPerformanceMetric): Promise<PerformanceMetric>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2683,6 +2687,25 @@ export class DatabaseStorage implements IStorage {
         'Consider hybrid classical/post-quantum approaches'
       ]
     };
+  }
+
+  // Performance metrics operations (simple CRUD)
+  async getPerformanceMetrics(tenantId: string, limit: number = 100): Promise<PerformanceMetric[]> {
+    const metrics = await db
+      .select()
+      .from(performanceMetrics)
+      .where(eq(performanceMetrics.tenantId, tenantId))
+      .orderBy(desc(performanceMetrics.createdAt))
+      .limit(limit);
+    return metrics;
+  }
+
+  async createPerformanceMetric(metric: InsertPerformanceMetric): Promise<PerformanceMetric> {
+    const [result] = await db
+      .insert(performanceMetrics)
+      .values(metric)
+      .returning();
+    return result;
   }
 }
 
