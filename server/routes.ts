@@ -341,6 +341,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // DASHBOARD ENDPOINTS
+  app.get("/api/dashboard/activities", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const activities = await storage.getRecentActivities(user.tenantId);
+      res.json(activities);
+    } catch (error: any) {
+      console.error('Error fetching dashboard activities:', error);
+      res.status(500).json({ message: "Failed to fetch dashboard activities" });
+    }
+  });
+
+  // MONITORING ENDPOINTS  
+  app.get("/api/monitoring/operations", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const operations = await storage.getCryptoOperations(user.tenantId);
+      res.json(operations);
+    } catch (error: any) {
+      console.error('Error fetching monitoring operations:', error);
+      res.status(500).json({ message: "Failed to fetch monitoring operations" });
+    }
+  });
+
+  app.get("/api/monitoring/health", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const health = await storage.getSystemHealthMetrics(user.tenantId);
+      res.json(health);
+    } catch (error: any) {
+      console.error('Error fetching monitoring health:', error);
+      res.status(500).json({ message: "Failed to fetch monitoring health" });
+    }
+  });
+
+  app.get("/api/monitoring/incidents", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const incidents = await storage.getSecurityIncidents(user.tenantId);
+      res.json(incidents);
+    } catch (error: any) {
+      console.error('Error fetching monitoring incidents:', error);
+      res.status(500).json({ message: "Failed to fetch monitoring incidents" });
+    }
+  });
+
+  app.get("/api/monitoring/deployments", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const deployments = await storage.getSdkDeployments(user.tenantId);
+      res.json(deployments);
+    } catch (error: any) {
+      console.error('Error fetching monitoring deployments:', error);
+      res.status(500).json({ message: "Failed to fetch monitoring deployments" });
+    }
+  });
+
+  // SECURITY EVENTS
+  app.get("/api/security-events", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const events = await storage.getSecurityEvents(user.tenantId);
+      res.json(events);
+    } catch (error: any) {
+      console.error('Error fetching security events:', error);
+      res.status(500).json({ message: "Failed to fetch security events" });
+    }
+  });
+
+  // USER MANAGEMENT
+  app.get("/api/users/stats", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const userStats = await storage.getUserStats(user.tenantId);
+      res.json(userStats);
+    } catch (error: any) {
+      console.error('Error fetching user stats:', error);
+      res.status(500).json({ message: "Failed to fetch user stats" });
+    }
+  });
+
+  // QUANTUM SECURITY
+  app.get("/api/quantum/readiness", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const readiness = await storage.getQuantumReadiness(user.tenantId);
+      res.json(readiness);
+    } catch (error: any) {
+      console.error('Error fetching quantum readiness:', error);
+      res.status(500).json({ message: "Failed to fetch quantum readiness" });
+    }
+  });
+
   // SDK download route with production generation
   app.get("/api/sdks/:downloadId/download", async (req, res) => {
     try {

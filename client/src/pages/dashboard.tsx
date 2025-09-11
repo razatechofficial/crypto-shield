@@ -156,8 +156,10 @@ export default function Dashboard() {
                       {activity.description}
                     </p>
                   </div>
-                  <span className="text-muted-foreground text-sm" data-testid={`activity-time-${activity.id}`}>
-                    {formatDistanceToNow(new Date(activity.createdAt), { addSuffix: true })}
+                  <span className="text-muted-foreground text-sm" data-testid={`activity-time-${activity.id || 'unknown'}`}>
+                    {activity.createdAt && !isNaN(new Date(activity.createdAt).getTime()) 
+                      ? formatDistanceToNow(new Date(activity.createdAt), { addSuffix: true })
+                      : 'Just now'}
                   </span>
                 </div>
               ))}

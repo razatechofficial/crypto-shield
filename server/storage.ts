@@ -93,9 +93,21 @@ export interface IStorage {
     keyRotations: number;
     threatBlocks: number;
   }>;
+  getRecentActivities(tenantId: string): Promise<any[]>;
+  
+  // Monitoring operations
+  getCryptoOperations(tenantId: string, hours?: number): Promise<any[]>;
+  getSystemHealth(tenantId: string): Promise<any>;
+  getSecurityIncidents(tenantId: string): Promise<any[]>;
+  getSdkDeployments(tenantId: string): Promise<any[]>;
+  getSystemHealthMetrics(tenantId: string): Promise<any>;
   
   // User management
   getTenantUsers(tenantId: string): Promise<User[]>;
+  getUserStats(tenantId: string): Promise<any>;
+  
+  // Quantum Security
+  getQuantumReadiness(tenantId: string): Promise<any>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -379,13 +391,24 @@ export class DatabaseStorage implements IStorage {
     const now = new Date();
     const userId = 'dev-user-123'; // Mock user for dev mode
 
+    // Get algorithm IDs from database
+    const algorithms = await this.getEncryptionAlgorithms();
+    const aes256gcmId = algorithms.find(a => a.name === 'AES-256-GCM')?.id;
+    const chacha20Id = algorithms.find(a => a.name === 'ChaCha20-Poly1305' || a.name === 'chacha20-poly1305')?.id;
+    const aes256cbcId = algorithms.find(a => a.name === 'AES-256-CBC')?.id;
+
+    if (!aes256gcmId || !chacha20Id || !aes256cbcId) {
+      console.warn('⚠️ Some algorithms not found, skipping key seeding');
+      return;
+    }
+
     // 1. Seed encryption keys
     const encryptionKeysData = [
       {
         tenantId,
         keyId: `key_${randomUUID().replace(/-/g, '')}`,
         keyType: 'primary',
-        algorithmId: 'aes-256-gcm',
+        algorithmId: aes256gcmId,
         status: 'active' as const,
         rotationInterval: 90,
         metadata: {
@@ -401,7 +424,7 @@ export class DatabaseStorage implements IStorage {
         tenantId,
         keyId: `key_${randomUUID().replace(/-/g, '')}`,
         keyType: 'backup',
-        algorithmId: 'chacha20-poly1305',
+        algorithmId: chacha20Id,
         status: 'active' as const,
         rotationInterval: 30,
         metadata: {
@@ -417,7 +440,7 @@ export class DatabaseStorage implements IStorage {
         tenantId,
         keyId: `key_${randomUUID().replace(/-/g, '')}`,
         keyType: 'session',
-        algorithmId: 'aes-256-cbc',
+        algorithmId: aes256cbcId,
         status: 'rotating' as const,
         rotationInterval: 7,
         metadata: {
@@ -2242,6 +2265,130 @@ export class DatabaseStorage implements IStorage {
         updatedAt: new Date()
       })
       .where(eq(sdkDeployments.id, deploymentId));
+  }
+
+  async getRecentActivities(tenantId: string): Promise<any[]> {
+    // Get recent activities from various sources
+    const [operations, incidents, sdkChanges] = await Promise.all([
+      this.getCryptoOperations(tenantId, 24).then(ops => 
+        ops.slice(0, 10).map((op, index) => ({
+          id: `crypto_${index}`,
+          type: 'crypto_operation',
+          eventType: 'sdk_generated',
+          title: `${op.operation} operation`,
+          description: `${op.algorithm} encryption on ${op.dataSize} bytes`,
+          timestamp: op.createdAt,
+          createdAt: op.createdAt,
+          status: op.status,
+          metadata: op
+        }))
+      ),
+      this.getSecurityIncidents(tenantId).then(incidents => 
+        incidents.slice(0, 5).map((inc, index) => ({
+          id: `incident_${index}`,
+          type: 'security_incident',
+          eventType: 'threat_detected',
+          title: `Security incident: ${inc.incidentType}`,
+          description: inc.description,
+          timestamp: inc.createdAt,
+          createdAt: inc.createdAt,
+          status: inc.status,
+          severity: inc.severity,
+          metadata: inc
+        }))
+      ),
+      db.select().from(sdks)
+        .where(eq(sdks.tenantId, tenantId))
+        .orderBy(desc(sdks.updatedAt))
+        .limit(5)
+        .then(sdks => 
+          sdks.map((sdk, index) => ({
+            id: `sdk_${index}`,
+            type: 'sdk_change',
+            eventType: 'key_rotated',
+            title: `SDK updated: ${sdk.name}`,
+            description: `Version ${sdk.version} - ${sdk.languages}`,
+            timestamp: sdk.updatedAt,
+            createdAt: sdk.updatedAt,
+            status: 'completed',
+            metadata: sdk
+          }))
+        )
+    ]);
+
+    // Combine and sort by timestamp
+    return [...operations, ...incidents, ...sdkChanges]
+      .sort((a, b) => {
+        const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+        const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+        return timeB - timeA;
+      })
+      .slice(0, 20);
+  }
+
+  async getSystemHealth(tenantId: string): Promise<any> {
+    return await this.getSystemHealthMetrics(tenantId);
+  }
+
+  async getUserStats(tenantId: string): Promise<any> {
+    const users = await this.getTenantUsers(tenantId);
+    const totalUsers = users.length;
+    const activeUsers = users.filter(u => u.role !== 'viewer').length;
+    const adminUsers = users.filter(u => u.role === 'admin').length;
+    const developerUsers = users.filter(u => u.role === 'developer').length;
+
+    return {
+      totalUsers,
+      activeUsers,
+      adminUsers,
+      developerUsers,
+      viewerUsers: totalUsers - activeUsers,
+      recentLogins: totalUsers, // Simplified - would track actual login data
+      userGrowth: '+12%', // Simplified - would calculate from historical data
+      averageSessionTime: '45m', // Simplified - would track from session data
+    };
+  }
+
+  async getQuantumReadiness(tenantId: string): Promise<any> {
+    const algorithms = await this.getEncryptionAlgorithms();
+    const quantumSafeAlgorithms = algorithms.filter(a => a.isQuantumSafe);
+    const postQuantumAlgorithms = algorithms.filter(a => a.isPostQuantum);
+    
+    const sdkList = await this.getSDKs(tenantId);
+    const quantumReadySDKs = sdkList.filter(sdk => {
+      const sdkAlgs = JSON.parse(sdk.algorithms || '[]');
+      return sdkAlgs.some((alg: string) => 
+        quantumSafeAlgorithms.some(qa => qa.name.toLowerCase().includes(alg.toLowerCase()))
+      );
+    });
+
+    const readinessScore = Math.round(
+      (quantumReadySDKs.length / Math.max(sdkList.length, 1)) * 100
+    );
+
+    return {
+      readinessScore,
+      totalAlgorithms: algorithms.length,
+      quantumSafeAlgorithms: quantumSafeAlgorithms.length,
+      postQuantumAlgorithms: postQuantumAlgorithms.length,
+      quantumReadySDKs: quantumReadySDKs.length,
+      totalSDKs: sdkList.length,
+      migrationPath: [
+        { step: 1, title: 'Audit Current Algorithms', status: 'completed' },
+        { step: 2, title: 'Implement Post-Quantum Algorithms', status: readinessScore > 50 ? 'completed' : 'in-progress' },
+        { step: 3, title: 'Update All SDKs', status: readinessScore > 80 ? 'completed' : 'pending' },
+        { step: 4, title: 'Full Migration', status: readinessScore === 100 ? 'completed' : 'pending' }
+      ],
+      recommendations: readinessScore < 80 ? [
+        'Consider implementing Kyber-1024 for key exchange',
+        'Add CRYSTALS-DILITHIUM for digital signatures',
+        'Update legacy SDKs to support post-quantum algorithms'
+      ] : [
+        'Excellent quantum readiness score!',
+        'Monitor NIST post-quantum standards updates',
+        'Consider hybrid classical/post-quantum approaches'
+      ]
+    };
   }
 }
 
