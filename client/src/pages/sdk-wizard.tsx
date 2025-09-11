@@ -109,7 +109,7 @@ const securityLevels = [
   { id: 'enhanced', name: 'Enhanced Security', description: 'Strong encryption for sensitive data' },
   { id: 'maximum', name: 'Maximum Security', description: 'Military-grade encryption for critical systems' },
   { id: 'confidential', name: 'Confidential Computing', description: 'TEE-based protection with encrypted computation' },
-  { id: 'privacy-preserving', name: 'Privacy-Preserving', description: 'Homomorphic encryption and secure multi-party computation' },
+  { id: 'privacy_preserving', name: 'Privacy-Preserving', description: 'Homomorphic encryption and secure multi-party computation' },
 ];
 
 // Enhanced features for confidential computing
@@ -167,7 +167,7 @@ export default function SdkWizard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: algorithms = [], isLoading: algorithmsLoading } = useQuery({
+  const { data: algorithms = [], isLoading: algorithmsLoading } = useQuery<EncryptionAlgorithm[]>({
     queryKey: ["/api/algorithms"],
     retry: false,
   });
@@ -217,7 +217,7 @@ export default function SdkWizard() {
       } else if (selectedAlgorithms.length === 0) {
         // Fallback: Auto-select smart defaults based on security level if no recommendations
         const fallbackAlgorithms = (algorithms as EncryptionAlgorithm[]).filter((alg: EncryptionAlgorithm) => {
-          if (securityLevel === 'confidential' || securityLevel === 'privacy-preserving') {
+          if (securityLevel === 'confidential' || securityLevel === 'privacy_preserving') {
             return alg.type === 'tee' || alg.type === 'homomorphic' || alg.type === 'mpc' || alg.isPostQuantum;
           } else if (securityLevel === 'maximum') {
             return alg.isPostQuantum || (alg.keySize && alg.keySize >= 256);
@@ -256,15 +256,15 @@ export default function SdkWizard() {
 
   const getNextStep = (currentStep: number) => {
     // If we're at step 2 and user selected confidential computing security levels
-    if (currentStep === 2 && securityLevel && ['confidential', 'privacy-preserving'].includes(securityLevel)) {
+    if (currentStep === 2 && securityLevel && ['confidential', 'privacy_preserving'].includes(securityLevel)) {
       return 3; // Go to confidential computing config
     }
     // If we're at step 3 and we're in confidential computing mode, go to algorithm selection
-    if (currentStep === 3 && securityLevel && ['confidential', 'privacy-preserving'].includes(securityLevel)) {
+    if (currentStep === 3 && securityLevel && ['confidential', 'privacy_preserving'].includes(securityLevel)) {
       return 4; // Go to algorithm selection (don't skip it)
     }
     // If we're at step 2 and standard security, skip confidential computing
-    if (currentStep === 2 && (!securityLevel || !['confidential', 'privacy-preserving'].includes(securityLevel))) {
+    if (currentStep === 2 && (!securityLevel || !['confidential', 'privacy_preserving'].includes(securityLevel))) {
       return 4; // Go to algorithm selection (step 4)
     }
     return currentStep + 1;
@@ -292,7 +292,7 @@ export default function SdkWizard() {
     }
     
     // Step 3: Confidential Computing configuration
-    if (step === 3 && securityLevel && ['confidential', 'privacy-preserving'].includes(securityLevel) && 
+    if (step === 3 && securityLevel && ['confidential', 'privacy_preserving'].includes(securityLevel) && 
         confidentialFeatures.length === 0) {
       toast({
         title: "Missing Information",
@@ -692,7 +692,7 @@ export default function SdkWizard() {
               </div>
             )}
 
-            {step === 3 && securityLevel && ['confidential', 'privacy-preserving'].includes(securityLevel) && (
+            {step === 3 && securityLevel && ['confidential', 'privacy_preserving'].includes(securityLevel) && (
               <div className="space-y-8">
                 <div className="text-center mb-6">
                   <h3 className="text-lg font-semibold text-foreground mb-2">Confidential Computing Configuration</h3>
@@ -862,9 +862,9 @@ export default function SdkWizard() {
                       </span>
                     </div>
                   </div>
-                  {algorithms && Array.isArray(algorithms) && (
+                  {Array.isArray(algorithms) && algorithms.length > 0 && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
-                      {algorithms.map((algorithm: EncryptionAlgorithm) => (
+                      {algorithms.map((algorithm) => (
                         <Label 
                           key={algorithm.id}
                           className={`flex items-start space-x-3 border rounded-lg p-4 cursor-pointer hover:bg-secondary transition-colors ${
