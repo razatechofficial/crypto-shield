@@ -8,6 +8,20 @@ import { z } from "zod";
 import { randomUUID } from "crypto";
 import archiver from "archiver";
 import fs from "fs";
+import { GovernmentComplianceValidator, COMPLIANCE_PROFILES } from "./complianceValidator";
+
+// Helper function to get compliance profile descriptions
+function getProfileDescription(profileKey: string): string {
+  const descriptions: Record<string, string> = {
+    'NIST_COMMERCIAL': 'Basic commercial encryption standards with NIST-approved algorithms',
+    'FIPS_140_3_L1': 'FIPS 140-3 Level 1 validated algorithms for government use',
+    'FIPS_140_3_L2': 'FIPS 140-3 Level 2+ with hardware security module requirements',
+    'NSA_CNSA_2_0': 'NSA Commercial National Security Algorithm Suite 2.0 with post-quantum readiness',
+    'NSA_SUITE_B': 'Legacy NSA Suite B elliptic curve cryptography for government systems',
+    'TOP_SECRET': 'Classified systems with Type 1 encryption and quantum-safe only algorithms'
+  };
+  return descriptions[profileKey] || 'Government compliance profile';
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication
@@ -43,6 +57,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error getting algorithm recommendations:", error);
       res.status(500).json({ message: "Failed to get recommendations" });
+    }
+  });
+
+  // Compliance routes
+  app.get("/api/compliance/profiles", async (req, res) => {
+    try {
+      // Return available compliance profiles with descriptions
+      const profiles = Object.entries(COMPLIANCE_PROFILES).map(([key, profile]) => ({
+        id: key,
+        name: key.replace(/_/g, ' '),
+        level: profile.level,
+        fipsRequired: profile.fipsRequired,
+        quantumSafe: profile.quantumSafe,
+        minimumSecurityStrength: profile.minimumSecurityStrength,
+        description: getProfileDescription(key)
+      }));
+      res.json(profiles);
+    } catch (error) {
+      console.error("Error fetching compliance profiles:", error);
+      res.status(500).json({ message: "Failed to fetch compliance profiles" });
+    }
+  });
+
+  app.post("/api/compliance/assess", async (req, res) => {
+    try {
+      const { algorithmIds, profileName } = req.body;
+      
+      if (!profileName || !algorithmIds?.length) {
+        return res.status(400).json({ message: "Profile name and algorithm IDs are required" });
+      }
+
+      // Get algorithm details from storage
+      const algorithms = await storage.getEncryptionAlgorithmsByIds(algorithmIds);
+      
+      // Assess compliance
+      const assessment = GovernmentComplianceValidator.assessAlgorithmCompliance(
+        algorithms, 
+        profileName as keyof typeof COMPLIANCE_PROFILES
+      );
+      
+      res.json(assessment);
+    } catch (error) {
+      console.error("Error assessing compliance:", error);
+      res.status(500).json({ message: "Failed to assess compliance" });
+    }
+  });
+
+  app.post("/api/compliance/recommendations", async (req, res) => {
+    try {
+      const { securityLevel, dataTypes, complianceRequirements } = req.body;
+      
+      // Get recommended compliance profile based on requirements
+      const profileRecommendation = GovernmentComplianceValidator.recommendComplianceProfile({
+        securityLevel,
+        dataTypes: dataTypes || [],
+        complianceRequirements: complianceRequirements || []
+      });
+      
+      res.json(profileRecommendation);
+    } catch (error) {
+      console.error("Error getting compliance recommendations:", error);
+      res.status(500).json({ message: "Failed to get compliance recommendations" });
     }
   });
 

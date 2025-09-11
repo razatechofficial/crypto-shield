@@ -41,7 +41,7 @@ export const keyStatusEnum = pgEnum('key_status', ['active', 'rotating', 'revoke
 export const sdkLanguageEnum = pgEnum('sdk_language', ['javascript', 'python', 'java', 'csharp', 'go', 'rust', 'dart', 'swift', 'kotlin', 'php', 'ruby', 'cpp']);
 
 // Security levels enum
-export const securityLevelEnum = pgEnum('security_level', ['standard', 'enhanced', 'maximum', 'confidential', 'privacy_preserving']);
+export const securityLevelEnum = pgEnum('security_level', ['standard', 'enhanced', 'maximum', 'confidential', 'privacy_preserving', 'quantum_ready', 'post_quantum']);
 
 // Confidential computing features enum
 export const confidentialFeatureEnum = pgEnum('confidential_feature', ['teeEncryption', 'homomorphicEncryption', 'multiPartyComputation', 'zeroKnowledgeProofs', 'differentialPrivacy', 'secureAggregation']);
@@ -82,6 +82,18 @@ export const encryptionAlgorithms = pgTable("encryption_algorithms", {
   isQuantumSafe: boolean("is_quantum_safe").default(false),
   isPostQuantum: boolean("is_post_quantum").default(false),
   isActive: boolean("is_active").default(true),
+  // FIPS 140-3 compliance mapping
+  fipsValidated: boolean("fips_validated").default(false),
+  fipsValidationNumber: varchar("fips_validation_number"),
+  fipsSecurityLevel: integer("fips_security_level"), // 1-4
+  nistApproved: boolean("nist_approved").default(false),
+  nistStandard: varchar("nist_standard"), // e.g., "FIPS 197", "SP 800-38D"
+  // Performance and capability metadata
+  securityStrength: integer("security_strength"), // bits of security (128, 192, 256)
+  capabilities: text("capabilities"), // JSON array of operations: ["encrypt", "decrypt", "kem", "sign", "verify"]
+  limitations: text("limitations"), // JSON array of known limitations
+  recommendedUse: text("recommended_use"), // description of recommended use cases
+  migrationPath: varchar("migration_path"), // path for quantum migration
   createdAt: timestamp("created_at").defaultNow(),
 });
 

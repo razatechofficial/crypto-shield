@@ -33,7 +33,7 @@ import {
   type InsertSdkDeployment,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, count, sum, gte } from "drizzle-orm";
+import { eq, desc, and, count, sum, gte, inArray } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -248,6 +248,23 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(encryptionAlgorithms)
       .where(eq(encryptionAlgorithms.isActive, true))
+      .orderBy(encryptionAlgorithms.name);
+  }
+
+  async getEncryptionAlgorithmsByIds(algorithmIds: string[]): Promise<EncryptionAlgorithm[]> {
+    if (algorithmIds.length === 0) {
+      return [];
+    }
+    
+    return await db
+      .select()
+      .from(encryptionAlgorithms)
+      .where(
+        and(
+          inArray(encryptionAlgorithms.id, algorithmIds),
+          eq(encryptionAlgorithms.isActive, true)
+        )
+      )
       .orderBy(encryptionAlgorithms.name);
   }
 
@@ -626,6 +643,16 @@ export class DatabaseStorage implements IStorage {
         isQuantumSafe: false,
         isPostQuantum: false,
         isActive: true,
+        fipsValidated: true,
+        fipsValidationNumber: 'FIPS-197',
+        fipsSecurityLevel: 1,
+        nistApproved: true,
+        nistStandard: 'FIPS 197',
+        securityStrength: 128,
+        capabilities: JSON.stringify(['encrypt', 'decrypt']),
+        limitations: JSON.stringify(['no_authentication', 'identical_blocks_reveal_patterns']),
+        recommendedUse: 'Legacy support only. Use GCM mode for new applications.',
+        migrationPath: 'AES-256-GCM',
       },
       {
         name: 'AES-128-CBC',
@@ -766,6 +793,16 @@ export class DatabaseStorage implements IStorage {
         isQuantumSafe: false,
         isPostQuantum: false,
         isActive: true,
+        fipsValidated: true,
+        fipsValidationNumber: 'FIPS-197',
+        fipsSecurityLevel: 1,
+        nistApproved: true,
+        nistStandard: 'FIPS 197, SP 800-38D',
+        securityStrength: 256,
+        capabilities: JSON.stringify(['encrypt', 'decrypt', 'authenticate']),
+        limitations: JSON.stringify(['quantum_vulnerable']),
+        recommendedUse: 'Primary choice for high-security symmetric encryption with authentication.',
+        migrationPath: 'Hybrid: AES-256-GCM + ML-KEM-1024',
       },
       {
         name: 'AES-256-CBC',
@@ -818,6 +855,16 @@ export class DatabaseStorage implements IStorage {
         isQuantumSafe: false,
         isPostQuantum: false,
         isActive: true,
+        fipsValidated: false,
+        fipsValidationNumber: null,
+        fipsSecurityLevel: null,
+        nistApproved: false,
+        nistStandard: 'RFC 8439',
+        securityStrength: 256,
+        capabilities: JSON.stringify(['encrypt', 'decrypt', 'authenticate']),
+        limitations: JSON.stringify(['not_fips_validated', 'quantum_vulnerable']),
+        recommendedUse: 'High-performance applications where FIPS compliance is not required.',
+        migrationPath: 'Hybrid: ChaCha20-Poly1305 + ML-KEM-1024',
       },
       {
         name: 'Salsa20',
@@ -1452,6 +1499,155 @@ export class DatabaseStorage implements IStorage {
         isActive: true,
       },
       
+      // === POST-QUANTUM CRYPTOGRAPHY (NIST STANDARDS) ===
+      // ML-KEM (Module Lattice-based KEM) - NIST PQC Standard (FIPS 203)
+      {
+        name: 'ML-KEM-512',
+        displayName: 'ML-KEM-512 (Kyber-512)',
+        description: 'NIST Post-Quantum Key Encapsulation Mechanism. Security Level 1 (equivalent to AES-128). FIPS 203 standard.',
+        type: 'post_quantum' as const,
+        keySize: 512,
+        isQuantumSafe: true,
+        isPostQuantum: true,
+        isActive: true,
+      },
+      {
+        name: 'ML-KEM-768',
+        displayName: 'ML-KEM-768 (Kyber-768)',
+        description: 'NIST Post-Quantum Key Encapsulation Mechanism. Security Level 3 (equivalent to AES-192). FIPS 203 standard.',
+        type: 'post_quantum' as const,
+        keySize: 768,
+        isQuantumSafe: true,
+        isPostQuantum: true,
+        isActive: true,
+      },
+      {
+        name: 'ML-KEM-1024',
+        displayName: 'ML-KEM-1024 (Kyber-1024)',
+        description: 'NIST Post-Quantum Key Encapsulation Mechanism. Security Level 5 (equivalent to AES-256). FIPS 203 standard.',
+        type: 'post_quantum' as const,
+        keySize: 1024,
+        isQuantumSafe: true,
+        isPostQuantum: true,
+        isActive: true,
+      },
+      
+      // ML-DSA (Module Lattice-based DSA) - NIST PQC Standard (FIPS 204)
+      {
+        name: 'ML-DSA-44',
+        displayName: 'ML-DSA-44 (Dilithium2)',
+        description: 'NIST Post-Quantum Digital Signature Algorithm. Security Level 2 (equivalent to SHA-256). FIPS 204 standard.',
+        type: 'post_quantum' as const,
+        keySize: 2544,
+        isQuantumSafe: true,
+        isPostQuantum: true,
+        isActive: true,
+      },
+      {
+        name: 'ML-DSA-65',
+        displayName: 'ML-DSA-65 (Dilithium3)',
+        description: 'NIST Post-Quantum Digital Signature Algorithm. Security Level 3 (equivalent to SHA-384). FIPS 204 standard.',
+        type: 'post_quantum' as const,
+        keySize: 4016,
+        isQuantumSafe: true,
+        isPostQuantum: true,
+        isActive: true,
+      },
+      {
+        name: 'ML-DSA-87',
+        displayName: 'ML-DSA-87 (Dilithium5)',
+        description: 'NIST Post-Quantum Digital Signature Algorithm. Security Level 5 (equivalent to SHA-512). FIPS 204 standard.',
+        type: 'post_quantum' as const,
+        keySize: 4880,
+        isQuantumSafe: true,
+        isPostQuantum: true,
+        isActive: true,
+      },
+      
+      // SPHINCS+ - NIST PQC Standard (FIPS 205)
+      {
+        name: 'SLH-DSA-SHA2-128s',
+        displayName: 'SLH-DSA-SHA2-128s (SPHINCS+-SHA2-128s)',
+        description: 'NIST Stateless Hash-based Digital Signature Algorithm. Small signatures, SHA-2 variant. FIPS 205 standard.',
+        type: 'post_quantum' as const,
+        keySize: 128,
+        isQuantumSafe: true,
+        isPostQuantum: true,
+        isActive: true,
+      },
+      {
+        name: 'SLH-DSA-SHA2-128f',
+        displayName: 'SLH-DSA-SHA2-128f (SPHINCS+-SHA2-128f)',
+        description: 'NIST Stateless Hash-based Digital Signature Algorithm. Fast signatures, SHA-2 variant. FIPS 205 standard.',
+        type: 'post_quantum' as const,
+        keySize: 128,
+        isQuantumSafe: true,
+        isPostQuantum: true,
+        isActive: true,
+      },
+      {
+        name: 'SLH-DSA-SHAKE-128s',
+        displayName: 'SLH-DSA-SHAKE-128s (SPHINCS+-SHAKE-128s)',
+        description: 'NIST Stateless Hash-based Digital Signature Algorithm. Small signatures, SHAKE variant. FIPS 205 standard.',
+        type: 'post_quantum' as const,
+        keySize: 128,
+        isQuantumSafe: true,
+        isPostQuantum: true,
+        isActive: true,
+      },
+      {
+        name: 'SLH-DSA-SHAKE-128f',
+        displayName: 'SLH-DSA-SHAKE-128f (SPHINCS+-SHAKE-128f)',
+        description: 'NIST Stateless Hash-based Digital Signature Algorithm. Fast signatures, SHAKE variant. FIPS 205 standard.',
+        type: 'post_quantum' as const,
+        keySize: 128,
+        isQuantumSafe: true,
+        isPostQuantum: true,
+        isActive: true,
+      },
+      
+      // HYBRID ALGORITHMS FOR MIGRATION PERIOD
+      {
+        name: 'ML-KEM-768+ECDH-P256',
+        displayName: 'ML-KEM-768 + ECDH P-256 (Hybrid)',
+        description: 'Hybrid Post-Quantum + Classical KEM. Combines ML-KEM-768 with ECDH P-256 for migration security.',
+        type: 'post_quantum' as const,
+        keySize: 768,
+        isQuantumSafe: true,
+        isPostQuantum: true,
+        isActive: true,
+      },
+      {
+        name: 'ML-KEM-1024+ECDH-P384',
+        displayName: 'ML-KEM-1024 + ECDH P-384 (Hybrid)',
+        description: 'Hybrid Post-Quantum + Classical KEM. Combines ML-KEM-1024 with ECDH P-384 for maximum security.',
+        type: 'post_quantum' as const,
+        keySize: 1024,
+        isQuantumSafe: true,
+        isPostQuantum: true,
+        isActive: true,
+      },
+      {
+        name: 'ML-DSA-65+ECDSA-P256',
+        displayName: 'ML-DSA-65 + ECDSA P-256 (Hybrid)',
+        description: 'Hybrid Post-Quantum + Classical DSA. Combines ML-DSA-65 with ECDSA P-256 for migration security.',
+        type: 'post_quantum' as const,
+        keySize: 4016,
+        isQuantumSafe: true,
+        isPostQuantum: true,
+        isActive: true,
+      },
+      {
+        name: 'ML-DSA-87+Ed25519',
+        displayName: 'ML-DSA-87 + Ed25519 (Hybrid)',
+        description: 'Hybrid Post-Quantum + Classical DSA. Combines ML-DSA-87 with Ed25519 for maximum security.',
+        type: 'post_quantum' as const,
+        keySize: 4880,
+        isQuantumSafe: true,
+        isPostQuantum: true,
+        isActive: true,
+      },
+      
       // === KEY DERIVATION FUNCTIONS ===
       {
         name: 'PBKDF2-SHA1',
@@ -1770,6 +1966,104 @@ export class DatabaseStorage implements IStorage {
   }): Promise<EncryptionAlgorithm[]> {
     // Ensure algorithms are seeded
     await this.getEncryptionAlgorithms();
+    
+    let recommendedAlgorithms: EncryptionAlgorithm[] = [];
+    
+    // Security level-based algorithm recommendations
+    switch (applicationConfig.securityLevel) {
+      case 'post_quantum':
+        // Pure post-quantum algorithms
+        recommendedAlgorithms = await db
+          .select()
+          .from(encryptionAlgorithms)
+          .where(
+            and(
+              eq(encryptionAlgorithms.isPostQuantum, true),
+              eq(encryptionAlgorithms.isActive, true)
+            )
+          );
+        break;
+        
+      case 'quantum_ready':
+        // Hybrid classical + post-quantum algorithms
+        recommendedAlgorithms = await db
+          .select()
+          .from(encryptionAlgorithms)
+          .where(
+            and(
+              eq(encryptionAlgorithms.isActive, true),
+              sql`(${encryptionAlgorithms.name} LIKE '%+%' OR ${encryptionAlgorithms.isPostQuantum} = true)`
+            )
+          );
+        break;
+        
+      case 'maximum':
+        // High-security classical algorithms + some PQC
+        recommendedAlgorithms = await db
+          .select()
+          .from(encryptionAlgorithms)
+          .where(
+            and(
+              eq(encryptionAlgorithms.isActive, true),
+              sql`(${encryptionAlgorithms.securityStrength} >= 256 OR ${encryptionAlgorithms.isPostQuantum} = true)`
+            )
+          );
+        break;
+        
+      case 'enhanced':
+        // FIPS-validated algorithms
+        recommendedAlgorithms = await db
+          .select()
+          .from(encryptionAlgorithms)
+          .where(
+            and(
+              eq(encryptionAlgorithms.isActive, true),
+              eq(encryptionAlgorithms.fipsValidated, true)
+            )
+          );
+        break;
+        
+      default:
+        // Standard security - common algorithms
+        recommendedAlgorithms = await db
+          .select()
+          .from(encryptionAlgorithms)
+          .where(
+            and(
+              eq(encryptionAlgorithms.isActive, true),
+              sql`${encryptionAlgorithms.name} IN ('AES-256-GCM', 'ChaCha20-Poly1305', 'ECDSA-P256', 'Ed25519')`
+            )
+          );
+    }
+    
+    // Compliance-based filtering
+    if (applicationConfig.complianceRequirements?.includes('fips140-3') || 
+        applicationConfig.complianceRequirements?.includes('nsa-cnsa-2.0')) {
+      recommendedAlgorithms = recommendedAlgorithms.filter(alg => 
+        alg.fipsValidated || alg.isPostQuantum
+      );
+    }
+    
+    if (applicationConfig.complianceRequirements?.includes('nist-pqc')) {
+      // Add post-quantum algorithms
+      const pqcAlgorithms = await db
+        .select()
+        .from(encryptionAlgorithms)
+        .where(
+          and(
+            eq(encryptionAlgorithms.isPostQuantum, true),
+            eq(encryptionAlgorithms.isActive, true)
+          )
+        );
+      recommendedAlgorithms = [...recommendedAlgorithms, ...pqcAlgorithms];
+    }
+    
+    // Remove duplicates
+    const uniqueAlgorithms = recommendedAlgorithms.filter((alg, index, self) => 
+      index === self.findIndex(a => a.id === alg.id)
+    );
+    
+    return uniqueAlgorithms.slice(0, 12); // Limit to top 12 recommendations
     
     const { applicationType, securityLevel, complianceRequirements = [], deploymentEnvironment } = applicationConfig;
     

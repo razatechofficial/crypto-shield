@@ -98,16 +98,22 @@ const complianceStandards = [
   { id: 'hipaa', name: 'HIPAA', description: 'Healthcare data protection (US)' },
   { id: 'pci', name: 'PCI DSS', description: 'Payment card industry standards' },
   { id: 'sox', name: 'SOX', description: 'Sarbanes-Oxley financial compliance' },
-  { id: 'fips', name: 'FIPS 140-2', description: 'US government cryptographic standards' },
+  { id: 'fips140-2', name: 'FIPS 140-2', description: 'US government cryptographic standards (legacy)' },
+  { id: 'fips140-3', name: 'FIPS 140-3', description: 'Latest US government cryptographic standards' },
+  { id: 'nist-pqc', name: 'NIST PQC', description: 'Post-quantum cryptography standards (FIPS 203/204/205)' },
+  { id: 'nsa-cnsa-2.0', name: 'NSA CNSA 2.0', description: 'Post-quantum ready security requirements' },
   { id: 'iso27001', name: 'ISO 27001', description: 'International security management standards' },
   { id: 'fedramp', name: 'FedRAMP', description: 'US federal cloud security standards' },
   { id: 'cccs', name: 'Common Criteria', description: 'International IT security evaluation standards' },
+  { id: 'suite-b', name: 'NSA Suite B', description: 'Government cryptographic algorithm suite (transitioning)' },
 ];
 
 const securityLevels = [
-  { id: 'standard', name: 'Standard Security', description: 'Basic encryption for general use cases' },
-  { id: 'enhanced', name: 'Enhanced Security', description: 'Strong encryption for sensitive data' },
-  { id: 'maximum', name: 'Maximum Security', description: 'Military-grade encryption for critical systems' },
+  { id: 'standard', name: 'Standard Security', description: 'Basic encryption for general use cases (AES-256-GCM)' },
+  { id: 'enhanced', name: 'Enhanced Security', description: 'Strong encryption for sensitive data (FIPS 140-3 validated)' },
+  { id: 'maximum', name: 'Maximum Security', description: 'Military-grade encryption for critical systems (Suite B)' },
+  { id: 'quantum_ready', name: 'Quantum-Ready', description: 'Hybrid classical+PQC algorithms for future protection' },
+  { id: 'post_quantum', name: 'Post-Quantum', description: 'Pure PQC algorithms (ML-KEM, ML-DSA, SPHINCS+)' },
   { id: 'confidential', name: 'Confidential Computing', description: 'TEE-based protection with encrypted computation' },
   { id: 'privacy_preserving', name: 'Privacy-Preserving', description: 'Homomorphic encryption and secure multi-party computation' },
 ];
@@ -163,6 +169,7 @@ export default function SdkWizard() {
   const [dataTypesSelected, setDataTypesSelected] = useState<string[]>([]);
   const [recommendedAlgorithms, setRecommendedAlgorithms] = useState<EncryptionAlgorithm[]>([]);
   const [generatedSDK, setGeneratedSDK] = useState<any>(null);
+  const [complianceRecommendation, setComplianceRecommendation] = useState<any>(null);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -205,6 +212,27 @@ export default function SdkWizard() {
       fetchRecommendations();
     }
   }, [step, applicationTypes, securityLevel, complianceRequirements, deploymentEnvironment]);
+
+  // Fetch compliance recommendations when step 2 data is complete
+  useEffect(() => {
+    if (step >= 2 && securityLevel && dataTypesSelected.length > 0) {
+      const fetchComplianceRecommendations = async () => {
+        try {
+          const response = await apiRequest('POST', '/api/compliance/recommendations', {
+            securityLevel,
+            dataTypes: dataTypesSelected,
+            complianceRequirements,
+          });
+          console.log('Compliance recommendation received:', response);
+          setComplianceRecommendation(response);
+        } catch (error) {
+          console.error('Failed to fetch compliance recommendations:', error);
+          // Don't show error toast for compliance recommendations as they're supplementary
+        }
+      };
+      fetchComplianceRecommendations();
+    }
+  }, [step, securityLevel, dataTypesSelected, complianceRequirements]);
 
   // Auto-select recommended algorithms when they change OR fallback to smart defaults
   useEffect(() => {
@@ -689,6 +717,62 @@ export default function SdkWizard() {
                     ))}
                   </div>
                 </div>
+
+                {/* Compliance Recommendations */}
+                {complianceRecommendation && (
+                  <div className="border border-border rounded-lg p-6 bg-secondary/20">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Lightbulb className="w-5 h-5 text-primary" />
+                      <Label className="text-foreground font-medium">Compliance Recommendations</Label>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="secondary" className="font-medium">
+                          Recommended: {complianceRecommendation.recommendedProfile?.replace(/_/g, ' ')}
+                        </Badge>
+                        <Badge 
+                          variant={
+                            complianceRecommendation.urgency === 'critical' ? 'destructive' : 
+                            complianceRecommendation.urgency === 'high' ? 'destructive' :
+                            complianceRecommendation.urgency === 'medium' ? 'default' : 'secondary'
+                          }
+                        >
+                          {complianceRecommendation.urgency} priority
+                        </Badge>
+                      </div>
+                      
+                      <p className="text-muted-foreground text-sm">
+                        <strong>Rationale:</strong> {complianceRecommendation.rationale}
+                      </p>
+                      
+                      {complianceRecommendation.profile && (
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2">
+                          <div className="text-center">
+                            <div className="text-sm text-muted-foreground">FIPS Required</div>
+                            <Badge variant={complianceRecommendation.profile.fipsRequired ? "default" : "secondary"}>
+                              {complianceRecommendation.profile.fipsRequired ? "Yes" : "No"}
+                            </Badge>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-sm text-muted-foreground">Quantum Safe</div>
+                            <Badge variant={complianceRecommendation.profile.quantumSafe ? "default" : "secondary"}>
+                              {complianceRecommendation.profile.quantumSafe ? "Yes" : "No"}
+                            </Badge>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-sm text-muted-foreground">Security Level</div>
+                            <Badge variant="outline">{complianceRecommendation.profile.level}</Badge>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-sm text-muted-foreground">Min Strength</div>
+                            <Badge variant="outline">{complianceRecommendation.profile.minimumSecurityStrength}-bit</Badge>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

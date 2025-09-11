@@ -110,36 +110,76 @@ export default function QuantumSecurity() {
   });
   const postQuantumAlgorithms = [
     {
-      name: "CRYSTALS-Kyber",
+      name: "ML-KEM-512",
       type: "Key Encapsulation",
-      status: "NIST Standard",
+      status: "FIPS 203 Standard",
       securityLevel: 128,
-      description: "Lattice-based key encapsulation for quantum-safe key exchange",
-      available: true
+      description: "NIST Post-Quantum Key Encapsulation Mechanism (Level 1 security)",
+      available: true,
+      fipsStatus: "FIPS 203"
     },
     {
-      name: "CRYSTALS-Dilithium", 
+      name: "ML-KEM-768",
+      type: "Key Encapsulation",
+      status: "FIPS 203 Standard",
+      securityLevel: 192,
+      description: "NIST Post-Quantum Key Encapsulation Mechanism (Level 3 security)",
+      available: true,
+      fipsStatus: "FIPS 203"
+    },
+    {
+      name: "ML-KEM-1024",
+      type: "Key Encapsulation",
+      status: "FIPS 203 Standard",
+      securityLevel: 256,
+      description: "NIST Post-Quantum Key Encapsulation Mechanism (Level 5 security)",
+      available: true,
+      fipsStatus: "FIPS 203"
+    },
+    {
+      name: "ML-DSA-44",
       type: "Digital Signature",
-      status: "NIST Standard",
+      status: "FIPS 204 Standard",
       securityLevel: 128,
-      description: "Lattice-based signature scheme resistant to quantum attacks",
-      available: true
+      description: "NIST Post-Quantum Digital Signature Algorithm (Dilithium2)",
+      available: true,
+      fipsStatus: "FIPS 204"
     },
     {
-      name: "FALCON",
-      type: "Digital Signature", 
-      status: "NIST Standard",
-      securityLevel: 128,
-      description: "Compact lattice-based signatures for constrained environments",
-      available: false
-    },
-    {
-      name: "SPHINCS+",
+      name: "ML-DSA-65",
       type: "Digital Signature",
-      status: "NIST Standard", 
+      status: "FIPS 204 Standard",
+      securityLevel: 192,
+      description: "NIST Post-Quantum Digital Signature Algorithm (Dilithium3)",
+      available: true,
+      fipsStatus: "FIPS 204"
+    },
+    {
+      name: "ML-DSA-87",
+      type: "Digital Signature",
+      status: "FIPS 204 Standard",
+      securityLevel: 256,
+      description: "NIST Post-Quantum Digital Signature Algorithm (Dilithium5)",
+      available: true,
+      fipsStatus: "FIPS 204"
+    },
+    {
+      name: "SLH-DSA-SHA2-128s",
+      type: "Hash-based Signature",
+      status: "FIPS 205 Standard",
       securityLevel: 128,
-      description: "Hash-based signatures with minimal security assumptions",
-      available: false
+      description: "NIST Stateless Hash-based Digital Signature (SPHINCS+)",
+      available: true,
+      fipsStatus: "FIPS 205"
+    },
+    {
+      name: "SLH-DSA-SHAKE-128f",
+      type: "Hash-based Signature",
+      status: "FIPS 205 Standard",
+      securityLevel: 128,
+      description: "NIST Stateless Hash-based Digital Signature (SPHINCS+ Fast)",
+      available: true,
+      fipsStatus: "FIPS 205"
     }
   ];
 
