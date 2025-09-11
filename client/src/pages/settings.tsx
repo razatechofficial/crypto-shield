@@ -31,6 +31,46 @@ export default function Settings() {
     retry: false,
   });
 
+  const { data: apiKeyData, isLoading: apiKeyLoading } = useQuery({
+    queryKey: ["/api/tenant/api-key"],
+    retry: false,
+  });
+
+  const regenerateApiKeyMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest('POST', '/api/tenant/api-key/regenerate', {});
+    },
+    onSuccess: (data: any) => {
+      toast({
+        title: "Success",
+        description: "API key regenerated successfully! Please update your applications with the new key.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/tenant/api-key"] });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to regenerate API key. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleRegenerateApiKey = () => {
+    regenerateApiKeyMutation.mutate();
+  };
+
   const saveSettingsMutation = useMutation({
     mutationFn: async (settings: any) => {
       return await apiRequest('PUT', '/api/settings', settings);
@@ -253,7 +293,7 @@ export default function Settings() {
                 <div className="flex space-x-2">
                   <Input
                     type="password"
-                    value="ak_xxxxxxxxxxxxxxxxxxxxxxxxxx"
+                    value={apiKeyLoading ? "Loading..." : ((apiKeyData as any)?.fullApiKey || "No API key found")}
                     readOnly
                     className="bg-slate-700 border-slate-600 text-white font-mono"
                     data-testid="input-api-key"
@@ -261,9 +301,11 @@ export default function Settings() {
                   <Button 
                     variant="outline" 
                     className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                    onClick={handleRegenerateApiKey}
+                    disabled={regenerateApiKeyMutation.isPending}
                     data-testid="button-regenerate-api-key"
                   >
-                    Regenerate
+                    {regenerateApiKeyMutation.isPending ? 'Regenerating...' : 'Regenerate'}
                   </Button>
                 </div>
                 <p className="text-slate-400 text-sm">Use this API key to authenticate requests to the Averox API</p>

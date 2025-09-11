@@ -157,6 +157,18 @@ export class DatabaseStorage implements IStorage {
     return tenant;
   }
 
+  async updateTenantApiKey(tenantId: string, newApiKey: string): Promise<Tenant> {
+    const [tenant] = await db
+      .update(tenants)
+      .set({
+        apiKey: newApiKey,
+        updatedAt: new Date(),
+      })
+      .where(eq(tenants.id, tenantId))
+      .returning();
+    return tenant;
+  }
+
   async getOrCreateTenantForUser(userId: string, email: string): Promise<string> {
     // Check if user already exists with a tenant
     const existingUser = await this.getUser(userId);
@@ -168,7 +180,6 @@ export class DatabaseStorage implements IStorage {
     const tenant = await this.createTenant({
       name: `${email.split('@')[0]}'s Organization`,
       subscriptionTier: 'starter',
-      id: randomUUID(),
     });
 
     return tenant.id;
