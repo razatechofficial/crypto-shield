@@ -33,7 +33,7 @@ import {
   type InsertSdkDeployment,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, count, sum, gte, inArray } from "drizzle-orm";
+import { eq, desc, and, count, sum, gte, inArray, sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
 export interface IStorage {

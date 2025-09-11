@@ -65,7 +65,11 @@ export default function Landing() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="bg-slate-800 border-slate-700">
+          <Card 
+            className="bg-slate-800 border-slate-700 cursor-pointer hover:bg-slate-700 transition-colors"
+            onClick={() => window.location.href = '/api/login'}
+            data-testid="card-sdk-wizard"
+          >
             <CardHeader>
               <Zap className="w-8 h-8 text-blue-500 mb-2" />
               <CardTitle className="text-white">SDK Wizard</CardTitle>
