@@ -123,7 +123,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Unauthorized access to SDK" });
       }
 
-      console.log(`✅ Found SDK: ${sdk.name} (version ${sdk.version})`);
+      // Fix version type safety
+      const sdkVersion = sdk.version || "2.0.0";
+      console.log(`✅ Found SDK: ${sdk.name} (version ${sdkVersion})`);
 
       // Parse languages safely
       const languages = Array.isArray(sdk.languages) 
@@ -132,29 +134,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`🏭 Generating ENTERPRISE SDKs for languages: ${languages.join(', ')}`);
 
+      // Generate REAL production SDKs using enterprise generator
+      const sdkWithVersion = { ...sdk, version: sdkVersion };
+      const sdkResults = await EnterpriseAdapter.generateSDK(sdkWithVersion, languages);
+
+      // CRITICAL: Calculate totals and verify BEFORE streaming starts
+      let totalSize = 0;
+      let fileCount = 0;
+      const requiredFiles = [
+        'src/index.js',
+        'src/security-hardening-core.cjs',
+        'README.md',
+        'SECURITY.md',
+        'LICENSE',
+        'SBOM.json',
+        'package.json'
+      ];
+
+      const allFiles: string[] = [];
+
+      for (const [language, fileMap] of Object.entries(sdkResults)) {
+        for (const [filePath, content] of Object.entries(fileMap)) {
+          const size = Buffer.byteLength(content, 'utf8');
+          totalSize += size;
+          fileCount++;
+          allFiles.push(`${language}/${filePath}`);
+          console.log(`📄 ENTERPRISE FILE: ${language}/${filePath} (${(size/1024).toFixed(1)} KB)`);
+        }
+      }
+
+      console.log(`🎯 PRODUCTION SDK SUMMARY: ${fileCount} files, ${(totalSize/1024).toFixed(1)} KB total`);
+
+      // CRITICAL: Verify production readiness BEFORE streaming
+      const MIN_FILES = 10;  // Minimum expected files for production SDK  
+      const MIN_SIZE_KB = 50; // Minimum expected size in KB (realistic for complete SDK)
+      
+      // Check for required files
+      const missingFiles = requiredFiles.filter(required => 
+        !allFiles.some(file => file.includes(required))
+      );
+      
+      if (missingFiles.length > 0) {
+        console.error(`❌ PRODUCTION VERIFICATION FAILED: Missing required files: ${missingFiles.join(', ')}`);
+        return res.status(500).json({ 
+          message: `SDK generation failed: Missing required files`,
+          details: `Missing: ${missingFiles.join(', ')}`,
+          generated_files: allFiles
+        });
+      }
+
+      if (fileCount < MIN_FILES) {
+        console.error(`❌ PRODUCTION VERIFICATION FAILED: Only ${fileCount} files (minimum ${MIN_FILES} required)`);
+        return res.status(500).json({ 
+          message: `SDK generation failed: Insufficient files (${fileCount}/${MIN_FILES})`,
+          details: "Enterprise SDK must contain all required components"
+        });
+      }
+      
+      if ((totalSize/1024) < MIN_SIZE_KB) {
+        console.error(`❌ PRODUCTION VERIFICATION FAILED: Only ${(totalSize/1024).toFixed(1)} KB (minimum ${MIN_SIZE_KB} KB required)`);
+        return res.status(500).json({ 
+          message: `SDK generation failed: SDK too small (${(totalSize/1024).toFixed(1)}/${MIN_SIZE_KB} KB)`,
+          details: "Enterprise SDK must include all security implementations and dependencies"
+        });
+      }
+
+      console.log(`✅ PRODUCTION VERIFICATION PASSED: ${fileCount}/${MIN_FILES} files, ${(totalSize/1024).toFixed(1)}/${MIN_SIZE_KB} KB`);
+      console.log(`🔒 REQUIRED FILES VERIFIED: ${requiredFiles.join(', ')}`);
+
+      // NOW start streaming after all verification passes
       res.setHeader('Content-Type', 'application/zip');
-      res.setHeader('Content-Disposition', `attachment; filename="${sdk.name.toLowerCase().replace(/\s+/g, '-')}-enterprise-sdk-v${sdk.version}.zip"`);
+      res.setHeader('Content-Disposition', `attachment; filename="${sdk.name.toLowerCase().replace(/\s+/g, '-')}-enterprise-sdk-v${sdkVersion}.zip"`);
       
       const archive = archiver('zip', { zlib: { level: 9 } });
       
       archive.on('error', (err) => {
         console.error('❌ Archive error:', err);
-        if (!res.headersSent) {
-          res.status(500).json({ message: 'Archive creation failed' });
-        }
       });
 
       archive.pipe(res);
-      console.log('📡 Archive piped to response with ENTERPRISE GENERATOR');
+      console.log('📡 Archive piped to response AFTER verification passed');
 
-      // Generate REAL production SDKs using enterprise generator
-      const sdkResults = await EnterpriseAdapter.generateSDK(sdk, languages);
-
+      // Add all verified files to archive
       for (const [language, fileMap] of Object.entries(sdkResults)) {
         const langFolder = `${language}/`;
         for (const [filePath, content] of Object.entries(fileMap)) {
           archive.append(content, { name: `${langFolder}${filePath}` });
-          console.log(`📄 Added ENTERPRISE file: ${langFolder}${filePath}`);
         }
       }
 
