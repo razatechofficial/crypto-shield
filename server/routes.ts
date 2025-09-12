@@ -268,6 +268,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Dashboard statistics
+  app.get("/api/dashboard/stats", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const tenantId = user.tenantId || 'default-tenant';
+      const stats = await storage.getDashboardStats(tenantId);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching dashboard stats:", error);
+      res.status(500).json({ message: "Failed to fetch dashboard stats" });
+    }
+  });
+
+  // Dashboard activities
+  app.get("/api/dashboard/activities", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const tenantId = user.tenantId || 'default-tenant';
+      const activities = await storage.getRecentActivities(tenantId);
+      res.json(activities);
+    } catch (error: any) {
+      console.error('Error fetching dashboard activities:', error);
+      res.status(500).json({ message: "Failed to fetch dashboard activities" });
+    }
+  });
+
   // Health check
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
