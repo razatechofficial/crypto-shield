@@ -1060,14 +1060,126 @@ end`;
       throw new Error('Critical dependency security-hardening-core.cjs not found');
     }
 
+    // SECURITY GATE: TypeScript Declaration Files (CRITICAL FOR PRODUCTION)
+    const typeScriptTypes = `// TypeScript Declaration File for ${sdk.name}
+// Generated: ${new Date().toISOString()}
+
+export interface AveroxCryptoOptions {
+  masterKey: Buffer;
+  algorithm?: 'AES-256-GCM';
+  keyDerivation?: 'HKDF' | 'PBKDF2' | 'Scrypt' | 'Argon2id';
+}
+
+export interface EncryptionResult {
+  envelope: string;
+  metadata: {
+    algorithm: string;
+    version: string;
+    keyId: string;
+  };
+}
+
+export interface DecryptionResult {
+  plaintext: Buffer;
+  metadata: {
+    algorithm: string;
+    version: string;
+    keyId: string;
+  };
+}
+
+export interface EnvelopeData {
+  version: string;
+  algorithm: string;
+  kid: string | null;
+  iv: Buffer;
+  tag: Buffer;
+  ciphertext: Buffer;
+}
+
+export class AveroxCryptoError extends Error {
+  constructor(
+    public code: string,
+    public override message: string,
+    public context?: Record<string, any>
+  );
+}
+
+export class SecurityError extends Error {
+  constructor(
+    public code: string,
+    public override message: string,
+    public context?: Record<string, any>
+  );
+}
+
+export class AveroxCrypto {
+  constructor(masterKey: Buffer, options?: Partial<AveroxCryptoOptions>);
+  
+  encrypt(plaintext: Buffer, aad?: Buffer | null): EncryptionResult;
+  decrypt(envelope: string, aad?: Buffer | null): DecryptionResult;
+  
+  static generateMasterKey(): Buffer;
+  static validateKey(key: Buffer): boolean;
+  
+  private deriveKey(purpose: string): Buffer;
+  private generateIV(): Buffer;
+}
+
+export class AveroxEnvelope {
+  static readonly VERSION: string;
+  static readonly ALGORITHM: string;
+  
+  static create(iv: Buffer, tag: Buffer, ciphertext: Buffer, kid?: string): string;
+  static parse(envelopeStr: string): EnvelopeData;
+}
+
+export class KeyDerivation {
+  static hkdf(ikm: Buffer, salt?: Buffer, info?: Buffer, length?: number): Buffer;
+  static pbkdf2(password: Buffer, salt: Buffer, iterations: number, length?: number): Buffer;
+  static scrypt(password: Buffer, salt: Buffer, length?: number): Buffer;
+  static argon2id(password: Buffer, salt: Buffer, length?: number): Buffer;
+}
+
+export class TelemetryCollector {
+  static recordOperation(operation: string, duration: number, metadata?: Record<string, any>): void;
+  static recordError(error: Error, context?: Record<string, any>): void;
+  static getMetrics(): Record<string, any>;
+}
+
+// Utility functions
+export function zeroizeBuffer(buffer: Buffer): void;
+export function constantTimeCompare(a: Buffer, b: Buffer): boolean;
+
+// Main exports
+export default AveroxCrypto;
+export { AveroxCrypto, AveroxEnvelope, KeyDerivation, TelemetryCollector };
+`;
+
+    // PKG-CONFIG Template File
+    const pkgConfigTemplate = `prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=\${prefix}
+libdir=\${prefix}/@CMAKE_INSTALL_LIBDIR@
+includedir=\${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
+
+Name: ${sdk.name}
+Description: Enterprise-grade cryptographic SDK with all 18 security gates
+Version: @PROJECT_VERSION@
+Requires: openssl >= 1.1.1
+Libs: -L\${libdir} -l${sdk.name.toLowerCase()} -lssl -lcrypto
+Cflags: -I\${includedir}
+`;
+
     return {
       'package.json': JSON.stringify(packageJson, null, 2),
       'src/index.js': coreImplementation,
+      'src/index.d.ts': typeScriptTypes, // TYPESCRIPT TYPES
       'src/security-hardening-core.cjs': securityHardeningCore, // INCLUDE DEPENDENCY!
       'test/nist-vectors.js': nistTests,
       'test/golden-vectors.json': JSON.stringify(goldenVectors, null, 2),
       '.github/workflows/ci.yml': ciConfig,
       'CMakeLists.txt': cmakeConfig,
+      '${sdk.name.toLowerCase()}.pc.in': pkgConfigTemplate, // PKG-CONFIG TEMPLATE
       'android/build.gradle': gradleConfig, 
       'ios/AveroxCryptoSDK.podspec': podspecConfig,
       'SECURITY.md': securityMd,
