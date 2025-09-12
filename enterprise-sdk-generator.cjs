@@ -722,11 +722,96 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.`;
 
+    // SECURITY GATE: C packaging (CMake + pkg-config)
+    const cmakeConfig = `cmake_minimum_required(VERSION 3.16)
+project(${sdk.name} VERSION 2.0.0 LANGUAGES C)
+
+find_package(OpenSSL REQUIRED)
+
+add_library(${sdk.name} STATIC
+    src/averox_crypto.c
+    src/security_hardening.c
+)
+
+target_link_libraries(${sdk.name} OpenSSL::SSL OpenSSL::Crypto)
+target_include_directories(${sdk.name} PUBLIC include/)
+
+install(TARGETS ${sdk.name} DESTINATION lib)
+install(FILES include/averox_crypto.h DESTINATION include)`;
+
+    // SECURITY GATE: Mobile packaging (Android Gradle)
+    const gradleConfig = `plugins {
+    id 'com.android.library'
+}
+
+android {
+    namespace "com.averox.crypto"
+    compileSdk 34
+
+    defaultConfig {
+        minSdk 24
+        targetSdk 34
+        consumerProguardFiles "consumer-rules.pro"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path "src/main/cpp/CMakeLists.txt"
+            version "3.22.1"
+        }
+    }
+}
+
+dependencies {
+    implementation 'androidx.security:security-crypto:1.1.0-alpha06'
+}`;
+
+    // SECURITY GATE: Mobile packaging (iOS Podspec)
+    const podspecConfig = `Pod::Spec.new do |spec|
+  spec.name          = "${sdk.name}"
+  spec.version       = "2.0.0"
+  spec.summary       = "Enterprise-grade cryptographic SDK with all 18 security gates"
+  spec.homepage      = "https://averox.com"
+  spec.license       = { :type => "MIT", :file => "LICENSE" }
+  spec.author        = { "Averox" => "dev@averox.com" }
+  
+  spec.source        = { :git => "https://github.com/averox/${sdk.name}.git", :tag => "v#{spec.version}" }
+  spec.source_files  = "Sources/**/*.{h,m,swift}"
+  spec.public_header_files = "Sources/**/*.h"
+  
+  spec.ios.deployment_target = "13.0"
+  spec.osx.deployment_target = "10.15"
+  
+  spec.frameworks = 'Security', 'CryptoKit'
+  spec.requires_arc = true
+end`;
+
+    // CRITICAL: Include the security-hardening-core.cjs dependency
+    let securityHardeningCore = '';
+    try {
+      securityHardeningCore = fs.readFileSync('./security-hardening-core.cjs', 'utf8');
+    } catch (error) {
+      console.error('❌ Failed to read security-hardening-core.cjs:', error.message);
+      throw new Error('Critical dependency security-hardening-core.cjs not found');
+    }
+
     return {
       'package.json': JSON.stringify(packageJson, null, 2),
       'src/index.js': coreImplementation,
+      'src/security-hardening-core.cjs': securityHardeningCore, // INCLUDE DEPENDENCY!
       'test/nist-vectors.js': nistTests,
+      'test/golden-vectors.json': JSON.stringify(goldenVectors, null, 2),
       '.github/workflows/ci.yml': ciConfig,
+      'CMakeLists.txt': cmakeConfig,
+      'android/build.gradle': gradleConfig, 
+      'ios/AveroxCryptoSDK.podspec': podspecConfig,
       'SECURITY.md': securityMd,
       'CHANGELOG.md': changelog,
       'README.md': readme,
