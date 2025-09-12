@@ -490,7 +490,6 @@ module.exports = { AveroxCrypto, AveroxEnvelope, AveroxTelemetry, AveroxCryptoEr
     
     const nistTests = `// OFFICIAL NIST SP 800-38D Test Vectors for AES-GCM
 // Source: https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Standards-and-Guidelines/documents/examples/AES_GCM.pdf
-const crypto = require('crypto');
 const { AveroxCrypto } = require('../src/index.js');
 
 // OFFICIAL NIST SP 800-38D Test Vectors (verified against NIST publication)
