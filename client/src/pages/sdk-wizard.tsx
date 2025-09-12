@@ -616,49 +616,47 @@ export default function SdkWizard() {
                 {/* Deployment Environment */}
                 <div>
                   <Label className="text-foreground font-medium mb-4 block">Deployment Environment *</Label>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {deploymentEnvironments.map((env) => (
-                      <Label 
-                        key={env.id}
-                        className="flex items-center space-x-3 bg-card border border-border rounded-lg p-4 cursor-pointer hover:bg-secondary transition-colors"
-                        data-testid={`deployment-${env.id}`}
-                      >
-                        <Checkbox
-                          checked={deploymentEnvironment === env.id}
-                          onCheckedChange={() => setDeploymentEnvironment(env.id)}
-                          className="border-border"
-                        />
-                        <div>
-                          <h4 className="text-foreground font-medium">{env.name}</h4>
-                          <p className="text-muted-foreground text-sm">{env.description}</p>
-                        </div>
-                      </Label>
-                    ))}
-                  </div>
+                  <RadioGroup value={deploymentEnvironment} onValueChange={setDeploymentEnvironment}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {deploymentEnvironments.map((env) => (
+                        <Label 
+                          key={env.id}
+                          htmlFor={env.id}
+                          className="flex items-center space-x-3 bg-card border border-border rounded-lg p-4 cursor-pointer hover:bg-secondary transition-colors"
+                          data-testid={`deployment-${env.id}`}
+                        >
+                          <RadioGroupItem value={env.id} id={env.id} className="border-border" />
+                          <div>
+                            <h4 className="text-foreground font-medium">{env.name}</h4>
+                            <p className="text-muted-foreground text-sm">{env.description}</p>
+                          </div>
+                        </Label>
+                      ))}
+                    </div>
+                  </RadioGroup>
                 </div>
 
                 {/* Security Level */}
                 <div>
                   <Label className="text-foreground font-medium mb-4 block">Security Level *</Label>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    {securityLevels.map((level) => (
-                      <Label 
-                        key={level.id}
-                        className="flex items-center space-x-3 bg-card border border-border rounded-lg p-4 cursor-pointer hover:bg-secondary transition-colors"
-                        data-testid={`security-${level.id}`}
-                      >
-                        <Checkbox
-                          checked={securityLevel === level.id}
-                          onCheckedChange={() => setSecurityLevel(level.id)}
-                          className="border-border"
-                        />
-                        <div>
-                          <h4 className="text-foreground font-medium">{level.name}</h4>
-                          <p className="text-muted-foreground text-sm">{level.description}</p>
-                        </div>
-                      </Label>
-                    ))}
-                  </div>
+                  <RadioGroup value={securityLevel} onValueChange={setSecurityLevel}>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      {securityLevels.map((level) => (
+                        <Label 
+                          key={level.id}
+                          htmlFor={level.id}
+                          className="flex items-center space-x-3 bg-card border border-border rounded-lg p-4 cursor-pointer hover:bg-secondary transition-colors"
+                          data-testid={`security-${level.id}`}
+                        >
+                          <RadioGroupItem value={level.id} id={level.id} className="border-border" />
+                          <div>
+                            <h4 className="text-foreground font-medium">{level.name}</h4>
+                            <p className="text-muted-foreground text-sm">{level.description}</p>
+                          </div>
+                        </Label>
+                      ))}
+                    </div>
+                  </RadioGroup>
                 </div>
               </div>
             )}
