@@ -887,22 +887,115 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.`;
 
-    // SECURITY GATE: C packaging (CMake + pkg-config)
+    // SECURITY GATE: C packaging (CMake + pkg-config) - PRODUCTION GRADE
     const cmakeConfig = `cmake_minimum_required(VERSION 3.16)
 project(${sdk.name} VERSION 2.0.0 LANGUAGES C)
 
-find_package(OpenSSL REQUIRED)
+# Version information
+set(PROJECT_VERSION_MAJOR 2)
+set(PROJECT_VERSION_MINOR 0)
+set(PROJECT_VERSION_PATCH 0)
+set(PROJECT_VERSION \${PROJECT_VERSION_MAJOR}.\${PROJECT_VERSION_MINOR}.\${PROJECT_VERSION_PATCH})
 
+find_package(OpenSSL REQUIRED)
+find_package(PkgConfig REQUIRED)
+
+# Main library
 add_library(${sdk.name} STATIC
     src/averox_crypto.c
     src/security_hardening.c
+    src/aes_gcm_impl.c
+    src/envelope_parser.c
+    src/hkdf_impl.c
 )
 
-target_link_libraries(${sdk.name} OpenSSL::SSL OpenSSL::Crypto)
-target_include_directories(${sdk.name} PUBLIC include/)
+# Link libraries
+target_link_libraries(${sdk.name} PUBLIC OpenSSL::SSL OpenSSL::Crypto)
+target_include_directories(${sdk.name} PUBLIC 
+    $<BUILD_INTERFACE:\${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
 
-install(TARGETS ${sdk.name} DESTINATION lib)
-install(FILES include/averox_crypto.h DESTINATION include)`;
+# Compiler flags for security
+target_compile_options(${sdk.name} PRIVATE
+    -Wall -Wextra -Werror
+    -fstack-protector-strong
+    -D_FORTIFY_SOURCE=2
+    -fPIE
+)
+
+# Test suite (optional)
+option(BUILD_TESTS "Build test suite" ON)
+if(BUILD_TESTS)
+    add_executable(test-suite-c
+        tests/test_main.c
+        tests/test_nist_vectors.c
+        tests/test_envelope.c
+    )
+    target_link_libraries(test-suite-c ${sdk.name})
+endif()
+
+# Fuzzing targets (optional)
+option(BUILD_FUZZ "Build fuzz targets" OFF)
+if(BUILD_FUZZ)
+    add_executable(fuzz-encrypt fuzz/fuzz_encrypt.c)
+    add_executable(fuzz-decrypt fuzz/fuzz_decrypt.c)
+    add_executable(fuzz-envelope fuzz/fuzz_envelope.c)
+    target_link_libraries(fuzz-encrypt ${sdk.name})
+    target_link_libraries(fuzz-decrypt ${sdk.name})
+    target_link_libraries(fuzz-envelope ${sdk.name})
+endif()
+
+# Installation targets
+include(GNUInstallDirs)
+install(TARGETS ${sdk.name}
+    EXPORT ${sdk.name}Targets
+    ARCHIVE DESTINATION \${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION \${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION \${CMAKE_INSTALL_BINDIR}
+)
+
+install(FILES 
+    include/averox_crypto.h
+    include/security_hardening.h
+    DESTINATION \${CMAKE_INSTALL_INCLUDEDIR}
+)
+
+# PKG-CONFIG FILE GENERATION (CRITICAL FOR LINUX PACKAGING)
+configure_file(
+    \${CMAKE_CURRENT_SOURCE_DIR}/${sdk.name.toLowerCase()}.pc.in
+    \${CMAKE_CURRENT_BINARY_DIR}/${sdk.name.toLowerCase()}.pc
+    @ONLY
+)
+
+install(FILES 
+    \${CMAKE_CURRENT_BINARY_DIR}/${sdk.name.toLowerCase()}.pc
+    DESTINATION \${CMAKE_INSTALL_LIBDIR}/pkgconfig
+)
+
+# CMake config files for find_package() support
+install(EXPORT ${sdk.name}Targets
+    FILE ${sdk.name}Targets.cmake
+    NAMESPACE ${sdk.name}::
+    DESTINATION \${CMAKE_INSTALL_LIBDIR}/cmake/${sdk.name}
+)
+
+configure_file(${sdk.name}Config.cmake.in ${sdk.name}Config.cmake @ONLY)
+install(FILES 
+    \${CMAKE_CURRENT_BINARY_DIR}/${sdk.name}Config.cmake
+    DESTINATION \${CMAKE_INSTALL_LIBDIR}/cmake/${sdk.name}
+)
+
+# Uninstall target
+if(NOT TARGET uninstall)
+    configure_file(
+        "\${CMAKE_CURRENT_SOURCE_DIR}/cmake_uninstall.cmake.in"
+        "\${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
+        IMMEDIATE @ONLY)
+
+    add_custom_target(uninstall
+        COMMAND \${CMAKE_COMMAND} -P \${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake)
+endif()`;
 
     // SECURITY GATE: Mobile packaging (Android Gradle)
     const gradleConfig = `plugins {
