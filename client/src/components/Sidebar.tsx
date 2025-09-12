@@ -36,8 +36,8 @@ export default function Sidebar() {
   return (
     <div className="w-64 bg-background border-r border-border flex flex-col">
       {/* Logo */}
-      <div className="px-4 py-4 border-b border-border">
-        <div className="flex flex-col items-center text-center space-y-2">
+      <div className="px-4 pt-2 pb-4 border-b border-border">
+        <div className="flex flex-col items-center text-center">
           <img 
             src="/averox-logo.png" 
             alt="Averox Logo" 
