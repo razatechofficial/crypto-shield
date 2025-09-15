@@ -148,10 +148,10 @@ const features = [
 export default function SdkWizard() {
   const [step, setStep] = useState(1);
   const [sdkName, setSdkName] = useState('');
-  const [applicationTypes, setApplicationTypes] = useState<string[]>([]);
+  const [applicationTypes, setApplicationTypes] = useState<string[]>(applicationTypeOptions.map(type => type.id));
   const [deploymentEnvironment, setDeploymentEnvironment] = useState('');
-  const [complianceRequirements, setComplianceRequirements] = useState<string[]>([]);
-  const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
+  const [complianceRequirements, setComplianceRequirements] = useState<string[]>(complianceStandards.map(standard => standard.id));
+  const [selectedLanguages, setSelectedLanguages] = useState<string[]>(languages.map(lang => lang.id));
   const [selectedAlgorithms, setSelectedAlgorithms] = useState<string[]>([]);
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>([
     'autoRotation', 
@@ -165,8 +165,8 @@ export default function SdkWizard() {
   ]);
   const [securityLevel, setSecurityLevel] = useState('');
   const [selectedDataTypes, setSelectedDataTypes] = useState<string[]>([]);
-  const [confidentialFeatures, setConfidentialFeatures] = useState<string[]>([]);
-  const [dataTypesSelected, setDataTypesSelected] = useState<string[]>([]);
+  const [confidentialFeatures, setConfidentialFeatures] = useState<string[]>(confidentialComputingFeatures.map(feature => feature.id));
+  const [dataTypesSelected, setDataTypesSelected] = useState<string[]>(dataTypeOptions.map(dataType => dataType.id));
   const [recommendedAlgorithms, setRecommendedAlgorithms] = useState<EncryptionAlgorithm[]>([]);
   const [generatedSDK, setGeneratedSDK] = useState<any>(null);
   const [complianceRecommendation, setComplianceRecommendation] = useState<any>(null);
@@ -583,7 +583,7 @@ export default function SdkWizard() {
                 <div>
                   <Label className="text-foreground font-medium mb-2 block">Application Types *</Label>
                   <p className="text-muted-foreground text-sm mb-4">
-                    Select all application types that apply to your system (e.g., enterprise systems often include messaging, file storage, APIs, etc.)
+                    <span className="font-medium text-blue-600 dark:text-blue-400">✓ All options pre-selected for convenience.</span> Uncheck any types that don't apply to your system.
                   </p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {applicationTypeOptions.map((type) => (
@@ -671,6 +671,9 @@ export default function SdkWizard() {
                 {/* Data Types */}
                 <div>
                   <Label className="text-foreground font-medium mb-4 block">Data Types You'll Encrypt *</Label>
+                  <p className="text-muted-foreground text-sm mb-3">
+                    <span className="font-medium text-blue-600 dark:text-blue-400">✓ All data types pre-selected.</span> Uncheck any types you won't be encrypting.
+                  </p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {dataTypeOptions.map((dataType) => (
                       <Label 
@@ -695,6 +698,9 @@ export default function SdkWizard() {
                 {/* Compliance Standards */}
                 <div>
                   <Label className="text-foreground font-medium mb-4 block">Compliance Standards (Optional)</Label>
+                  <p className="text-muted-foreground text-sm mb-3">
+                    <span className="font-medium text-blue-600 dark:text-blue-400">✓ All standards pre-selected.</span> Uncheck any that don't apply to your requirements.
+                  </p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {complianceStandards.map((standard) => (
                       <Label 
@@ -786,6 +792,9 @@ export default function SdkWizard() {
                   <Label className="text-foreground font-medium block mb-4">
                     Select Confidential Computing Technologies *
                   </Label>
+                  <p className="text-muted-foreground text-sm mb-3">
+                    <span className="font-medium text-blue-600 dark:text-blue-400">✓ All technologies pre-selected.</span> Uncheck any you don't need.
+                  </p>
                   <div className="grid grid-cols-1 gap-3">
                     {confidentialComputingFeatures.map((feature) => (
                       <Label 
@@ -1016,7 +1025,7 @@ export default function SdkWizard() {
                       Target Programming Languages *
                     </Label>
                     <span className="text-muted-foreground text-sm font-normal">
-                      (Select multiple languages to generate SDKs for each)
+                      <span className="font-medium text-blue-600 dark:text-blue-400">✓ All languages pre-selected.</span> Uncheck any languages you don't need SDKs for.
                     </span>
                   </div>
                   <div className="space-y-6">
