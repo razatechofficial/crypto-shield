@@ -1104,7 +1104,28 @@ end`;
     // CRITICAL: Include the security-hardening-core.cjs dependency
     let securityHardeningCore = '';
     try {
-      securityHardeningCore = fs.readFileSync('./security-hardening-core.cjs', 'utf8');
+      // Try different possible paths to find security-hardening-core.cjs
+      const paths = [
+        './security-hardening-core.cjs',
+        '../security-hardening-core.cjs',
+        path.join(process.cwd(), 'security-hardening-core.cjs'),
+        path.join(process.cwd(), '..', 'security-hardening-core.cjs'),
+        path.join(__dirname, 'security-hardening-core.cjs')
+      ];
+      
+      let found = false;
+      for (const filePath of paths) {
+        if (fs.existsSync(filePath)) {
+          securityHardeningCore = fs.readFileSync(filePath, 'utf8');
+          console.log(`✅ Found security-hardening-core.cjs at: ${filePath}`);
+          found = true;
+          break;
+        }
+      }
+      
+      if (!found) {
+        throw new Error(`security-hardening-core.cjs not found in any of these locations: ${paths.join(', ')}`);
+      }
     } catch (error) {
       console.error('❌ Failed to read security-hardening-core.cjs:', error.message);
       throw new Error('Critical dependency security-hardening-core.cjs not found');
