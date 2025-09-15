@@ -47,7 +47,7 @@ class EnterpriseSDKGenerator {
           "require": "./dist/cjs/index.js"
         }
       },
-      "files": ["dist/", "README.md", "LICENSE", "SECURITY.md", "CHANGELOG.md"],
+      "files": ["dist/", "README.md", "LICENSE", "SECURITY.md", "CHANGELOG.md", "THREAT-MODEL.md"],
       "scripts": {
         "build": "npm run build:cjs && npm run build:esm && npm run build:types",
         "build:cjs": "babel src --out-dir dist/cjs --env-name cjs",
@@ -534,7 +534,7 @@ module.exports = { AveroxCrypto, AveroxEnvelope, AveroxTelemetry, AveroxCryptoEr
       aad: '77726f6e672d616164',  // 'wrong-aad' in hex
       kid: 'test-key',
       envelope: goldenVectors[0].envelope,  // Use valid envelope
-      expected_result: 'AUTHENTICATION_FAILED',
+      expected_result: 'AUTH_TAG_FAILED',
       test_aad: '636f72726563742d616164'  // 'correct-aad' in hex 
     });
     
@@ -621,9 +621,7 @@ for (const vector of NIST_TEST_VECTORS) {
     const iv = Buffer.from(vector.iv, 'hex');
     
     // Use Node.js built-in crypto for reference
-    const cipher = crypto.createCipherGCM('aes-256-gcm');
-    cipher.setKey(key);
-    cipher.setIV(iv);
+    const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
     if (aad) cipher.setAAD(aad);
     
     let encrypted = cipher.update(plaintext, null, 'hex');
@@ -663,7 +661,7 @@ for (const vector of WYCHEPROOF_VECTORS) {
 const GOLDEN_VECTORS = ${JSON.stringify(goldenVectors, null, 2)};
 for (const vector of GOLDEN_VECTORS) {
   try {
-    if (vector.expected_result === 'AUTHENTICATION_FAILED') {
+    if (vector.expected_result === 'AUTH_TAG_FAILED') {
       // Negative test - should fail with wrong AAD
       try {
         const key = Buffer.from(vector.key, 'hex');
@@ -673,7 +671,7 @@ for (const vector of GOLDEN_VECTORS) {
         console.error('❌', vector.name, '- Should have failed with wrong AAD');
         failed++;
       } catch (error) {
-        if (error.code === 'AUTHENTICATION_FAILED') {
+        if (error.code === 'AUTH_TAG_FAILED') {
           console.log('✅', vector.name, '- Correctly rejected wrong AAD');
           passed++;
         } else {
