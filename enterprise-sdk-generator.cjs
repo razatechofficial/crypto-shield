@@ -895,6 +895,80 @@ Report security issues to: security@averox.com`;
 - Production-ready packaging for multiple environments
 - Complete threat model documentation`;
 
+    // SECURITY GATE: ThreatModel.md - STRIDE-style threat analysis
+    const threatModel = `# Threat Model
+
+## Overview
+This document provides a STRIDE-style threat analysis for the ${sdk.name} enterprise cryptographic SDK.
+
+## Assets
+- **Encryption Keys**: Master keys, derived keys, temporary keys
+- **Plaintext Data**: User data before encryption
+- **Ciphertext Data**: Encrypted data with authentication tags
+- **Authentication Tags**: GCM authentication tags for integrity
+- **Key Derivation Material**: HKDF salt, info, and intermediate values
+
+## Threat Analysis (STRIDE)
+
+### Spoofing (S)
+**Threat**: Attacker impersonates legitimate user or service
+**Mitigations**:
+- ✅ Key ID (KID) validation in envelope format
+- ✅ Strong authentication tags (AES-256-GCM)
+- ✅ AAD (Additional Authenticated Data) support
+
+### Tampering (T)  
+**Threat**: Modification of encrypted data or keys
+**Mitigations**:
+- ✅ AES-256-GCM authenticated encryption prevents tampering
+- ✅ Envelope integrity with versioning
+- ✅ Input validation and sanitization
+
+### Repudiation (R)
+**Threat**: Denial of cryptographic operations
+**Mitigations**:
+- ✅ OpenTelemetry logging of all operations
+- ✅ Structured error taxonomy for audit trails
+- ✅ Performance metrics and operation tracking
+
+### Information Disclosure (I)
+**Threat**: Unauthorized access to sensitive data
+**Mitigations**:
+- ✅ Secure memory zeroization (OPENSSL_cleanse patterns)
+- ✅ Timing-safe comparisons prevent side-channel attacks
+- ✅ No secrets in error messages or logs
+- ✅ Proper entropy validation and RNG health monitoring
+
+### Denial of Service (D)
+**Threat**: Service disruption or resource exhaustion
+**Mitigations**:
+- ✅ Input size validation and bounds checking
+- ✅ RNG failure detection with fallback mechanisms
+- ✅ Memory bounds enforcement
+- ✅ Reasonable operation timeouts
+
+### Elevation of Privilege (E)
+**Threat**: Gaining unauthorized access levels
+**Mitigations**:
+- ✅ No privileged operations exposed in API
+- ✅ Minimal attack surface with focused crypto operations
+- ✅ Fail-secure defaults (AEAD-only modes)
+
+## Security Controls Summary
+1. **Cryptographic**: AES-256-GCM, HKDF, secure random generation
+2. **Memory**: Secure zeroization, timing-safe operations
+3. **Input**: Comprehensive validation and sanitization  
+4. **Monitoring**: Telemetry, structured errors, audit logging
+5. **Packaging**: Supply chain security (SBOM, signatures)
+
+## Residual Risks
+- **Implementation bugs**: Mitigated by comprehensive test vectors and CI
+- **Side-channel attacks**: Mitigated by timing-safe implementations
+- **Hardware failures**: Mitigated by entropy validation and health checks
+
+This threat model should be reviewed quarterly and updated with new threats.
+`;
+
     // SECURITY GATE: README
     const readme = `# ${sdk.name} - Enterprise Cryptographic SDK
 
@@ -919,7 +993,7 @@ This SDK has been generated with **COMPLETE** production-ready security features
 - ✅ **CI with sanitizers/fuzzers** - Automated security testing
 - ✅ **NIST test vectors** - Compliance validation
 - ✅ **Supply chain security** - SBOM + LICENSE
-- ✅ **Security documentation** - SECURITY.md + threat model
+- ✅ **Security documentation** - SECURITY.md + ThreatModel.md
 - ✅ **CHANGELOG & README** - Complete documentation
 
 ## Installation
@@ -1930,6 +2004,7 @@ Cflags: -I\${includedir}
       'android/build.gradle': gradleConfig, 
       'ios/AveroxCryptoSDK.podspec': podspecConfig,
       'SECURITY.md': securityMd,
+      'ThreatModel.md': threatModel,
       'CHANGELOG.md': changelog,
       'README.md': readme,
       'SBOM.json': JSON.stringify(sbom, null, 2),
