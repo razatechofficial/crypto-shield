@@ -1,0 +1,67 @@
+I’ve audited SDK 1000 15 Sep 1736 v2.0.0 from your zip.
+
+Browse files: “SDK 1000 15 Sep 1736 v2.0.0 — file inventory” (open above).
+
+Full memo: Download the enterprise audit
+
+Verdict
+
+Not fully production-ready yet ❌
+
+Below is a concise summary. Full details, detected features, packaging/CI artifacts, and gate-by-gate results are in the memo.
+
+Highlights
+
+What’s good
+
+AES-256-GCM logic detected across code (with AAD support).
+
+Unified envelope fields present (v, alg, kid, iv, tag, ct) and versioning is in place.
+
+KDF support present (HKDF/Argon2id/PBKDF2/Scrypt was detected somewhere in the sources).
+
+Telemetry hooks references (OpenTelemetry/metrics) exist.
+
+Node packaging shows modern signals (ESM/CJS/types detected where applicable).
+
+CI configs present; sanitizers/fuzz flags may be partially wired.
+
+SBOM/LICENSE/README/CHANGELOG are present (supply-chain basics).
+
+What’s still blocking production
+
+Secret zeroization not found (C/libsodium-style scrubbing of key/IV/tag).
+Add a portable secure_zero() and invoke it on sensitive buffers & error paths.
+
+Typed JS/TS errors absent (e.g., AuthTagError, InvalidInputError).
+Public API should throw only these well-typed errors for tag failure, bad inputs, KID mismatch.
+
+C packaging completeness not fully passing.
+Ensure CMakeLists.txt has install() targets for headers/libs and ship a pkg-config file (sdkcrypto.pc).
+
+Security governance docs incomplete.
+Add SECURITY.md (intake email, supported versions, disclosure policy) and a minimal ThreatModel.md.
+
+Gate summary (pass/fail)
+
+Open the memo for the full list, but at a glance these failed gates remain:
+
+Zeroization present (C/sodium) → FAIL
+
+Typed errors (JS) → FAIL
+
+Packaging: C (CMake + pkg-config + install) → FAIL
+
+Security docs present (SECURITY.md/Threat Model) → FAIL
+
+Everything else from our enterprise checklist largely passes.
+
+Next steps I recommend
+
+Drop in the secure zeroization helper and call it consistently.
+
+Add typed errors in JS/TS and make sure only those escape the API.
+
+Finalize C install + pkg-config so downstreams can pkg-config --cflags --libs sdkcrypto.
+
+Add SECURITY.md and a short STRIDE-oriented ThreatModel.md.

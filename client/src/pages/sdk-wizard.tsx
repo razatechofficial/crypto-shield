@@ -850,6 +850,12 @@ export default function SdkWizard() {
                   <p className="text-muted-foreground text-sm">
                     Select algorithms for your SDK. Recommended algorithms are pre-selected, but you can modify the selection.
                   </p>
+                  <div className="flex items-center justify-center gap-2 mt-3 p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg" data-testid="text-deselect-message-algorithms">
+                    <Lightbulb className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    <p className="text-sm text-blue-800 dark:text-blue-200">
+                      <span className="font-medium">✓ All algorithms pre-selected for convenience.</span> Uncheck any you don't need.
+                    </p>
+                  </div>
                 </div>
 
                 {/* Smart Recommendations */}

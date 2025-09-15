@@ -85,8 +85,8 @@ async function performEnterpriseAudit(sdkResults: Record<string, any>, sdk: any,
                               (coreFile.includes('pbkdf2') || coreFile.includes('scrypt') || coreFile.includes('Argon2id'));
     
     // GATE 8: Memory zeroization
-    results['memory_zeroization'] = coreFile.includes('zeroize') && 
-                                   (coreFile.includes('fill(0)') || securityFile.includes('zeroizeBuffer') || coreFile.includes('zeroizeBuffer'));
+    results['memory_zeroization'] = (securityFile.includes('secureMemoryClear') || securityFile.includes('portableSecureWipe')) && 
+                                   (securityFile.includes('OPENSSL_cleanse') || securityFile.includes('explicit_bzero') || securityFile.includes('sodium_memzero'));
     
     // GATE 9: Timing-safe operations
     results['timing_safe_ops'] = coreFile.includes('timingSafeEqual') || 
@@ -95,9 +95,9 @@ async function performEnterpriseAudit(sdkResults: Record<string, any>, sdk: any,
                                 coreFile.includes('crypto.timingSafeEqual');
     
     // GATE 10: Typed errors
-    results['typed_errors'] = coreFile.includes('AveroxCryptoError') && 
-                             (coreFile.includes('SecurityError') || coreFile.includes('Error')) &&
-                             (coreFile.includes('error.code') || coreFile.includes('.code'));
+    results['typed_errors'] = (coreFile.includes('AuthTagError') || coreFile.includes('InvalidInputError')) && 
+                             (coreFile.includes('class') && coreFile.includes('Error')) &&
+                             (coreFile.includes('throw new') || coreFile.includes('extends Error'));
     
     // GATE 11: ESM + CJS + TypeScript packaging
     results['esm_cjs_packaging'] = packageFile.includes('"module":') && 
@@ -107,8 +107,8 @@ async function performEnterpriseAudit(sdkResults: Record<string, any>, sdk: any,
     
     // GATE 12: C packaging
     results['c_packaging'] = cmakeFile.includes('cmake_minimum_required') && 
-                            cmakeFile.includes('target_link_libraries') &&
-                            fileMap['test sdk.pc.in']; // pkg-config template
+                            cmakeFile.includes('install(') &&
+                            Object.keys(fileMap).some(file => file.endsWith('.pc.in')); // pkg-config template
     
     // GATE 13: Mobile packaging
     results['mobile_packaging'] = fileMap['android/build.gradle'] && 
@@ -151,7 +151,7 @@ async function performEnterpriseAudit(sdkResults: Record<string, any>, sdk: any,
     }
   }
   
-  const passed = passedCount >= (totalCount * 0.5); // Require 50% pass rate for initial deployment
+  const passed = passedCount === totalCount; // Require ALL 18 security gates for production readiness
   const failureReason = !passed ? 
     `Only ${passedCount}/${totalCount} security gates implemented. Missing: ${missingRequirements.join(', ')}` : 
     '';
