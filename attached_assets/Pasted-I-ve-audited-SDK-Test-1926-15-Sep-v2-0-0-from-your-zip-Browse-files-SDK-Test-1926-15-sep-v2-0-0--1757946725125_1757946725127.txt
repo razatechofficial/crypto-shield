@@ -1,0 +1,51 @@
+I’ve audited SDK Test 1926 15 Sep v2.0.0 from your zip.
+
+Browse files: “SDK Test 1926 15 sep v2.0.0 — file inventory” (open above).
+
+Full memo: Download the enterprise audit
+
+Verdict
+
+Not fully production-ready yet ❌
+
+Below is the condensed summary; the downloadable memo includes all detections, packaging/CI artifacts, and a gate-by-gate table.
+
+What passes
+
+AES-256-GCM implementation detected; AAD appears wired.
+
+Unified envelope (v, alg, kid, iv, tag, ct) present with versioning.
+
+KDF support present (at least one of HKDF/Argon2id/PBKDF2/Scrypt).
+
+Telemetry mentions (OpenTelemetry/metrics) detected.
+
+Node packaging shows modern markers (ESM/CJS/types signals where applicable).
+
+CI / SBOM / LICENSE / README / CHANGELOG present — supply-chain basics are covered.
+
+Production blockers (still)
+
+Secret zeroization not implemented
+No evidence of portable memory scrubbing (OPENSSL_cleanse, explicit_bzero, memset_s, or sodium_memzero).
+➤ Add a secure_zero() helper and use it for keys/IVs/tags and temporary buffers on success and error.
+
+Typed JS/TS error classes missing
+Couldn’t find AuthTagError / InvalidInputError (or equivalents).
+➤ Public API should throw only these types for: bad auth tag, invalid inputs, KID mismatches.
+
+C packaging incomplete
+CMakeLists.txt needs install() rules and a pkg-config file (sdkcrypto.pc) so downstreams can pkg-config --cflags --libs sdkcrypto.
+➤ Add install for headers and lib, and generate the .pc.
+
+Security governance docs incomplete
+No SECURITY.md and/or Threat Model doc.
+➤ Add coordinated disclosure policy (contact, supported versions) and a short STRIDE-style threat model.
+
+“Test & verify” notes
+
+I verified the presence of tests/CI heuristically (including vector mentions like NIST/Wycheproof), but I can’t compile or execute project-specific tests in this environment. The memo shows exactly what test artifacts were found. For a hard pass, ensure:
+
+cross-language vectors are checked in and referenced by unit tests,
+
+CI runs crypto tests with sanitizers/fuzzers on every PR.
