@@ -234,24 +234,22 @@ export default function SdkWizard() {
     }
   }, [step, securityLevel, dataTypesSelected, complianceRequirements]);
 
-  // Auto-select recommended algorithms when they change OR fallback to smart defaults
+  // ALWAYS pre-select ALL algorithms by default for maximum convenience
   useEffect(() => {
-    if (step === 4 && Array.isArray(algorithms) && algorithms.length > 0) {
+    if (step === 4 && Array.isArray(algorithms) && algorithms.length > 0 && selectedAlgorithms.length === 0) {
+      // Pre-select ALL algorithms for convenience (user can deselect what they don't need)
+      const allAlgorithms = algorithms as EncryptionAlgorithm[];
+      const allAlgorithmIds = allAlgorithms.map(alg => alg.id);
+      console.log('Pre-selecting ALL algorithms for convenience. Total:', allAlgorithmIds.length);
+      setSelectedAlgorithms(allAlgorithmIds);
+      
+      // Also log recommendations for reference (but don't limit selection to them)
       if (Array.isArray(recommendedAlgorithms) && recommendedAlgorithms.length > 0) {
-        // Use server recommendations if available
-        const algorithmIds = recommendedAlgorithms.map((alg: EncryptionAlgorithm) => alg.id);
-        console.log('Auto-selecting recommended algorithms on step', step, ':', algorithmIds);
-        setSelectedAlgorithms(algorithmIds);
-      } else if (selectedAlgorithms.length === 0) {
-        // Pre-select ALL algorithms for convenience (user can deselect what they don't need)
-        const allAlgorithms = algorithms as EncryptionAlgorithm[];
-        const allAlgorithmIds = allAlgorithms.map(alg => alg.id);
-        console.log('Pre-selecting ALL algorithms for convenience. Total:', allAlgorithmIds.length);
-        setSelectedAlgorithms(allAlgorithmIds);
-        setRecommendedAlgorithms(allAlgorithms);
+        const recommendedIds = recommendedAlgorithms.map((alg: EncryptionAlgorithm) => alg.id);
+        console.log('Recommended subset on step', step, ':', recommendedIds);
       }
     }
-  }, [recommendedAlgorithms, step, algorithms, securityLevel, selectedAlgorithms.length]);
+  }, [step, algorithms, selectedAlgorithms.length]);
 
   const generateSDKMutation = useMutation({
     mutationFn: async (data: any) => {

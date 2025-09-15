@@ -34,11 +34,13 @@ async function performEnterpriseAudit(sdkResults: Record<string, any>, sdk: any,
     'security_hardening'     // RNG health monitoring, secure defaults
   ];
   
-  const results: Record<string, boolean> = {};
+  const languageResults: Record<string, Record<string, boolean>> = {};
+  const overallResults: Record<string, boolean> = {};
   const missingRequirements: string[] = [];
   
   // Validate each language implementation
   for (const [language, fileMap] of Object.entries(sdkResults)) {
+    const results: Record<string, boolean> = {};
     console.log(`📋 Auditing ${language.toUpperCase()} implementation...`);
     
     // Check for core implementation files
@@ -137,15 +139,25 @@ async function performEnterpriseAudit(sdkResults: Record<string, any>, sdk: any,
     results['security_hardening'] = securityFile.includes('RNGHealthMonitor') && 
                                    securityFile.includes('SecureDefaultsEnforcer') &&
                                    securityFile.includes('validateEntropy');
+    
+    // Store results for this language
+    languageResults[language] = results;
   }
   
-  // Calculate results
-  const passedRequirements = Object.values(results).filter(Boolean);
+  // Aggregate results: A gate passes only if it passes for ALL languages
+  for (const requirement of auditRequirements) {
+    overallResults[requirement] = Object.values(languageResults).every(langResults => 
+      langResults[requirement] === true
+    );
+  }
+  
+  // Calculate final results
+  const passedRequirements = Object.values(overallResults).filter(Boolean);
   const passedCount = passedRequirements.length;
   const totalCount = auditRequirements.length;
   
   // Identify missing requirements
-  for (const [requirement, passed] of Object.entries(results)) {
+  for (const [requirement, passed] of Object.entries(overallResults)) {
     if (!passed) {
       missingRequirements.push(requirement);
     }
@@ -167,7 +179,8 @@ async function performEnterpriseAudit(sdkResults: Record<string, any>, sdk: any,
     totalCount,
     failureReason,
     missingRequirements,
-    results
+    results: overallResults,
+    languageResults
   };
 }
 
