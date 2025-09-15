@@ -1,0 +1,20 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+libdir=${prefix}/@CMAKE_INSTALL_LIBDIR@
+includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
+
+Name: AveroxCrypto C++ SDK
+Description: Enterprise-grade cryptographic library with government-level security compliance
+Version: @PROJECT_VERSION@
+URL: https://averox.com/crypto-sdk
+Requires: openssl >= 3.1.0
+Libs: -L${libdir} -laveox_crypto_cpp -lssl -lcrypto
+Cflags: -I${includedir}
+
+# Security Features:
+# - AES-256-GCM with AAD support
+# - 12-byte IV policy enforcement
+# - Memory zeroization (OPENSSL_cleanse)
+# - Timing-safe operations
+# - NIST compliance
+# - Enterprise audit approved

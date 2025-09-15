@@ -243,23 +243,12 @@ export default function SdkWizard() {
         console.log('Auto-selecting recommended algorithms on step', step, ':', algorithmIds);
         setSelectedAlgorithms(algorithmIds);
       } else if (selectedAlgorithms.length === 0) {
-        // Fallback: Auto-select smart defaults based on security level if no recommendations
-        const fallbackAlgorithms = (algorithms as EncryptionAlgorithm[]).filter((alg: EncryptionAlgorithm) => {
-          if (securityLevel === 'confidential' || securityLevel === 'privacy_preserving') {
-            return alg.type === 'tee' || alg.type === 'homomorphic' || alg.type === 'mpc' || alg.isPostQuantum;
-          } else if (securityLevel === 'maximum') {
-            return alg.isPostQuantum || (alg.keySize && alg.keySize >= 256);
-          } else if (securityLevel === 'enhanced') {
-            return alg.type === 'symmetric' && (alg.keySize && alg.keySize >= 256);
-          } else {
-            return alg.type === 'symmetric' && alg.isActive;
-          }
-        }); // Don't limit fallback algorithms
-        
-        const fallbackIds = fallbackAlgorithms.map(alg => alg.id);
-        console.log('Using fallback algorithm selection for', securityLevel, 'security:', fallbackIds);
-        setSelectedAlgorithms(fallbackIds);
-        setRecommendedAlgorithms(fallbackAlgorithms);
+        // Pre-select ALL algorithms for convenience (user can deselect what they don't need)
+        const allAlgorithms = algorithms as EncryptionAlgorithm[];
+        const allAlgorithmIds = allAlgorithms.map(alg => alg.id);
+        console.log('Pre-selecting ALL algorithms for convenience. Total:', allAlgorithmIds.length);
+        setSelectedAlgorithms(allAlgorithmIds);
+        setRecommendedAlgorithms(allAlgorithms);
       }
     }
   }, [recommendedAlgorithms, step, algorithms, securityLevel, selectedAlgorithms.length]);

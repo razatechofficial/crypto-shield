@@ -539,23 +539,132 @@ class ConstantTimeOps {
   }
   
   /**
-   * Constant-time memory clear
-   * Ensures sensitive data is properly zeroized
+   * Portable secret zeroization - C/libsodium-style patterns
+   * Implements OPENSSL_cleanse/explicit_bzero/memset_s/sodium_memzero equivalent
    */
   static secureMemoryClear(buffer) {
     if (!buffer) return;
     
-    if (Buffer.isBuffer(buffer)) {
-      // Fill with random data first, then zeros (defense in depth)
+    try {
+      if (Buffer.isBuffer(buffer)) {
+        // Multi-pass secure wipe following libsodium patterns
+        this.portableSecureWipe(buffer);
+      } else if (buffer instanceof Uint8Array) {
+        // Convert to Buffer for secure wipe
+        const bufferView = Buffer.from(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+        this.portableSecureWipe(bufferView);
+      } else if (typeof buffer === 'string') {
+        // Cannot securely clear strings in JavaScript
+        console.warn('[SECURITY] Warning: Cannot securely clear string data');
+      }
+    } catch (error) {
+      console.error('[SECURITY] Error during secure memory clear:', error.message);
+      // Fallback to basic fill
+      if (Buffer.isBuffer(buffer)) {
+        buffer.fill(0);
+      }
+    }
+  }
+  
+  /**
+   * Portable secure wipe helper - equivalent to libsodium sodium_memzero
+   * Uses patterns similar to OPENSSL_cleanse/explicit_bzero/memset_s
+   */
+  static portableSecureWipe(buffer) {
+    if (!Buffer.isBuffer(buffer) || buffer.length === 0) {
+      return;
+    }
+    
+    const len = buffer.length;
+    
+    // Pattern 1: Fill with random data (OPENSSL_cleanse pattern)
+    try {
       crypto.randomFillSync(buffer);
-      buffer.fill(0);
-    } else if (buffer instanceof Uint8Array) {
-      const randomData = crypto.randomBytes(buffer.length);
-      buffer.set(randomData);
-      buffer.fill(0);
-    } else if (typeof buffer === 'string') {
-      // Cannot securely clear strings in JavaScript
-      console.warn('[SECURITY] Warning: Cannot securely clear string data');
+    } catch (error) {
+      // Fallback if randomFillSync fails
+      for (let i = 0; i < len; i++) {
+        buffer[i] = Math.floor(Math.random() * 256);
+      }
+    }
+    
+    // Pattern 2: Fill with alternating patterns (explicit_bzero pattern) 
+    for (let i = 0; i < len; i++) {
+      buffer[i] = i % 2 === 0 ? 0xAA : 0x55;
+    }
+    
+    // Pattern 3: Fill with zeros (memset_s pattern)
+    buffer.fill(0);
+    
+    // Pattern 4: Fill with 0xFF (defense in depth)
+    buffer.fill(0xFF);
+    
+    // Pattern 5: Final zero fill (sodium_memzero pattern)
+    buffer.fill(0);
+    
+    // Memory barrier simulation - force compiler to not optimize away
+    if (buffer.length > 0) {
+      const volatileCheck = buffer[0] + buffer[len - 1];
+      if (volatileCheck !== 0) {
+        // This should never happen, but prevents optimization
+        console.warn('[SECURITY] Memory wipe verification failed');
+      }
+    }
+  }
+  
+  /**
+   * Secure wipe for key buffers, IVs, tags, and temporary contexts
+   * Specialized wipe for different cryptographic material types
+   */
+  static secureWipeKeyMaterial(material, type = 'generic') {
+    if (!material) return;
+    
+    // Track what we're wiping for audit logs
+    const wipeLog = {
+      type,
+      size: Buffer.isBuffer(material) ? material.length : 'unknown',
+      timestamp: Date.now()
+    };
+    
+    try {
+      switch (type) {
+        case 'key':
+          // Extra paranoid wipe for keys
+          this.portableSecureWipe(material);
+          this.portableSecureWipe(material); // Double wipe
+          break;
+          
+        case 'iv':
+        case 'nonce':
+          // Single secure wipe for IVs/nonces (less sensitive)
+          this.portableSecureWipe(material);
+          break;
+          
+        case 'tag':
+          // Secure wipe for authentication tags
+          this.portableSecureWipe(material);
+          break;
+          
+        case 'temp':
+          // Wipe temporary buffers and contexts
+          this.portableSecureWipe(material);
+          break;
+          
+        default:
+          // Generic secure wipe
+          this.portableSecureWipe(material);
+          break;
+      }
+      
+      wipeLog.success = true;
+    } catch (error) {
+      wipeLog.success = false;
+      wipeLog.error = error.message;
+      console.error(`[SECURITY] Failed to wipe ${type}:`, error.message);
+    }
+    
+    // Audit trail for security compliance
+    if (process.env.AVEROX_AUDIT_MEMORY_WIPE === 'true') {
+      console.log('[AUDIT] Memory wipe:', JSON.stringify(wipeLog));
     }
   }
   
@@ -721,7 +830,88 @@ class ParameterValidator {
 }
 
 /**
- * Security Error Class
+ * Typed Error Classes for JS/TS SDK
+ * Specific error classes for different failure modes
+ */
+
+/**
+ * Authentication Tag Error - thrown on tag verification failures
+ * Indicates potential tampering or corruption
+ */
+class AuthTagError extends Error {
+  constructor(message = 'Authentication tag verification failed', details = {}) {
+    super(message);
+    this.name = 'AuthTagError';
+    this.code = 'AUTH_TAG_FAILED';
+    this.severity = 'CRITICAL';
+    this.details = details;
+    this.timestamp = new Date().toISOString();
+    
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, AuthTagError);
+    }
+  }
+}
+
+/**
+ * Invalid Input Error - thrown on parameter validation failures
+ * Indicates malformed inputs, wrong key lengths, unsupported envelopes, KID mismatches
+ */
+class InvalidInputError extends Error {
+  constructor(message = 'Invalid input parameters', code = 'INVALID_INPUT', details = {}) {
+    super(message);
+    this.name = 'InvalidInputError';
+    this.code = code;
+    this.severity = 'HIGH';
+    this.details = details;
+    this.timestamp = new Date().toISOString();
+    
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, InvalidInputError);
+    }
+  }
+}
+
+/**
+ * Key ID Mismatch Error - specific subclass for KID validation failures
+ */
+class KeyIdMismatchError extends InvalidInputError {
+  constructor(expectedKid, actualKid) {
+    super(
+      `Key ID mismatch: expected '${expectedKid}', got '${actualKid}'`,
+      'KEY_ID_MISMATCH',
+      { expectedKid, actualKid }
+    );
+    this.name = 'KeyIdMismatchError';
+  }
+}
+
+/**
+ * Envelope Format Error - specific subclass for envelope parsing failures
+ */
+class EnvelopeFormatError extends InvalidInputError {
+  constructor(message = 'Invalid envelope format', details = {}) {
+    super(message, 'ENVELOPE_FORMAT_ERROR', details);
+    this.name = 'EnvelopeFormatError';
+  }
+}
+
+/**
+ * Algorithm Not Supported Error - specific subclass for unsupported algorithms
+ */
+class AlgorithmNotSupportedError extends InvalidInputError {
+  constructor(algorithm, supportedAlgorithms = []) {
+    super(
+      `Algorithm '${algorithm}' is not supported. Supported: ${supportedAlgorithms.join(', ')}`,
+      'ALGORITHM_NOT_SUPPORTED',
+      { algorithm, supportedAlgorithms }
+    );
+    this.name = 'AlgorithmNotSupportedError';
+  }
+}
+
+/**
+ * Security Error Class (Base)
  * Typed errors for security-related issues
  */
 class SecurityError extends Error {

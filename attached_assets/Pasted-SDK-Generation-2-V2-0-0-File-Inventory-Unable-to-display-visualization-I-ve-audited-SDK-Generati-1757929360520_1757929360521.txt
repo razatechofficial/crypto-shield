@@ -1,0 +1,151 @@
+SDK Generation 2 V2.0.0 — File Inventory
+
+Unable to display visualization
+
+I’ve audited SDK Generation 2 v2.0.0 from your zip.
+
+Browse files: “SDK Generation 2 v2.0.0 — file inventory” (open above).
+
+Full memo: Download the enterprise audit
+
+Verdict
+
+Not fully production-ready yet ❌
+…but it fixes most of the previously flagged gaps ✅
+
+What’s fixed vs earlier audits
+
+Fixed
+
+AES-256-GCM present with AAD and 12-byte IV policy hints.
+
+Unified envelope v2 fields present (v, alg, kid, iv, tag, ct).
+
+KDF present (HKDF/Argon2id/PBKDF2/Scrypt detected).
+
+Telemetry hooks wired (OpenTelemetry/metrics mentions).
+
+Timing-safe compare utilities present.
+
+Node packaging: ESM + CJS + Types exports in place.
+
+Mobile packaging: Gradle/SwiftPM/Podspec signals present.
+
+CI detected with sanitizers/fuzz flags.
+
+Official test vectors (NIST/Wycheproof or equivalent) referenced.
+
+Supply-chain: SBOM & LICENSE present.
+
+Docs: README & CHANGELOG included.
+
+Still missing (blockers)
+
+Secret zeroization (C/libsodium‐style)
+
+No OPENSSL_cleanse/explicit_bzero/memset_s/sodium_memzero patterns.
+
+Add platform-specific wipes in key/IV/tag handling and on error paths.
+
+Typed errors in JS/TS
+
+Couldn’t find AuthTagError/InvalidInputError (or equivalents).
+
+Introduce explicit error classes and throw them for tag failures, invalid inputs, KID mismatches.
+
+C packaging completeness
+
+CMake present, but missing either install() targets and/or a pkg-config .pc descriptor.
+
+Add install() rules (headers + static/shared lib) and generate sdkcrypto.pc.
+
+Security governance docs
+
+SECURITY.md and/or Threat Model doc not detected.
+
+Add reporting channels, supported versions, embargo policy, and a lightweight STRIDE-style threat model.
+
+Go/No-Go gate summary
+
+AES-256-GCM: PASS
+
+AAD across stacks: PASS
+
+Envelope v2 + version/alg/kid: PASS
+
+KDF present: PASS
+
+Telemetry: PASS
+
+Timing-safe compare: PASS
+
+Node (ESM+CJS+types): PASS
+
+Mobile packaging: PASS
+
+CI with sanitizers/fuzz: PASS
+
+Vectors (NIST/Wycheproof): PASS
+
+SBOM & LICENSE: PASS
+
+README & CHANGELOG: PASS
+
+Zeroization: FAIL
+
+Typed JS errors: FAIL
+
+C pkg install/pc: FAIL
+
+SECURITY.md / Threat Model: FAIL
+
+Exact fixes to go green
+
+Zeroization (C)
+
+Add a portable wipe helper:
+
+static void secure_zero(void *p, size_t n) {
+  #if defined(__STDC_LIB_EXT1__)
+    memset_s(p, n, 0, n);
+  #elif defined(_WIN32)
+    SecureZeroMemory(p, n);
+  #else
+    volatile unsigned char *vp = (volatile unsigned char *)p;
+    while (n--) *vp++ = 0;
+  #endif
+}
+
+
+Call it on key buffers, IVs, tags, and temporary contexts after use or on error.
+
+Typed JS errors
+
+Add AuthTagError & InvalidInputError, throw on:
+
+Bad tag / decryption failure → AuthTagError
+
+Wrong key length / unsupported envelope / KID mismatch → InvalidInputError
+
+Ensure public API only throws these types.
+
+C packaging
+
+In CMakeLists.txt: add install(TARGETS ...), install headers to ${CMAKE_INSTALL_INCLUDEDIR}, and generate a pkg-config file (e.g., sdkcrypto.pc) that links -lcrypto.
+
+Example .pc contents:
+
+Name: sdkcrypto
+Description: AES-256-GCM + envelope v2
+Version: 2.0.0
+Libs: -lsdkcrypto -lcrypto
+Cflags: -I${includedir}
+
+
+Security documentation
+
+Add SECURITY.md with intake email, supported versions, coordinated disclosure.
+
+Add docs/ThreatModel.md (scope, assets, STRIDE analysis, mitigations, residual risks, test vectors).
+
+Once those four items are addressed, this build will meet the enterprise production-ready bar.

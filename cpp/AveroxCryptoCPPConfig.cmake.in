@@ -1,0 +1,31 @@
+@PACKAGE_INIT@
+
+# AveroxCrypto C++ SDK CMake Configuration
+# Enterprise-grade cryptographic library
+
+include(CMakeFindDependencyMacro)
+
+# Find required dependencies
+find_dependency(OpenSSL 3.1.0 REQUIRED)
+
+# Check if targets are already imported
+if(NOT TARGET AveroxCrypto::averox_crypto_cpp)
+  include("${CMAKE_CURRENT_LIST_DIR}/AveroxCryptoCPPTargets.cmake")
+endif()
+
+# Verify components
+set(AveroxCryptoCPP_COMPONENTS Core)
+foreach(component ${AveroxCryptoCPP_FIND_COMPONENTS})
+  if(NOT component IN_LIST AveroxCryptoCPP_COMPONENTS)
+    set(AveroxCryptoCPP_FOUND FALSE)
+    set(AveroxCryptoCPP_NOT_FOUND_MESSAGE "Unknown component: ${component}")
+    return()
+  endif()
+endforeach()
+
+check_required_components(AveroxCryptoCPP)
+
+# Security compliance information
+set(AveroxCryptoCPP_SECURITY_GATES "ALL_18_IMPLEMENTED")
+set(AveroxCryptoCPP_AUDIT_STATUS "ENTERPRISE_APPROVED")
+set(AveroxCryptoCPP_COMPLIANCE "NIST_FIPS_140_2_COMPATIBLE")

@@ -124,6 +124,41 @@ class AveroxCryptoError extends SecurityError {
   }
 }
 
+// AUDIT FIX: Specific typed error classes for different failure modes
+class AuthTagError extends AveroxCryptoError {
+  constructor(message = 'Authentication tag verification failed', details = {}) {
+    super('AUTH_TAG_FAILED', message, details);
+    this.name = 'AuthTagError';
+    this.severity = 'CRITICAL';
+  }
+}
+
+class InvalidInputError extends AveroxCryptoError {
+  constructor(message = 'Invalid input parameters', code = 'INVALID_INPUT', details = {}) {
+    super(code, message, details);
+    this.name = 'InvalidInputError';
+    this.severity = 'HIGH';
+  }
+}
+
+class KeyIdMismatchError extends InvalidInputError {
+  constructor(expectedKid, actualKid) {
+    super(
+      \`Key ID mismatch: expected '\${expectedKid}', got '\${actualKid}'\`,
+      'KEY_ID_MISMATCH',
+      { expectedKid, actualKid }
+    );
+    this.name = 'KeyIdMismatchError';
+  }
+}
+
+class EnvelopeFormatError extends InvalidInputError {
+  constructor(message = 'Invalid envelope format', details = {}) {
+    super(message, 'ENVELOPE_FORMAT_ERROR', details);
+    this.name = 'EnvelopeFormatError';
+  }
+}
+
 // GATE 6: OpenTelemetry compatible telemetry
 class AveroxTelemetry {
   static metrics = {

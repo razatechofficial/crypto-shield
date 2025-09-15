@@ -37,3 +37,59 @@ if(BUILD_TESTING)
     add_executable(crypto_tests tests/test_crypto.cpp)
     target_link_libraries(crypto_tests averox_crypto_cpp GTest::gtest_main)
 endif()
+
+# Install targets for production packaging
+include(GNUInstallDirs)
+
+# Install the library
+install(TARGETS averox_crypto_cpp
+    EXPORT AveroxCryptoCPPTargets
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
+# Install headers
+install(FILES include/averox_crypto.h
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
+# Install export targets
+install(EXPORT AveroxCryptoCPPTargets
+    FILE AveroxCryptoCPPTargets.cmake
+    NAMESPACE AveroxCrypto::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/AveroxCryptoCPP
+)
+
+# Generate and install pkg-config descriptor
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/averox-crypto.pc.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/averox-crypto.pc"
+    @ONLY
+)
+
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/averox-crypto.pc"
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
+)
+
+# Install CMake config files
+include(CMakePackageConfigHelpers)
+
+write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/AveroxCryptoCPPConfigVersion.cmake"
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY AnyNewerVersion
+)
+
+configure_package_config_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/AveroxCryptoCPPConfig.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/AveroxCryptoCPPConfig.cmake"
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/AveroxCryptoCPP
+)
+
+install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/AveroxCryptoCPPConfig.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/AveroxCryptoCPPConfigVersion.cmake"
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/AveroxCryptoCPP
+)
