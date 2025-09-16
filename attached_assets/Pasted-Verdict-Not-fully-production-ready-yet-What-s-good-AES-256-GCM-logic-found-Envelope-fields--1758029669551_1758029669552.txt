@@ -1,0 +1,107 @@
+Verdict
+
+Not fully production-ready yet ❌
+
+What’s good
+
+AES-256-GCM logic found.
+
+Envelope fields & versioning detected (v, alg, kid/iv/tag/ct signals present).
+
+Zeroization (native/C) present.
+
+Timing-safe comparisons present.
+
+Typed JS/TS error classes detected.
+
+Node packaging (ESM/CJS/types) present.
+
+SECURITY.md and Threat Model present.
+
+LICENSE / README / CHANGELOG detected.
+
+NIST/vector hints present.
+
+Production blockers (detected gates failing)
+
+AAD wired across stacks → FAIL
+AAD handling isn’t consistently plumbed to cipher calls outside TS. Every encrypt/decrypt must accept aad and pass to AES-GCM.
+
+KDF present (HKDF/Argon2id/PBKDF2/Scrypt) → FAIL
+No KDF usage found. You need a standard KDF (HKDF-SHA256 recommended) for per-message keys or KEK derivation.
+
+C packaging: pkg-config .pc → FAIL
+CMakeLists.txt has install() (good), but no sdkcrypto.pc. Downstreams can’t pkg-config --cflags --libs sdkcrypto.
+
+CI with sanitizers/fuzz → FAIL
+No CI workflow that compiles with ASAN/UBSAN (or fuzz) and runs tests on PRs.
+
+Supply chain: SBOM → FAIL
+LICENSE is there; SBOM missing (CycloneDX/SPDX).
+
+Mobile packaging (Gradle/Podspec/SwiftPM) → FAIL only if you claim mobile.
+If Android/iOS isn’t in scope, remove those claims from README; otherwise add minimal packaging.
+
+What I generated for you (Fix Pack)
+
+Use the Fix Pack zip linked above. It contains production-ready, drop-in files:
+
+ts/src/kdf.ts — WebCrypto HKDF-SHA256 helper.
+
+c/include/hkdf.h, c/src/hkdf.c — OpenSSL HKDF with EVP_PKEY_HKDF.
+
+ts/src/encrypt.ts — AES-GCM with AAD plumbed end-to-end (reference).
+
+c/include/aad.h, c/src/aad.c — AAD pass-through helpers for EVP_EncryptUpdate/EVP_DecryptUpdate.
+
+.github/workflows/ci.yml — CI running Node tests and C builds with ASAN/UBSAN.
+
+c/sdkcrypto.pc.in + c/CMakeLists-snippet.txt — pkg-config descriptor and install() snippet.
+
+sbom/README.md — how to generate CycloneDX/SPDX artifacts.
+
+android/README.md and ios/README.md — minimal guidance if you keep mobile in scope.
+
+These are not placeholders: they’re ready to drop in. Wire them into your existing sources (or copy as-is where applicable).
+
+How to apply (quick steps)
+
+AAD plumbing
+
+TS/Web: ensure additionalData is set in AesGcmParams for both encrypt/decrypt (see ts/src/encrypt.ts).
+
+C/OpenSSL: call EVP_EncryptUpdate(ctx, NULL, &len, aad, aad_len) before encrypting; same for decrypt (see c/src/aad.c).
+
+KDF
+
+Use ts/src/kdf.ts for HKDF in browser/Node WebCrypto.
+
+Use c/src/hkdf.c to derive per-message keys on native paths.
+
+pkg-config
+
+Add the snippet from c/CMakeLists-snippet.txt into your CMakeLists.txt.
+
+Ship c/sdkcrypto.pc.in. After install, consumers can run pkg-config --cflags --libs sdkcrypto.
+
+CI
+
+Commit .github/workflows/ci.yml. It builds C with ASAN/UBSAN and runs Node tests.
+
+Extend to run your existing unit tests and vectors.
+
+SBOM
+
+Generate Node SBOM:
+npx @cyclonedx/cyclonedx-npm --output-file sbom/bom-node.json
+
+Optionally add SPDX for native: spdx-sbom-generator -o sbom/.
+
+Mobile scope
+
+If you aren’t shipping Android/iOS now, remove those claims from README to pass the gate; else add minimal Gradle module / Podspec or SwiftPM manifest.
+
+TL;DR
+
+Progress is real ✅, but you’re still missing: AAD plumbing, KDF, pkg-config .pc, CI with sanitizers, SBOM, and (if in scope) mobile packaging.
+Apply the Fix Pack and integrate the snippets exactly; then re-zip and I’ll re-audit immediately. 
