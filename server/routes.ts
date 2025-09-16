@@ -351,12 +351,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let totalSize = 0;
       let fileCount = 0;
       const requiredFiles = [
-        'src/index.js',
-        'src/security-hardening-core.cjs',
+        'src/index.ts',      // TypeScript files, not JavaScript
         'README.md',
         'SECURITY.md',
         'LICENSE',
-        'SBOM.json',
         'package.json'
       ];
 
