@@ -361,6 +361,7 @@ export default function SdkWizard() {
       complianceRequirements,
       languages: selectedLanguages, // Array of selected languages
       algorithms: selectedAlgorithms.length > 0 ? selectedAlgorithms : recommendedAlgorithms.map(alg => alg.id), // Array of selected algorithms
+      createdAt: new Date().toISOString(), // Client-side timestamp for SDK creation
       configuration: {
         // Zero Configuration - Auto Setup
         autoSetup: true,
