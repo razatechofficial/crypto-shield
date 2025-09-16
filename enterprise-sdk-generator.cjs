@@ -549,19 +549,25 @@ export class AveroxCryptoError extends Error {
 }
 
 // AUDIT FIX: Specific typed error classes for different failure modes
-class AuthTagError extends AveroxCryptoError {
-  constructor(message = 'Authentication tag verification failed', details = {}) {
-    super('AUTH_TAG_FAILED', message, details);
-    this.name = 'AuthTagError';
-    this.severity = 'CRITICAL';
+// AUDITOR REQUIREMENT 2: Typed error classes (exact specification)
+export class AuthTagError extends Error { 
+  name = 'AuthTagError';
+  constructor(message = 'Authentication failed') {
+    super(message);
   }
 }
 
-class InvalidInputError extends AveroxCryptoError {
-  constructor(message = 'Invalid input parameters', code = 'INVALID_INPUT', details = {}) {
-    super(code, message, details);
-    this.name = 'InvalidInputError';
-    this.severity = 'HIGH';
+export class InvalidInputError extends Error { 
+  name = 'InvalidInputError';
+  constructor(message = 'Invalid input') {
+    super(message);
+  }
+}
+
+export class KeyNotFoundError extends Error { 
+  name = 'KeyNotFoundError';
+  constructor(message = 'Key not found') {
+    super(message);
   }
 }
 
@@ -694,13 +700,13 @@ class AveroxEnvelope {
   static create(iv, tag, ciphertext, kid = 'default') {
     // SECURITY HARDENING: Enhanced validation
     if (!Buffer.isBuffer(iv) || iv.length !== 12) {
-      throw new InvalidInputError('IV must be exactly 12 bytes for AES-256-GCM', 'INVALID_IV');
+      throw new InvalidInputError('IV must be exactly 12 bytes for AES-256-GCM');
     }
     if (!Buffer.isBuffer(tag) || tag.length !== 16) {
-      throw new InvalidInputError('Tag must be exactly 16 bytes for AES-256-GCM', 'INVALID_TAG');
+      throw new InvalidInputError('Tag must be exactly 16 bytes for AES-256-GCM');
     }
     if (!Buffer.isBuffer(ciphertext)) {
-      throw new InvalidInputError('Ciphertext must be a Buffer', 'INVALID_CIPHERTEXT');
+      throw new InvalidInputError('Ciphertext must be a Buffer');
     }
     
     // Use base64url encoding (no padding) for canonical v2 format
@@ -723,7 +729,7 @@ class AveroxEnvelope {
     try {
       envelope = JSON.parse(envelopeStr);
     } catch (error) {
-      throw new InvalidInputError('Invalid envelope: not valid JSON', 'INVALID_ENVELOPE');
+      throw new InvalidInputError('Invalid envelope: not valid JSON');
     }
     
     if (envelope.v !== this.VERSION) {
@@ -738,7 +744,7 @@ class AveroxEnvelope {
     }
     
     if (!envelope.iv || !envelope.tag || !envelope.ct) {
-      throw new InvalidInputError('Missing required envelope fields: iv, tag, ct', 'INVALID_ENVELOPE');
+      throw new InvalidInputError('Missing required envelope fields: iv, tag, ct');
     }
     
     // Base64url decoding function
@@ -783,7 +789,7 @@ class AveroxEnvelope {
 class AveroxCrypto {
   constructor(masterKey, keyId = 'default') {
     if (!masterKey || masterKey.length < 32) {
-      throw new InvalidInputError('Master key must be at least 32 bytes', 'INVALID_KEY');
+      throw new InvalidInputError('Master key must be at least 32 bytes');
     }
     this.masterKey = Buffer.from(masterKey);
     this.keyId = keyId;
@@ -890,7 +896,7 @@ class AveroxCrypto {
         throw error;
       }
       if (error.message.includes('Unsupported state or unable to authenticate data')) {
-        throw new AuthTagError('Authentication failed: invalid tag or AAD mismatch', { cause: error });
+        throw new AuthTagError('Authentication failed');
       }
       throw new AveroxCryptoError('DECRYPTION_ERROR', 'Decryption failed', { cause: error });
     } finally {
@@ -1334,79 +1340,101 @@ Report security issues to: security@averox.com`;
 - Production-ready packaging for multiple environments
 - Complete threat model documentation`;
 
-    // External audit expects SECURITY.md at root level (not ThreatModel.md)
+    // AUDITOR REQUIREMENT 4: Security governance docs (exact specification)
+    const securityMd = `# Security Policy
+
+## Reporting Security Issues
+
+If you discover a security vulnerability in this SDK, please report it to:
+
+**Email**: security@averox.com  
+**Response SLA**: We will acknowledge receipt within 24 hours and provide a detailed response within 5 business days.
+
+### Supported Versions
+
+| Version | Supported          |
+| ------- | ------------------ |
+| 2.0.x   | ✅ Yes            |
+| 1.0.x   | ❌ No (deprecated) |
+
+### Embargo Policy
+
+We request that you:
+1. Give us reasonable time to investigate and mitigate the issue before public disclosure
+2. Avoid privacy violations, destructive behavior, and social engineering
+3. Follow coordinated disclosure practices
+
+### What to Include
+
+Please include as much of the following information as possible:
+- Type of issue (buffer overflow, SQL injection, cross-site scripting, etc.)
+- Full paths of source file(s) related to the manifestation of the issue
+- The location of the affected source code (tag/branch/commit or direct URL)
+- Any special configuration required to reproduce the issue
+- Step-by-step instructions to reproduce the issue
+- Proof-of-concept or exploit code (if possible)
+- Impact of the issue, including how an attacker might exploit it
+
+## Security Contacts
+
+- **Primary**: security@averox.com
+- **Backup**: cto@averox.com
+
+We appreciate your efforts to responsibly disclose security vulnerabilities.`;
+
     const threatModel = `# Threat Model
 
-## Overview
-This document provides a STRIDE-style threat analysis for the ${sdk.name} enterprise cryptographic SDK.
-
 ## Assets
-- **Encryption Keys**: Master keys, derived keys, temporary keys
-- **Plaintext Data**: User data before encryption
+
+- **Encryption Keys**: Master keys, derived keys, temporary key material
+- **Plaintext Data**: User data before encryption  
 - **Ciphertext Data**: Encrypted data with authentication tags
-- **Authentication Tags**: GCM authentication tags for integrity
-- **Key Derivation Material**: HKDF salt, info, and intermediate values
+- **Authentication Tags**: AES-GCM authentication tags for integrity
+- **Key Derivation Material**: HKDF inputs, salts, and intermediate values
 
-## Threat Analysis (STRIDE)
+## Trust Boundaries
 
-### Spoofing (S)
-**Threat**: Attacker impersonates legitimate user or service
-**Mitigations**:
-- ✅ Key ID (KID) validation in envelope format
-- ✅ Strong authentication tags (AES-256-GCM)
-- ✅ AAD (Additional Authenticated Data) support
+- **Application boundary**: Between user application and SDK
+- **Platform boundary**: Between SDK and operating system/hardware
+- **Network boundary**: Between encrypted data and transmission medium
 
-### Tampering (T)  
-**Threat**: Modification of encrypted data or keys
-**Mitigations**:
-- ✅ AES-256-GCM authenticated encryption prevents tampering
-- ✅ Envelope integrity with versioning
-- ✅ Input validation and sanitization
+## STRIDE Analysis
 
-### Repudiation (R)
-**Threat**: Denial of cryptographic operations
-**Mitigations**:
-- ✅ OpenTelemetry logging of all operations
-- ✅ Structured error taxonomy for audit trails
-- ✅ Performance metrics and operation tracking
+| Threat | Description | Mitigations | Residual Risk |
+|--------|-------------|-------------|---------------|
+| **Spoofing** | Attacker impersonates legitimate entity | Key ID validation, strong authentication tags, AAD support | Low |
+| **Tampering** | Modification of encrypted data or keys | AES-256-GCM authenticated encryption, envelope integrity | Low |
+| **Repudiation** | Denial of cryptographic operations | OpenTelemetry logging, structured error taxonomy | Low |
+| **Information Disclosure** | Unauthorized access to sensitive data | Memory zeroization, timing-safe comparisons, no secrets in logs | Medium* |
+| **Denial of Service** | Service disruption or resource exhaustion | Input validation, RNG failure detection, memory bounds | Low |
+| **Elevation of Privilege** | Gaining unauthorized access levels | Minimal attack surface, fail-secure defaults | Low |
 
-### Information Disclosure (I)
-**Threat**: Unauthorized access to sensitive data
-**Mitigations**:
-- ✅ Secure memory zeroization (OPENSSL_cleanse patterns)
-- ✅ Timing-safe comparisons prevent side-channel attacks
-- ✅ No secrets in error messages or logs
-- ✅ Proper entropy validation and RNG health monitoring
+## Security Controls
 
-### Denial of Service (D)
-**Threat**: Service disruption or resource exhaustion
-**Mitigations**:
-- ✅ Input size validation and bounds checking
-- ✅ RNG failure detection with fallback mechanisms
-- ✅ Memory bounds enforcement
-- ✅ Reasonable operation timeouts
+1. **Cryptographic Controls**: AES-256-GCM, HKDF, secure random generation
+2. **Memory Controls**: Native secure_zero() for C targets, best-effort for JS/TS
+3. **Input Controls**: Comprehensive validation and sanitization
+4. **Monitoring Controls**: Telemetry, structured errors, audit logging
+5. **Supply Chain Controls**: SBOM, licensing, CI/CD security
 
-### Elevation of Privilege (E)
-**Threat**: Gaining unauthorized access levels
-**Mitigations**:
-- ✅ No privileged operations exposed in API
-- ✅ Minimal attack surface with focused crypto operations
-- ✅ Fail-secure defaults (AEAD-only modes)
+## Memory Zeroization Guarantees
 
-## Security Controls Summary
-1. **Cryptographic**: AES-256-GCM, HKDF, secure random generation
-2. **Memory**: Secure zeroization, timing-safe operations
-3. **Input**: Comprehensive validation and sanitization  
-4. **Monitoring**: Telemetry, structured errors, audit logging
-5. **Packaging**: Supply chain security (SBOM, signatures)
+- **C/C++ targets**: Guaranteed via secure_zero() with memset_s/SecureZeroMemory/volatile fallback
+- **TypeScript/JavaScript**: Best-effort only - JavaScript cannot guarantee memory zeroization
+- **Recommended**: Use WebCrypto non-extractable keys or Node.js KeyObject where possible
 
-## Residual Risks
-- **Implementation bugs**: Mitigated by comprehensive test vectors and CI
-- **Side-channel attacks**: Mitigated by timing-safe implementations
-- **Hardware failures**: Mitigated by entropy validation and health checks
+## Test Vectors
 
-This threat model should be reviewed quarterly and updated with new threats.
-`;
+This SDK includes NIST and Wycheproof test vectors to validate cryptographic correctness and detect tampering attempts.
+
+## Risk Assessment
+
+**Overall Risk Level**: LOW to MEDIUM
+- High-assurance cryptographic implementation
+- Platform-dependent memory zeroization capabilities  
+- Comprehensive testing and validation
+
+*Note: Information disclosure risk is Medium for JavaScript/TypeScript due to language limitations on memory clearing.`;
 
     // SECURITY GATE: README
     const readme = `# ${sdk.name} - Enterprise Cryptographic SDK
@@ -2415,19 +2443,68 @@ export default AveroxCrypto;
 export { AveroxCrypto, AveroxEnvelope, KeyDerivation, TelemetryCollector };
 `;
 
-    // PKG-CONFIG Template File
+    // AUDITOR REQUIREMENT 1: C secure_zero implementation (exact specification)
+    const secureZeroHeader = `#pragma once
+#include <stddef.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
+void secure_zero(void *p, size_t n);
+#ifdef __cplusplus
+}
+#endif`;
+
+    const secureZeroImplementation = `#include "secure_zero.h"
+#if defined(__STDC_LIB_EXT1__)
+  #include <string.h>
+#endif
+#if defined(_WIN32)
+  #include <windows.h>
+#endif
+
+void secure_zero(void *p, size_t n) {
+#if defined(__STDC_LIB_EXT1__)
+  memset_s(p, n, 0, n);
+#elif defined(_WIN32)
+  SecureZeroMemory(p, n);
+#else
+  volatile unsigned char *vp = (volatile unsigned char*)p;
+  while (n--) *vp++ = 0;
+#endif
+}`;
+
+    // AUDITOR REQUIREMENT 3: Complete C packaging with install() rules
+    const cMakeConfig = `cmake_minimum_required(VERSION 3.14)
+project(sdkcrypto C)
+find_package(OpenSSL REQUIRED)
+add_library(sdkcrypto src/secure_zero.c)
+target_include_directories(sdkcrypto PUBLIC
+  $<BUILD_INTERFACE:\${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+target_link_libraries(sdkcrypto PUBLIC OpenSSL::Crypto)
+
+include(GNUInstallDirs)
+install(TARGETS sdkcrypto
+  ARCHIVE DESTINATION \${CMAKE_INSTALL_LIBDIR}
+  LIBRARY DESTINATION \${CMAKE_INSTALL_LIBDIR}
+  RUNTIME DESTINATION \${CMAKE_INSTALL_BINDIR})
+install(DIRECTORY include/ DESTINATION \${CMAKE_INSTALL_INCLUDEDIR})
+
+configure_file(\${CMAKE_CURRENT_SOURCE_DIR}/sdkcrypto.pc.in
+               \${CMAKE_CURRENT_BINARY_DIR}/sdkcrypto.pc @ONLY)
+install(FILES \${CMAKE_CURRENT_BINARY_DIR}/sdkcrypto.pc
+        DESTINATION \${CMAKE_INSTALL_LIBDIR}/pkgconfig)`;
+
     const pkgConfigTemplate = `prefix=@CMAKE_INSTALL_PREFIX@
 exec_prefix=\${prefix}
-libdir=\${prefix}/@CMAKE_INSTALL_LIBDIR@
-includedir=\${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
+libdir=@CMAKE_INSTALL_FULL_LIBDIR@
+includedir=@CMAKE_INSTALL_FULL_INCLUDEDIR@
 
-Name: ${sdk.name}
-Description: Enterprise-grade cryptographic SDK with all 18 security gates
-Version: @PROJECT_VERSION@
-Requires: openssl >= 1.1.1
-Libs: -L\${libdir} -l${sdk.name.toLowerCase()} -lssl -lcrypto
-Cflags: -I\${includedir}
-`;
+Name: sdkcrypto
+Description: Crypto helpers (AES-256-GCM envelope v2)
+Version: 2.0.0
+Libs: -L\${libdir} -lsdkcrypto -lcrypto
+Cflags: -I\${includedir}`;
 
     // TypeScript configuration
     const tsConfig = {
@@ -2490,11 +2567,15 @@ void averox_secure_memzero(void* ptr, size_t len) {
       'package.json': JSON.stringify(packageJson, null, 2),
       'tsconfig.json': JSON.stringify(tsConfig, null, 2),
       'src/index.ts': coreImplementation,
-      'c/src/secure_zeroize.c': secureClearingC,
-      'c/include/secure_zeroize.h': `#ifndef SECURE_ZEROIZE_H\n#define SECURE_ZEROIZE_H\n\nvoid averox_secure_memzero(void* ptr, size_t len);\nvoid secure_clear_openssl_pattern(void* ptr, size_t len);\nvoid secure_clear_explicit_bzero_pattern(void* ptr, size_t len);\nvoid secure_clear_sodium_pattern(void* ptr, size_t len);\n\n#endif`,
+      // AUDITOR REQUIREMENTS: All 4 production blockers addressed
+      'c/include/secure_zero.h': secureZeroHeader,          // C secure_zero header (exact spec)
+      'c/src/secure_zero.c': secureZeroImplementation,      // C secure_zero implementation (exact spec)
+      'c/CMakeLists.txt': cMakeConfig,                      // Complete C packaging with install()
+      'c/sdkcrypto.pc.in': pkgConfigTemplate,              // pkg-config template (exact spec)
       'test/nist-vectors.js': nistTests,
       'test/golden-vectors.json': JSON.stringify(goldenVectors, null, 2),
-      'SECURITY.md': securityMd,
+      'SECURITY.md': securityMd,                           // Security governance (root level)
+      'docs/ThreatModel.md': threatModel,                  // Threat model (docs/ folder)
       'CHANGELOG.md': changelog,
       'README.md': readme,
       'LICENSE': license
