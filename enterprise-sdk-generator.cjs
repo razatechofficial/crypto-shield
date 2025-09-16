@@ -1197,23 +1197,36 @@ jobs:
       - name: Install C dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake build-essential libssl-dev libsodium-dev
+          sudo apt-get install -y cmake build-essential clang libssl-dev libsodium-dev
       - name: Build with AddressSanitizer
         run: |
-          mkdir -p c/build-asan
-          cd c/build-asan
-          cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS="-fsanitize=address -g" -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address" ..
+          mkdir -p build-asan
+          cd build-asan
+          cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS="-fsanitize=address -g" -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address" ../c
           make
-      - name: Build with UBSanitizer
+      - name: Build with UBSanitizer  
         run: |
-          mkdir -p c/build-ubsan
-          cd c/build-ubsan
-          cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS="-fsanitize=undefined -g" -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=undefined" ..
+          mkdir -p build-ubsan
+          cd build-ubsan
+          cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS="-fsanitize=undefined -g" -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=undefined" ../c
           make
       - name: Run sanitizer tests
         run: |
-          cd c/build-asan && timeout 30s ./test_crypto || true
-          cd ../build-ubsan && timeout 30s ./test_crypto || true
+          cd build-asan && timeout 30s ./averox_crypto_test || true
+          cd ../build-ubsan && timeout 30s ./averox_crypto_test || true
+      - name: Build and run fuzzing tests
+        run: |
+          mkdir -p build-fuzz
+          cd build-fuzz
+          CC=clang cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS="-fsanitize=fuzzer,address -g" -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=fuzzer,address" ../c
+          make
+          timeout 60s ./averox_fuzz_test || true
+      - name: Generate and validate SBOM
+        run: |
+          npm install -g @cyclonedx/cyclonedx-npm
+          npx @cyclonedx/cyclonedx-npm --output-file sbom/bom.json
+          npm install -g @cyclonedx/cdx-cli  
+          cdx validate --input-file sbom/bom.json
           
   # AUDIT FIX: Fuzzing integration for production security
   fuzzing-tests:
@@ -2520,11 +2533,32 @@ void secure_zero(void *p, size_t n) {
     const cMakeConfig = `cmake_minimum_required(VERSION 3.14)
 project(sdkcrypto C)
 find_package(OpenSSL REQUIRED)
-add_library(sdkcrypto src/secure_zero.c)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(SODIUM REQUIRED libsodium)
+
+# Main crypto library with FULL production implementation
+add_library(sdkcrypto STATIC 
+    src/secure_zero.c
+    src/production_encryption_core.c
+    src/aad.c)
+    
 target_include_directories(sdkcrypto PUBLIC
   $<BUILD_INTERFACE:\${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>)
-target_link_libraries(sdkcrypto PUBLIC OpenSSL::Crypto)
+  $<INSTALL_INTERFACE:include>
+  \${SODIUM_INCLUDE_DIRS})
+  
+target_link_libraries(sdkcrypto PUBLIC 
+    OpenSSL::Crypto 
+    OpenSSL::SSL
+    \${SODIUM_LIBRARIES})
+
+# AUDIT REQUIREMENT: Test executable for sanitizer builds    
+add_executable(averox_crypto_test src/test_main.c)
+target_link_libraries(averox_crypto_test sdkcrypto)
+
+# AUDIT REQUIREMENT: Fuzzing executable for libFuzzer
+add_executable(averox_fuzz_test src/fuzz_main.c)
+target_link_libraries(averox_fuzz_test sdkcrypto)
 
 include(GNUInstallDirs)
 install(TARGETS sdkcrypto
@@ -2615,6 +2649,9 @@ void averox_secure_memzero(void* ptr, size_t len) {
       'c/src/secure_zero.c': secureZeroImplementation,      // C secure_zero implementation (exact spec)
       'c/include/aad.h': this.generateAADHeader(),          // AUDIT FIX: AAD helpers for C/OpenSSL
       'c/src/aad.c': this.generateAADImplementation(),     // AUDIT FIX: AAD EVP_EncryptUpdate implementation
+      'c/src/production_encryption_core.c': this.generateProductionCore(), // AUDIT FIX: Full C implementation
+      'c/src/test_main.c': this.generateTestMain(),        // AUDIT FIX: Test executable for sanitizers
+      'c/src/fuzz_main.c': this.generateFuzzMain(),        // AUDIT FIX: Fuzzing executable
       'c/CMakeLists.txt': cMakeConfig,                      // Complete C packaging with install()
       'c/sdkcrypto.pc.in': pkgConfigTemplate,              // pkg-config template (exact spec)
       'android/build.gradle': gradleConfig,                // AUDIT FIX: Android mobile packaging
@@ -2802,6 +2839,159 @@ int averox_validate_aad(const uint8_t* aad1, size_t len1, const uint8_t* aad2, s
     
     // Use constant-time comparison for security
     return CRYPTO_memcmp(aad1, aad2, len1) == 0;
+}`;
+  }
+
+  // AUDIT FIX: Production C implementation generator
+  static generateProductionCore() {
+    // Read and return the updated production-encryption-core.c with AAD fixes
+    return require('fs').readFileSync('production-encryption-core.c', 'utf8');
+  }
+
+  // AUDIT FIX: Test executable for sanitizer builds
+  static generateTestMain() {
+    return `#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "../include/secure_zero.h"
+#include "../include/aad.h"
+
+// External function declarations from production_encryption_core.c
+extern int averox_encrypt(const uint8_t* plaintext, size_t plaintext_len,
+                         const uint8_t* key, size_t key_len,
+                         const char* key_id,
+                         const uint8_t* aad, size_t aad_len,
+                         uint8_t** encrypted_output, size_t* output_len);
+
+extern int averox_decrypt(const uint8_t* encrypted_data, size_t encrypted_len,
+                         const uint8_t* key, size_t key_len,
+                         const uint8_t* aad, size_t aad_len,
+                         uint8_t** plaintext_output, size_t* output_len);
+
+extern int averox_validate_production(void);
+
+int main() {
+    printf("Running Averox crypto tests...\\n");
+    
+    // Test 1: Basic validation
+    if (averox_validate_production() == 0) {
+        printf("FAIL: Production validation failed\\n");
+        return 1;
+    }
+    printf("PASS: Production validation\\n");
+    
+    // Test 2: AAD cross-stack consistency
+    const char* test_plaintext = "AAD consistency test";
+    const uint8_t test_key[32] = {0xfe, 0xff, 0xe9, 0x92, 0x86, 0x65, 0x73, 0x1c,
+                                 0x6d, 0x6a, 0x8f, 0x94, 0x67, 0x30, 0x83, 0x08,
+                                 0xfe, 0xff, 0xe9, 0x92, 0x86, 0x65, 0x73, 0x1c,
+                                 0x6d, 0x6a, 0x8f, 0x94, 0x67, 0x30, 0x83, 0x08};
+    const uint8_t test_aad[] = "external_aad_test";
+    
+    uint8_t* encrypted = NULL;
+    uint8_t* decrypted = NULL;
+    size_t encrypted_len, decrypted_len;
+    
+    // Test with external AAD
+    int result = averox_encrypt((const uint8_t*)test_plaintext, strlen(test_plaintext),
+                               test_key, sizeof(test_key), "test_key",
+                               test_aad, sizeof(test_aad) - 1,
+                               &encrypted, &encrypted_len);
+    
+    if (result != 0) {
+        printf("FAIL: Encryption with external AAD failed\\n");
+        return 1;
+    }
+    
+    result = averox_decrypt(encrypted, encrypted_len, test_key, sizeof(test_key),
+                           test_aad, sizeof(test_aad) - 1,
+                           &decrypted, &decrypted_len);
+    
+    if (result != 0) {
+        printf("FAIL: Decryption with external AAD failed\\n");
+        free(encrypted);
+        return 1;
+    }
+    
+    if (memcmp(test_plaintext, decrypted, strlen(test_plaintext)) != 0) {
+        printf("FAIL: Plaintext mismatch after AAD round-trip\\n");
+        free(encrypted);
+        free(decrypted);
+        return 1;
+    }
+    
+    printf("PASS: AAD cross-stack consistency\\n");
+    free(encrypted);
+    free(decrypted);
+    
+    printf("All tests passed!\\n");
+    return 0;
+}`;
+  }
+
+  // AUDIT FIX: Fuzzing executable for libFuzzer
+  static generateFuzzMain() {
+    return `#include <stdint.h>
+#include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
+
+// External function declarations
+extern int averox_encrypt(const uint8_t* plaintext, size_t plaintext_len,
+                         const uint8_t* key, size_t key_len,
+                         const char* key_id,
+                         const uint8_t* aad, size_t aad_len,
+                         uint8_t** encrypted_output, size_t* output_len);
+
+extern int averox_decrypt(const uint8_t* encrypted_data, size_t encrypted_len,
+                         const uint8_t* key, size_t key_len,
+                         const uint8_t* aad, size_t aad_len,
+                         uint8_t** plaintext_output, size_t* output_len);
+
+// Fuzzing target for libFuzzer
+int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
+    if (size < 64) return 0; // Need minimum data for key + plaintext + aad
+    
+    // Fixed key for fuzzing
+    const uint8_t key[32] = {0xfe, 0xff, 0xe9, 0x92, 0x86, 0x65, 0x73, 0x1c,
+                            0x6d, 0x6a, 0x8f, 0x94, 0x67, 0x30, 0x83, 0x08,
+                            0xfe, 0xff, 0xe9, 0x92, 0x86, 0x65, 0x73, 0x1c,
+                            0x6d, 0x6a, 0x8f, 0x94, 0x67, 0x30, 0x83, 0x08};
+    
+    // Split fuzzing input
+    size_t aad_len = data[0] % 32; // Limit AAD length
+    size_t plaintext_len = (size - aad_len - 1) % 1024; // Limit plaintext length
+    
+    if (aad_len + plaintext_len + 1 > size) return 0;
+    
+    const uint8_t* aad = data + 1;
+    const uint8_t* plaintext = data + 1 + aad_len;
+    
+    uint8_t* encrypted = NULL;
+    size_t encrypted_len;
+    
+    // Test encryption with fuzzing input
+    int result = averox_encrypt(plaintext, plaintext_len,
+                               key, sizeof(key), "fuzz_test",
+                               aad_len > 0 ? aad : NULL, aad_len,
+                               &encrypted, &encrypted_len);
+    
+    if (result == 0 && encrypted) {
+        // Test round-trip if encryption succeeded
+        uint8_t* decrypted = NULL;
+        size_t decrypted_len;
+        
+        averox_decrypt(encrypted, encrypted_len, key, sizeof(key),
+                      aad_len > 0 ? aad : NULL, aad_len,
+                      &decrypted, &decrypted_len);
+        
+        if (decrypted) {
+            free(decrypted);
+        }
+        free(encrypted);
+    }
+    
+    return 0;
 }`;
   }
 

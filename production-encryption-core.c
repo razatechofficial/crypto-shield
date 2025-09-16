@@ -168,6 +168,7 @@ static int create_aad(uint8_t* aad_buffer, size_t* aad_len, const char* key_id) 
 int averox_encrypt(const uint8_t* plaintext, size_t plaintext_len,
                   const uint8_t* key, size_t key_len,
                   const char* key_id,
+                  const uint8_t* aad, size_t aad_len,
                   uint8_t** encrypted_output, size_t* output_len) {
     
     if (!plaintext || !key || !encrypted_output || !output_len) {
@@ -217,10 +218,21 @@ int averox_encrypt(const uint8_t* plaintext, size_t plaintext_len,
         goto cleanup;
     }
     
-    // Create AAD (mandatory)
-    size_t aad_len;
-    if (create_aad(aad_buf->data, &aad_len, key_id) != AVEROX_SUCCESS) {
-        goto cleanup;
+    // AUDIT FIX: Use external AAD if provided, otherwise create default AAD
+    size_t final_aad_len;
+    if (aad && aad_len > 0) {
+        // Use external AAD provided by caller (consistent with TypeScript)
+        if (aad_len > 256) {
+            result = AVEROX_ERROR_INVALID_INPUT;
+            goto cleanup;
+        }
+        memcpy(aad_buf->data, aad, aad_len);
+        final_aad_len = aad_len;
+    } else {
+        // Create default AAD when none provided (backward compatibility)
+        if (create_aad(aad_buf->data, &final_aad_len, key_id) != AVEROX_SUCCESS) {
+            goto cleanup;
+        }
     }
     
     // Initialize encryption context
@@ -242,9 +254,9 @@ int averox_encrypt(const uint8_t* plaintext, size_t plaintext_len,
         goto cleanup;
     }
     
-    // Set AAD (mandatory)
+    // Set AAD (external or default)
     int len;
-    if (EVP_EncryptUpdate(ctx, NULL, &len, aad_buf->data, aad_len) != 1) {
+    if (EVP_EncryptUpdate(ctx, NULL, &len, aad_buf->data, final_aad_len) != 1) {
         goto cleanup;
     }
     
@@ -292,6 +304,13 @@ int averox_encrypt(const uint8_t* plaintext, size_t plaintext_len,
     for (int i = 0; i < AVEROX_SALT_SIZE; i++) {
         sprintf(salt_hex + i * 2, "%02x", salt_buf->data[i]);
     }
+    
+    // SECURITY FIX: Convert AAD to hex to prevent JSON injection
+    char aad_hex[512 + 1] = {0}; // Support up to 256 bytes AAD as hex
+    for (size_t i = 0; i < final_aad_len && i < 256; i++) {
+        sprintf(aad_hex + i * 2, "%02x", aad_buf->data[i]);
+    }
+    
     for (size_t i = 0; i < plaintext_len; i++) {
         sprintf(data_hex + i * 2, "%02x", ciphertext_buf->data[i]);
     }
@@ -299,10 +318,10 @@ int averox_encrypt(const uint8_t* plaintext, size_t plaintext_len,
     // Create standardized envelope with version/algorithm/kid fields
     *output_len = snprintf((char*)*encrypted_output, envelope_size,
         "{\"version\":\"%s\",\"algorithm\":\"%s\",\"kid\":\"%s\","
-        "\"iv\":\"%s\",\"tag\":\"%s\",\"salt\":\"%s\",\"aad\":\"%.*s\",\"data\":\"%s\","
+        "\"iv\":\"%s\",\"tag\":\"%s\",\"salt\":\"%s\",\"aad_hex\":\"%s\",\"data\":\"%s\","
         "\"timestamp\":%ld}",
         AVEROX_VERSION, AVEROX_ALGORITHM_AES256GCM, key_id ? key_id : "default",
-        iv_hex, tag_hex, salt_hex, (int)aad_len, aad_buf->data, data_hex,
+        iv_hex, tag_hex, salt_hex, aad_hex, data_hex,
         time(NULL));
     
     free(data_hex);
@@ -327,6 +346,7 @@ cleanup:
  */
 int averox_decrypt(const uint8_t* encrypted_data, size_t encrypted_len,
                   const uint8_t* key, size_t key_len,
+                  const uint8_t* aad, size_t aad_len,
                   uint8_t** plaintext_output, size_t* output_len) {
     
     if (!encrypted_data || !key || !plaintext_output || !output_len) {
@@ -337,10 +357,180 @@ int averox_decrypt(const uint8_t* encrypted_data, size_t encrypted_len,
         return AVEROX_ERROR_INVALID_INPUT;
     }
     
-    // Parse envelope (simplified JSON parsing for demo)
-    // In production, use a proper JSON parser like cJSON
+    // SECURITY CRITICAL: Full decrypt implementation with authentication verification
+    int result = AVEROX_ERROR_DECRYPTION_FAILED;
+    EVP_CIPHER_CTX* ctx = NULL;
+    secure_buffer_t* derived_key_buf = NULL;
+    secure_buffer_t* iv_buf = NULL;
+    secure_buffer_t* salt_buf = NULL;
+    secure_buffer_t* aad_buf = NULL;
+    secure_buffer_t* tag_buf = NULL;
+    secure_buffer_t* ciphertext_buf = NULL;
+    secure_buffer_t* plaintext_buf = NULL;
     
-    return AVEROX_SUCCESS; // Implementation continues...
+    // Parse JSON envelope (simplified parser for security-critical path)
+    const char* envelope_str = (const char*)encrypted_data;
+    
+    // Extract IV (look for "iv":"..." pattern)
+    const char* iv_start = strstr(envelope_str, "\"iv\":\"");
+    if (!iv_start) goto cleanup;
+    iv_start += 6; // Skip past "iv":"
+    
+    // Extract tag 
+    const char* tag_start = strstr(envelope_str, "\"tag\":\"");
+    if (!tag_start) goto cleanup;
+    tag_start += 7; // Skip past "tag":"
+    
+    // Extract salt
+    const char* salt_start = strstr(envelope_str, "\"salt\":\"");
+    if (!salt_start) goto cleanup;
+    salt_start += 8; // Skip past "salt":"
+    
+    // Extract data (ciphertext)
+    const char* data_start = strstr(envelope_str, "\"data\":\"");
+    if (!data_start) goto cleanup;
+    data_start += 8; // Skip past "data":"
+    
+    // Extract AAD if present (now in hex format)
+    const char* envelope_aad_start = strstr(envelope_str, "\"aad_hex\":\"");
+    
+    // Allocate secure buffers
+    derived_key_buf = secure_buffer_alloc(AVEROX_KEY_SIZE);
+    iv_buf = secure_buffer_alloc(AVEROX_IV_SIZE);
+    salt_buf = secure_buffer_alloc(AVEROX_SALT_SIZE);
+    aad_buf = secure_buffer_alloc(256);
+    tag_buf = secure_buffer_alloc(AVEROX_TAG_SIZE);
+    ciphertext_buf = secure_buffer_alloc(encrypted_len);
+    plaintext_buf = secure_buffer_alloc(encrypted_len);
+    
+    if (!derived_key_buf || !iv_buf || !salt_buf || !aad_buf || 
+        !tag_buf || !ciphertext_buf || !plaintext_buf) {
+        result = AVEROX_ERROR_MEMORY;
+        goto cleanup;
+    }
+    
+    // Convert hex strings to binary (simplified - in production use proper hex decoder)
+    for (int i = 0; i < AVEROX_IV_SIZE && iv_start[i*2] && iv_start[i*2+1]; i++) {
+        sscanf(iv_start + i*2, "%2hhx", &iv_buf->data[i]);
+    }
+    for (int i = 0; i < AVEROX_TAG_SIZE && tag_start[i*2] && tag_start[i*2+1]; i++) {
+        sscanf(tag_start + i*2, "%2hhx", &tag_buf->data[i]);
+    }
+    for (int i = 0; i < AVEROX_SALT_SIZE && salt_start[i*2] && salt_start[i*2+1]; i++) {
+        sscanf(salt_start + i*2, "%2hhx", &salt_buf->data[i]);
+    }
+    
+    // Derive decryption key using HKDF
+    if (hkdf_derive_key(key, key_len, salt_buf->data, AVEROX_SALT_SIZE,
+                       derived_key_buf->data, AVEROX_KEY_SIZE) != AVEROX_SUCCESS) {
+        goto cleanup;
+    }
+    
+    // Handle AAD: use external if provided, otherwise extract from envelope
+    size_t final_aad_len;
+    if (aad && aad_len > 0) {
+        // Use external AAD (consistent with encrypt)
+        memcpy(aad_buf->data, aad, aad_len);
+        final_aad_len = aad_len;
+    } else if (envelope_aad_start) {
+        // Extract AAD from envelope  
+        envelope_aad_start += 11; // Skip past "aad_hex":"
+        const char* aad_end = strchr(envelope_aad_start, '"');
+        if (aad_end) {
+            // Decode hex AAD - SECURITY FIX: proper hex decoding
+            size_t hex_len = aad_end - envelope_aad_start;
+            if (hex_len <= 512 && hex_len % 2 == 0) { // Valid hex pairs
+                final_aad_len = hex_len / 2;
+                for (size_t i = 0; i < final_aad_len; i++) {
+                    sscanf(envelope_aad_start + i*2, "%2hhx", &aad_buf->data[i]);
+                }
+            } else {
+                goto cleanup;
+            }
+        } else {
+            goto cleanup;
+        }
+    } else {
+        final_aad_len = 0;
+    }
+    
+    // Convert ciphertext from hex (simplified)
+    size_t ciphertext_len = 0;
+    for (size_t i = 0; data_start[i*2] && data_start[i*2+1] && data_start[i*2] != '"'; i++) {
+        sscanf(data_start + i*2, "%2hhx", &ciphertext_buf->data[i]);
+        ciphertext_len++;
+    }
+    
+    // Initialize decryption context
+    ctx = EVP_CIPHER_CTX_new();
+    if (!ctx) goto cleanup;
+    
+    // Initialize AES-256-GCM decryption
+    if (EVP_DecryptInit_ex(ctx, EVP_aes_256_gcm(), NULL, NULL, NULL) != 1) {
+        goto cleanup;
+    }
+    
+    // Set IV length
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, AVEROX_IV_SIZE, NULL) != 1) {
+        goto cleanup;
+    }
+    
+    // Initialize key and IV
+    if (EVP_DecryptInit_ex(ctx, NULL, NULL, derived_key_buf->data, iv_buf->data) != 1) {
+        goto cleanup;
+    }
+    
+    // SECURITY CRITICAL: Set AAD for authentication verification
+    if (final_aad_len > 0) {
+        int len;
+        if (EVP_DecryptUpdate(ctx, NULL, &len, aad_buf->data, final_aad_len) != 1) {
+            goto cleanup;
+        }
+    }
+    
+    // Decrypt ciphertext
+    int len;
+    if (EVP_DecryptUpdate(ctx, plaintext_buf->data, &len, ciphertext_buf->data, ciphertext_len) != 1) {
+        goto cleanup;
+    }
+    *output_len = len;
+    
+    // SECURITY CRITICAL: Set and verify authentication tag
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, AVEROX_TAG_SIZE, tag_buf->data) != 1) {
+        goto cleanup;
+    }
+    
+    // SECURITY CRITICAL: Finalize and verify authentication
+    if (EVP_DecryptFinal_ex(ctx, plaintext_buf->data + len, &len) != 1) {
+        // Authentication FAILED - this is critical security check
+        result = AVEROX_ERROR_DECRYPTION_FAILED;
+        goto cleanup;
+    }
+    *output_len += len;
+    
+    // Allocate output buffer and copy verified plaintext
+    *plaintext_output = malloc(*output_len);
+    if (!*plaintext_output) {
+        result = AVEROX_ERROR_MEMORY;
+        goto cleanup;
+    }
+    memcpy(*plaintext_output, plaintext_buf->data, *output_len);
+    
+    result = AVEROX_SUCCESS;
+    
+cleanup:
+    if (ctx) EVP_CIPHER_CTX_free(ctx);
+    
+    // Zeroize all sensitive buffers
+    secure_buffer_free(derived_key_buf);
+    secure_buffer_free(iv_buf);
+    secure_buffer_free(salt_buf);
+    secure_buffer_free(aad_buf);
+    secure_buffer_free(tag_buf);
+    secure_buffer_free(ciphertext_buf);
+    secure_buffer_free(plaintext_buf);
+    
+    return result;
 }
 
 /**
@@ -361,6 +551,7 @@ int averox_validate_production(void) {
     
     int result = averox_encrypt((const uint8_t*)test_plaintext, strlen(test_plaintext),
                                test_key, sizeof(test_key), "test",
+                               NULL, 0,  // No external AAD for test
                                &encrypted, &encrypted_len);
     
     if (result != AVEROX_SUCCESS) {
@@ -368,6 +559,7 @@ int averox_validate_production(void) {
     }
     
     result = averox_decrypt(encrypted, encrypted_len, test_key, sizeof(test_key),
+                           NULL, 0,  // No external AAD for test
                            &decrypted, &decrypted_len);
     
     if (result != AVEROX_SUCCESS) {
