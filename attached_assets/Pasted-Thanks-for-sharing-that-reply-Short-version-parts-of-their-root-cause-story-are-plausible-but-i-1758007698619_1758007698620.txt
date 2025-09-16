@@ -1,0 +1,132 @@
+Thanks for sharing that reply. Short version: parts of their “root cause” story are plausible, but it doesn’t actually address the four blockers my audit keeps flagging. Even if they switch to a single TypeScript SDK, the same four will still fail unless they ship the missing artifacts.
+
+What their note gets right vs. what’s actually failing
+Claim from their note	Reality from my audits
+“External audit expects native code per language; our generator drops JS fallbacks into those folders.”	I don’t key off folder names. I key off file types & artifacts. The repeated failures are because the artifacts are missing, not misfiled: no native zeroization routine anywhere; no typed JS/TS error classes; C packaging incomplete; SECURITY.md/ThreatModel.md not present.
+“Casing/locations of SECURITY.md/ThreatModel.md cause failures.”	My checks are case-insensitive and path-agnostic. If those files existed anywhere, they would have passed. They’re simply not there.
+“Solution is to ship a canonical TS SDK instead of multi-language fallbacks.”	You can do TS-only, but then (a) JS cannot guarantee memory zeroization (so you must adjust claims), and (b) C packaging gates will still fail unless you change the product scope and the audit expectations to “TS-only”. Right now your bundle advertises multi-language, so those gates apply.
+Exactly what your generator must produce to go green (no placeholders)
+1) Secret zeroization (native)
+
+If you keep any native target (C/C++/Rust/Go/Java), implement real scrubbing. For C/C++:
+
+// include/secure_zero.h
+#pragma once
+#include <stddef.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
+void secure_zero(void *p, size_t n);
+#ifdef __cplusplus
+}
+#endif
+
+// src/secure_zero.c
+#include "secure_zero.h"
+#if defined(__STDC_LIB_EXT1__)
+  #include <string.h>
+#endif
+#if defined(_WIN32)
+  #include <windows.h>
+#endif
+
+void secure_zero(void *p, size_t n) {
+#if defined(__STDC_LIB_EXT1__)
+  memset_s(p, n, 0, n);
+#elif defined(_WIN32)
+  SecureZeroMemory(p, n);
+#else
+  volatile unsigned char *vp = (volatile unsigned char*)p;
+  while (n--) *vp++ = 0;
+#endif
+}
+
+
+Call secure_zero() on key/IV/tag buffers and temporaries on all success and error paths.
+(If you truly go TS-only, remove any “in-memory zeroization” claims from docs and Threat Model; JS cannot guarantee it.)
+
+2) Typed JS/TS error classes (SDK public API)
+
+Create a single source of truth for errors and only throw these from public APIs:
+
+// src/errors.ts
+export class AuthTagError extends Error { name = 'AuthTagError' }
+export class InvalidInputError extends Error { name = 'InvalidInputError' }
+export class KeyNotFoundError extends Error { name = 'KeyNotFoundError' }
+
+
+Use them:
+
+import { AuthTagError, InvalidInputError } from './errors';
+
+export function decryptEnvelope(e: Envelope, key: CryptoKey|KeyObject) {
+  if (!e || e.v !== 2) throw new InvalidInputError('Unsupported envelope version');
+  try {
+    // ... do GCM decrypt ...
+  } catch (_) {
+    throw new AuthTagError('Authentication failed');
+  }
+}
+
+3) C packaging that actually installs (if C is advertised)
+
+Add install() and pkg-config:
+
+# CMakeLists.txt (at c/ or cpp/ root)
+cmake_minimum_required(VERSION 3.14)
+project(sdkcrypto C)
+find_package(OpenSSL REQUIRED)
+add_library(sdkcrypto src/secure_zero.c)
+target_include_directories(sdkcrypto PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+target_link_libraries(sdkcrypto PUBLIC OpenSSL::Crypto)
+
+include(GNUInstallDirs)
+install(TARGETS sdkcrypto
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/sdkcrypto.pc.in
+               ${CMAKE_CURRENT_BINARY_DIR}/sdkcrypto.pc @ONLY)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/sdkcrypto.pc
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+
+# sdkcrypto.pc.in
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+libdir=@CMAKE_INSTALL_FULL_LIBDIR@
+includedir=@CMAKE_INSTALL_FULL_INCLUDEDIR@
+
+Name: sdkcrypto
+Description: Crypto helpers (AES-256-GCM envelope v2)
+Version: 2.0.0
+Libs: -L${libdir} -lsdkcrypto -lcrypto
+Cflags: -I${includedir}
+
+4) Security governance docs (root)
+
+SECURITY.md with: reporting email, PGP (optional), supported versions, embargo policy, SLA for triage.
+
+docs/ThreatModel.md (short is fine): assets, trust boundaries, STRIDE table, mitigations, residual risk, test vectors, and explicit note about memory zeroization guarantees per language.
+
+If you truly want TS-only (no native targets)
+
+That’s okay—many teams do it—but then you must:
+
+Rescope the product to “TypeScript/Node & Web only,” and
+
+Align the audit to that scope (remove native gates like C packaging and native zeroization).
+You still need typed errors and the security docs. And in your Threat Model, be honest about zeroization limitations in JS and rely on non-extractable keys (WebCrypto) and KeyObject in Node where possible.
+
+What to tell your devs, concretely
+
+Stop arguing with the audit and add the missing artifacts. The failures are not path/casing quirks.
+
+Either:
+
+A) Commit to native targets: add the C zeroization helper + CMake/pkg-config, keep language-specific packaging, and ship SECURITY.md & ThreatModel.md.
+
+B) Narrow scope to TS-only and update the generator + docs + audit gates accordingly.
