@@ -2647,11 +2647,11 @@ void averox_secure_memzero(void* ptr, size_t len) {
       // AUDITOR REQUIREMENTS: All 4 production blockers addressed
       'c/include/secure_zero.h': secureZeroHeader,          // C secure_zero header (exact spec)
       'c/src/secure_zero.c': secureZeroImplementation,      // C secure_zero implementation (exact spec)
-      'c/include/aad.h': ProductionSDKGenerator.generateAADHeader(),          // AUDIT FIX: AAD helpers for C/OpenSSL
-      'c/src/aad.c': ProductionSDKGenerator.generateAADImplementation(),     // AUDIT FIX: AAD EVP_EncryptUpdate implementation
-      'c/src/production_encryption_core.c': ProductionSDKGenerator.generateProductionCore(), // AUDIT FIX: Full C implementation
-      'c/src/test_main.c': ProductionSDKGenerator.generateTestMain(),        // AUDIT FIX: Test executable for sanitizers
-      'c/src/fuzz_main.c': ProductionSDKGenerator.generateFuzzMain(),        // AUDIT FIX: Fuzzing executable
+      'c/include/aad.h': EnterpriseSDKGenerator.generateAADHeader(),          // AUDIT FIX: AAD helpers for C/OpenSSL
+      'c/src/aad.c': EnterpriseSDKGenerator.generateAADImplementation(),     // AUDIT FIX: AAD EVP_EncryptUpdate implementation
+      'c/src/production_encryption_core.c': EnterpriseSDKGenerator.generateProductionCore(), // AUDIT FIX: Full C implementation
+      'c/src/test_main.c': EnterpriseSDKGenerator.generateTestMain(),        // AUDIT FIX: Test executable for sanitizers
+      'c/src/fuzz_main.c': EnterpriseSDKGenerator.generateFuzzMain(),        // AUDIT FIX: Fuzzing executable
       'c/CMakeLists.txt': cMakeConfig,                      // Complete C packaging with install()
       'c/sdkcrypto.pc.in': pkgConfigTemplate,              // pkg-config template (exact spec)
       'android/build.gradle': gradleConfig,                // AUDIT FIX: Android mobile packaging
@@ -2659,8 +2659,8 @@ void averox_secure_memzero(void* ptr, size_t len) {
       'test/nist-vectors.js': nistTests,
       'test/golden-vectors.json': JSON.stringify(goldenVectors, null, 2),
       '.github/workflows/ci.yml': ciConfig,                // CI with ASAN/UBSAN sanitizers
-      'sbom/bom.json': JSON.stringify(ProductionSDKGenerator.generateSBOM(packageJson), null, 2), // AUDIT FIX: SBOM generation
-      'sbom/README.md': ProductionSDKGenerator.generateSBOMReadme(),         // SBOM documentation
+      'sbom/bom.json': JSON.stringify(EnterpriseSDKGenerator.generateSBOM(packageJson), null, 2), // AUDIT FIX: SBOM generation
+      'sbom/README.md': EnterpriseSDKGenerator.generateSBOMReadme(),         // SBOM documentation
       'SECURITY.md': securityMd,                           // Security governance (root level)
       'docs/ThreatModel.md': threatModel,                  // Threat model (docs/ folder)
       'CHANGELOG.md': changelog,
