@@ -412,16 +412,36 @@ export class DatabaseStorage implements IStorage {
     const now = new Date();
     const userId = 'dev-user-123'; // Mock user for dev mode
 
-    // Get algorithm IDs from database
+    // Get algorithm IDs from database - include all algorithms used in SDKs
     const algorithms = await this.getEncryptionAlgorithms();
-    const aes256gcmId = algorithms.find(a => a.name === 'AES-256-GCM')?.id;
-    const chacha20Id = algorithms.find(a => a.name === 'ChaCha20-Poly1305' || a.name === 'chacha20-poly1305')?.id;
-    const aes256cbcId = algorithms.find(a => a.name === 'AES-256-CBC')?.id;
+    
+    // Map of algorithm names to their usage frequency (simulated based on typical enterprise usage)
+    const algorithmUsage = {
+      'AES-256-GCM': 1000,        // Most common
+      'ChaCha20-Poly1305': 650,   // Second most common
+      'AES-256-CBC': 400,         // Legacy but still used
+      'AES-128-GCM': 300,         // Mobile/performance optimized
+      'RSA-2048': 200,            // Asymmetric encryption
+      'ECDSA P-256': 180,         // Digital signatures
+      'ECDSA P-384': 120,         // Healthcare compliance
+      'AES-256-CTR': 100,         // Stream cipher applications
+      'ML-KEM-1024': 80,          // Post-quantum (emerging)
+      'ML-DSA-87': 60,            // Post-quantum signatures
+      'SLH-DSA-SHA2-128s': 40,    // Hash-based signatures
+      'SHA-256': 350,             // Hashing
+      'SHA-512': 200,             // Enhanced hashing
+      'RSA-4096': 150,            // High-security RSA
+      'ChaCha20': 90              // Stream cipher variant
+    };
 
-    if (!aes256gcmId || !chacha20Id || !aes256cbcId) {
-      console.warn('⚠️ Some algorithms not found, skipping monitoring data seeding');
-      return;
-    }
+    const algorithmMap = new Map();
+    algorithms.forEach(alg => {
+      algorithmMap.set(alg.name, alg.id);
+    });
+
+    const availableAlgorithms = Object.entries(algorithmUsage).filter(([name]) => 
+      algorithmMap.has(name)
+    );
 
     // Clean approach: Clear existing monitoring data and seed fresh
     console.log('🧹 Cleaning existing monitoring data for fresh seeding...');
@@ -447,7 +467,7 @@ export class DatabaseStorage implements IStorage {
             tenantId,
             keyId: `key_${randomUUID().replace(/-/g, '')}`,
             keyType: 'primary',
-            algorithmId: aes256gcmId,
+            algorithmId: algorithmMap.get('AES-256-GCM'),
             status: 'active' as const,
             rotationInterval: 90,
             metadata: {
@@ -463,7 +483,7 @@ export class DatabaseStorage implements IStorage {
             tenantId,
             keyId: `key_${randomUUID().replace(/-/g, '')}`,
             keyType: 'backup',
-            algorithmId: chacha20Id,
+            algorithmId: algorithmMap.get('ChaCha20-Poly1305'),
             status: 'active' as const,
             rotationInterval: 30,
             metadata: {
@@ -479,7 +499,7 @@ export class DatabaseStorage implements IStorage {
             tenantId,
             keyId: `key_${randomUUID().replace(/-/g, '')}`,
             keyType: 'session',
-            algorithmId: aes256cbcId,
+            algorithmId: algorithmMap.get('AES-256-CBC'),
             status: 'rotating' as const,
             rotationInterval: 7,
             metadata: {
@@ -513,7 +533,7 @@ export class DatabaseStorage implements IStorage {
           operationsData.push({
             tenantId,
             operation: Math.random() > 0.6 ? 'encryption' : 'decryption',
-            algorithm: ['AES-256-GCM', 'ChaCha20-Poly1305', 'RSA-2048'][Math.floor(Math.random() * 3)],
+            algorithm: availableAlgorithms[Math.floor(Math.random() * availableAlgorithms.length)][0], // Use random algorithm from available list
             keyId: selectedKey.id, // Use the primary key ID (not keyId field!)
             dataSize: Math.floor(Math.random() * 10000) + 100, // 100-10KB
             duration: Math.floor(Math.random() * 50) + 5, // 5-55ms
