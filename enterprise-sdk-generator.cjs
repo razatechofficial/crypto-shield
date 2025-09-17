@@ -807,18 +807,28 @@ class AveroxCrypto {
     return crypto.randomBytes(12); // Explicit 12-byte IV generation
   }
   
-  // AUDIT COMPLIANCE: HKDF-SHA256 using WebCrypto API
+  // AUDIT COMPLIANCE: HKDF-SHA256 using WebCrypto API that returns CryptoKey
   async deriveKey(context = 'encryption') {
+    const webCrypto = globalThis.crypto || crypto.webcrypto;
     const ikm = this.masterKey;
     const salt = new TextEncoder().encode('averox-salt-' + this.keyId);
     const info = new TextEncoder().encode('averox-' + context + '-' + this.keyId);
-    return await this.hkdf(ikm, salt, info, 32);
+    
+    const baseKey = await webCrypto.subtle.importKey("raw", ikm, { name: "HKDF" }, false, ["deriveKey"]);
+    return await webCrypto.subtle.deriveKey(
+      { name: "HKDF", hash: "SHA-256", salt, info },
+      baseKey,
+      { name: "AES-GCM", length: 256 },
+      false,
+      ["encrypt", "decrypt"]
+    );
   }
   
-  // AUDIT FIX: HKDF-SHA256 implementation matching audit specification
+  // AUDIT FIX: HKDF-SHA256 implementation for raw bits when needed
   async hkdf(ikm, salt, info, length = 32) {
-    const baseKey = await crypto.subtle.importKey("raw", ikm, { name: "HKDF" }, false, ["deriveBits"]);
-    const bits = await crypto.subtle.deriveBits({ name: "HKDF", hash: "SHA-256", salt, info }, baseKey, length*8);
+    const webCrypto = globalThis.crypto || crypto.webcrypto;
+    const baseKey = await webCrypto.subtle.importKey("raw", ikm, { name: "HKDF" }, false, ["deriveBits"]);
+    const bits = await webCrypto.subtle.deriveBits({ name: "HKDF", hash: "SHA-256", salt, info }, baseKey, length*8);
     return new Uint8Array(bits);
   }
   
@@ -836,17 +846,51 @@ class AveroxCrypto {
     }
   }
   
-  // AUDIT COMPLIANCE: WebCrypto API with proper AAD wiring
+  // AUDIT COMPLIANCE: WebCrypto API with proper AAD wiring and envelope format
   async encrypt(data, aad) {
-    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const webCrypto = globalThis.crypto || crypto.webcrypto;
+    const iv = webCrypto.getRandomValues(new Uint8Array(12));
     const derivedKey = await this.deriveKey('encryption');
     const algo = { 
       name: "AES-GCM", 
       iv, 
       additionalData: aad ?? new Uint8Array(0) 
     };
-    const ct = new Uint8Array(await crypto.subtle.encrypt(algo, derivedKey, data));
-    return { v: 2, alg: "AES-256-GCM", iv, ct };
+    const ctWithTag = new Uint8Array(await webCrypto.subtle.encrypt(algo, derivedKey, data));
+    
+    // AUDIT FIX: Split ciphertext and tag (last 16 bytes)
+    const ciphertext = ctWithTag.slice(0, -16);
+    const tag = ctWithTag.slice(-16);
+    
+    // AUDIT FIX: Convert Uint8Array to Buffer for envelope compatibility
+    const ivBuffer = Buffer.from(iv);
+    const tagBuffer = Buffer.from(tag);
+    const ciphertextBuffer = Buffer.from(ciphertext);
+    const aadBuffer = aad ? Buffer.from(aad) : null;
+    
+    // AUDIT FIX: Use canonical envelope format with base64url
+    return AveroxEnvelope.create(ivBuffer, tagBuffer, ciphertextBuffer, this.keyId, aadBuffer);
+  }
+  
+  // AUDIT COMPLIANCE: WebCrypto decrypt with proper AAD and envelope parsing
+  async decrypt(encryptedData, aad) {
+    const webCrypto = globalThis.crypto || crypto.webcrypto;
+    const parsed = AveroxEnvelope.parse(encryptedData);
+    const derivedKey = await this.deriveKey('encryption');
+    
+    // AUDIT FIX: Reconstruct ct||tag for WebCrypto
+    const ctWithTag = new Uint8Array(parsed.ciphertext.length + parsed.tag.length);
+    ctWithTag.set(parsed.ciphertext);
+    ctWithTag.set(parsed.tag, parsed.ciphertext.length);
+    
+    const algo = {
+      name: "AES-GCM",
+      iv: parsed.iv,
+      additionalData: aad ?? new Uint8Array(0)
+    };
+    
+    const plaintext = await webCrypto.subtle.decrypt(algo, derivedKey, ctWithTag);
+    return new Uint8Array(plaintext);
   }
   
   // LEGACY: Node.js crypto fallback for server environments
@@ -858,7 +902,7 @@ class AveroxCrypto {
     let derivedKey = null, iv = null;
     try {
       const startTime = Date.now();
-      derivedKey = this.deriveKey('encryption');
+      derivedKey = this.deriveKeyNodeJS('encryption');  // AUDIT FIX: Use sync Node.js version
       iv = this.generateIV();
       
       const cipher = crypto.createCipheriv('aes-256-gcm', derivedKey, iv);
