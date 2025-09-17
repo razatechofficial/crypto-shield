@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Shield, Cpu, Zap, AlertTriangle, CheckCircle, Globe, Lock, Download, FileText } from "lucide-react";
+import { Shield, Cpu, Zap, AlertTriangle, CheckCircle, Globe, Lock, Download, FileText, Clock, XCircle } from "lucide-react";
 import { useState } from "react";
 
 export default function QuantumSecurity() {
@@ -195,22 +195,42 @@ export default function QuantumSecurity() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">NIST Standards</span>
-                    <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                {readinessLoading ? (
+                  <div className="space-y-3">
+                    <div className="h-4 bg-muted rounded animate-pulse"></div>
+                    <div className="h-4 bg-muted rounded animate-pulse"></div>
+                    <div className="h-4 bg-muted rounded animate-pulse"></div>
+                    <div className="h-2 bg-muted rounded animate-pulse"></div>
+                    <div className="h-3 bg-muted rounded w-32 animate-pulse"></div>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Kyber Integration</span>
-                    <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">NIST Standards</span>
+                      <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Post-Quantum Algorithms</span>
+                      {quantumReadiness?.postQuantumAlgorithms > 0 ? (
+                        <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                      ) : (
+                        <XCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Hybrid Mode</span>
+                      {quantumReadiness?.hybridSupport > 0 ? (
+                        <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                      ) : (
+                        <div className="w-2 h-2 rounded-full bg-yellow-500 dark:bg-yellow-400"></div>
+                      )}
+                    </div>
+                    <Progress value={quantumReadiness?.quantumReadiness || 0} className="h-2" />
+                    <p className="text-xs text-muted-foreground">
+                      {quantumReadiness?.quantumReadiness || 0}% quantum-ready ({quantumReadiness?.quantumReadySDKs || 0}/{quantumReadiness?.totalSDKs || 0} SDKs)
+                    </p>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Hybrid Mode</span>
-                    <div className="w-2 h-2 rounded-full bg-yellow-500 dark:bg-yellow-400"></div>
-                  </div>
-                  <Progress value={75} className="h-2" />
-                  <p className="text-xs text-muted-foreground">75% quantum-ready</p>
-                </div>
+                )}
               </CardContent>
             </Card>
 
@@ -222,20 +242,51 @@ export default function QuantumSecurity() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Critical Risk</span>
-                    <Badge variant="destructive" className="text-xs">RSA/ECDSA</Badge>
+                {readinessLoading ? (
+                  <div className="space-y-3">
+                    <div className="h-4 bg-muted rounded animate-pulse"></div>
+                    <div className="h-4 bg-muted rounded animate-pulse"></div>
+                    <div className="h-4 bg-muted rounded animate-pulse"></div>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Moderate Risk</span>
-                    <Badge className="text-xs bg-orange-600 dark:bg-orange-500 text-white">AES-256</Badge>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Overall Risk</span>
+                      <Badge className={
+                        quantumReadiness?.riskLevel === 'High' ? "bg-red-600 dark:bg-red-500 text-white text-xs" :
+                        quantumReadiness?.riskLevel === 'Moderate' ? "bg-orange-600 dark:bg-orange-500 text-white text-xs" :
+                        "bg-green-600 dark:bg-green-500 text-white text-xs"
+                      }>
+                        {quantumReadiness?.riskLevel || 'Unknown'}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Ready SDKs</span>
+                      <Badge className="text-xs bg-blue-600 dark:bg-blue-500 text-white">
+                        {quantumReadiness?.quantumReadySDKs || 0}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Needs Migration</span>
+                      <Badge className="text-xs bg-gray-600 dark:bg-gray-500 text-white">
+                        {(quantumReadiness?.totalSDKs || 0) - (quantumReadiness?.quantumReadySDKs || 0)}
+                      </Badge>
+                    </div>
+                    {quantumReadiness?.recommendations && quantumReadiness.recommendations.length > 0 && (
+                      <div className="mt-2 p-2 bg-muted/50 rounded text-xs text-muted-foreground">
+                        <strong>Key Recommendations:</strong>
+                        <ul className="mt-1 space-y-1">
+                          {quantumReadiness.recommendations.slice(0, 2).map((rec: string, idx: number) => (
+                            <li key={idx} className="flex items-start">
+                              <span className="w-1 h-1 rounded-full bg-muted-foreground mt-1.5 mr-2 flex-shrink-0"></span>
+                              {rec}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Low Risk</span>
-                    <Badge className="text-xs bg-green-600 dark:bg-green-500 text-white">Hash Functions</Badge>
-                  </div>
-                </div>
+                )}
               </CardContent>
             </Card>
           </div>
