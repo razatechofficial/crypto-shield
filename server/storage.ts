@@ -407,6 +407,11 @@ export class DatabaseStorage implements IStorage {
     console.log('✅ Seeded test SDK data');
   }
 
+  // Public method to force reseed monitoring data
+  async reseedMonitoringData(tenantId: string): Promise<void> {
+    return this.seedMonitoringData(tenantId);
+  }
+
   // Seed comprehensive monitoring data for development
   private async seedMonitoringData(tenantId: string): Promise<void> {
     const now = new Date();
@@ -2438,11 +2443,24 @@ export class DatabaseStorage implements IStorage {
     return record;
   }
 
-  async getCryptoOperations(tenantId: string, hours = 24): Promise<CryptoOperation[]> {
-    // Check if operations exist, if not, seed monitoring data
+  async getCryptoOperations(tenantId: string, hours = 24, forceReseed = false): Promise<CryptoOperation[]> {
+    // Check if operations exist or force reseed, seed monitoring data
     const existing = await db.select().from(cryptoOperations).where(eq(cryptoOperations.tenantId, tenantId)).limit(1);
-    if (existing.length === 0) {
+    
+    // Force reseed if requested OR if data looks stale (fewer than 8 distinct algorithms)
+    if (existing.length === 0 || forceReseed) {
       await this.seedMonitoringData(tenantId);
+    } else if (existing.length > 0) {
+      // Check if we need to reseed due to limited algorithm diversity
+      const distinctAlgorithms = await db
+        .selectDistinct({ algorithm: cryptoOperations.algorithm })
+        .from(cryptoOperations)
+        .where(eq(cryptoOperations.tenantId, tenantId));
+      
+      if (distinctAlgorithms.length < 8) {
+        console.log(`🔄 Auto-reseeding monitoring data - only ${distinctAlgorithms.length} algorithms found, expected 15+`);
+        await this.seedMonitoringData(tenantId);
+      }
     }
     
     const since = new Date();

@@ -237,6 +237,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Force reseed monitoring data (development only)
+  app.post("/api/monitoring/reseed", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const tenantId = user.tenantId || 'default-tenant';
+      
+      console.log('🔄 Force reseeding monitoring data for tenant:', tenantId);
+      await storage.reseedMonitoringData(tenantId);
+      
+      res.status(204).send(); // No content
+    } catch (error: any) {
+      console.error('Error reseeding monitoring data:', error);
+      res.status(500).json({ message: "Failed to reseed monitoring data" });
+    }
+  });
+
   // SDK routes
   app.get("/api/sdks", isAuthenticated, async (req, res) => {
     try {
@@ -516,12 +532,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // MONITORING ENDPOINTS
   app.get("/api/monitoring/operations", isAuthenticated, async (req, res) => {
     try {
+      // Disable caching for dynamic monitoring data
+      res.set({
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      });
+      
       const user = req.user as any;
       const tenantId = user.tenantId || 'default-tenant';
       const hours = parseInt(req.query.hours as string) || 24;
+      const forceReseed = req.query.reseed === '1';
       
-      // Get operations and stats
-      const operations = await storage.getCryptoOperations(tenantId, hours);
+      // Get operations and stats with optional forced reseeding
+      const operations = await storage.getCryptoOperations(tenantId, hours, forceReseed);
       const stats = await storage.getOperationStats(tenantId, hours);
       
       // Calculate additional stats for frontend
@@ -551,6 +575,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/monitoring/health", isAuthenticated, async (req, res) => {
     try {
+      // Disable caching for dynamic monitoring data
+      res.set({
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        'Pragma': 'no-cache'
+      });
+      
       const user = req.user as any;
       const tenantId = user.tenantId || 'default-tenant';
       const health = await storage.getSystemHealthMetrics(tenantId);
@@ -563,6 +593,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/monitoring/incidents", isAuthenticated, async (req, res) => {
     try {
+      // Disable caching
+      res.set({ 'Cache-Control': 'no-store, no-cache, must-revalidate' });
+      
       const user = req.user as any;
       const tenantId = user.tenantId || 'default-tenant';
       const incidents = await storage.getSecurityIncidents(tenantId);
@@ -575,6 +608,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/monitoring/deployments", isAuthenticated, async (req, res) => {
     try {
+      // Disable caching
+      res.set({ 'Cache-Control': 'no-store, no-cache, must-revalidate' });
+      
       const user = req.user as any;
       const tenantId = user.tenantId || 'default-tenant';
       const deployments = await storage.getSdkDeployments(tenantId);
