@@ -17,7 +17,7 @@ export default function Dashboard() {
     threatBlocks: number;
   }
 
-  const { data: stats = { activeSDKs: 0, encryptedRequests: 0, keyRotations: 0, threatBlocks: 0 } as DashboardStats, isLoading: statsLoading } = useQuery({
+  const { data: stats = { activeSDKs: 0, encryptedRequests: 0, keyRotations: 0, threatBlocks: 0 } as DashboardStats, isLoading: statsLoading } = useQuery<DashboardStats>({
     queryKey: ["/api/dashboard/stats"],
     retry: false,
   });
@@ -29,7 +29,7 @@ export default function Dashboard() {
     createdAt: string;
   }
 
-  const { data: activities = [] as Activity[], isLoading: activitiesLoading } = useQuery({
+  const { data: activities = [] as Activity[], isLoading: activitiesLoading } = useQuery<Activity[]>({
     queryKey: ["/api/dashboard/activities"],
     retry: false,
   });
