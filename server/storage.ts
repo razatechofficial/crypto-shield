@@ -496,32 +496,41 @@ export class DatabaseStorage implements IStorage {
         console.log(`✅ Using existing ${insertedKeys.length} encryption keys for tenant:`, tenantId);
       }
 
-      // 2. Seed crypto operations using the actual inserted key IDs
-      const operationsData = [];
-      for (let day = 0; day < 7; day++) {
-        const dayDate = new Date(now.getTime() - 86400000 * day);
-        const operationsPerDay = Math.floor(Math.random() * 100) + 50; // 50-150 operations per day
-        
-        for (let op = 0; op < operationsPerDay; op++) {
-          const opTime = new Date(dayDate.getTime() + Math.random() * 86400000);
-          operationsData.push({
-            tenantId,
-            operation: Math.random() > 0.6 ? 'encryption' : 'decryption',
-            algorithm: ['AES-256-GCM', 'ChaCha20-Poly1305', 'RSA-2048'][Math.floor(Math.random() * 3)],
-            keyId: insertedKeys[Math.floor(Math.random() * insertedKeys.length)].keyId,
-            dataSize: Math.floor(Math.random() * 10000) + 100, // 100-10KB
-            duration: Math.floor(Math.random() * 50) + 5, // 5-55ms
-            status: Math.random() > 0.05 ? 'success' : 'failure', // 95% success rate
-            metadata: { source: Math.random() > 0.5 ? 'api' : 'sdk' },
-            createdAt: opTime
-          });
+      // 2. Only seed crypto operations if they don't exist
+      const existingOps = await db.select().from(cryptoOperations).where(eq(cryptoOperations.tenantId, tenantId)).limit(1);
+      if (existingOps.length === 0) {
+        const operationsData = [];
+        for (let day = 0; day < 7; day++) {
+          const dayDate = new Date(now.getTime() - 86400000 * day);
+          const operationsPerDay = Math.floor(Math.random() * 100) + 50; // 50-150 operations per day
+          
+          for (let op = 0; op < operationsPerDay; op++) {
+            const opTime = new Date(dayDate.getTime() + Math.random() * 86400000);
+            // Use the actual keyId field from the database records
+            const selectedKey = insertedKeys[Math.floor(Math.random() * insertedKeys.length)];
+            operationsData.push({
+              tenantId,
+              operation: Math.random() > 0.6 ? 'encryption' : 'decryption',
+              algorithm: ['AES-256-GCM', 'ChaCha20-Poly1305', 'RSA-2048'][Math.floor(Math.random() * 3)],
+              keyId: selectedKey.keyId, // Use the actual keyId from database
+              dataSize: Math.floor(Math.random() * 10000) + 100, // 100-10KB
+              duration: Math.floor(Math.random() * 50) + 5, // 5-55ms
+              status: Math.random() > 0.05 ? 'success' : 'failure', // 95% success rate
+              metadata: { source: Math.random() > 0.5 ? 'api' : 'sdk' },
+              createdAt: opTime
+            });
+          }
         }
+
+        await db.insert(cryptoOperations).values(operationsData);
+        console.log(`✅ Inserted ${operationsData.length} crypto operations for tenant:`, tenantId);
+      } else {
+        console.log(`✅ Using existing crypto operations for tenant:`, tenantId);
       }
 
-      await db.insert(cryptoOperations).values(operationsData);
-      console.log(`✅ Inserted ${operationsData.length} crypto operations for tenant:`, tenantId);
-
-    // 3. Seed security incidents
+      // 3. Only seed security incidents if they don't exist
+      const existingIncidents = await db.select().from(securityIncidents).where(eq(securityIncidents.tenantId, tenantId)).limit(1);
+      if (existingIncidents.length === 0) {
     const incidentsData = [
       {
         tenantId,
@@ -558,10 +567,15 @@ export class DatabaseStorage implements IStorage {
       }
     ];
 
-      await db.insert(securityIncidents).values(incidentsData);
-      console.log(`✅ Inserted ${incidentsData.length} security incidents for tenant:`, tenantId);
+        await db.insert(securityIncidents).values(incidentsData);
+        console.log(`✅ Inserted ${incidentsData.length} security incidents for tenant:`, tenantId);
+      } else {
+        console.log(`✅ Using existing security incidents for tenant:`, tenantId);
+      }
 
-      // 4. Seed SDK deployments
+      // 4. Only seed SDK deployments if they don't exist
+      const existingDeployments = await db.select().from(sdkDeployments).where(eq(sdkDeployments.tenantId, tenantId)).limit(1);
+      if (existingDeployments.length === 0) {
     const deploymentsData = [
       {
         tenantId,
@@ -607,8 +621,11 @@ export class DatabaseStorage implements IStorage {
       }
     ];
 
-      await db.insert(sdkDeployments).values(deploymentsData);
-      console.log(`✅ Inserted ${deploymentsData.length} SDK deployments for tenant:`, tenantId);
+        await db.insert(sdkDeployments).values(deploymentsData);
+        console.log(`✅ Inserted ${deploymentsData.length} SDK deployments for tenant:`, tenantId);
+      } else {
+        console.log(`✅ Using existing SDK deployments for tenant:`, tenantId);
+      }
 
       // 5. Seed performance metrics
     const metricsData = [];
