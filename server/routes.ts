@@ -556,6 +556,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return acc;
       }, {});
       
+      // Debug: Log available algorithm names for troubleshooting
+      console.log('🔍 Algorithm Stats Keys:', Object.keys(algorithmStats));
+      console.log('🔍 Sample Algorithm Stats:', algorithmStats);
+      
       res.json({
         operations,
         stats: {

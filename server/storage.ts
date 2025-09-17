@@ -556,42 +556,54 @@ export class DatabaseStorage implements IStorage {
       await db.insert(cryptoOperations).values(operationsData);
       console.log(`✅ Inserted ${operationsData.length} crypto operations for tenant:`, tenantId);
 
-      // 3. Seed security incidents
-      const incidentsData = [
-      {
-        tenantId,
-        incidentType: 'failed_authentication',
-        severity: 'medium' as const,
-        status: 'resolved' as const,
-        description: 'Multiple failed authentication attempts detected from suspicious IP',
-        affectedSystems: JSON.stringify(['api', 'dashboard']),
-        resolution: 'IP blocked, monitoring enhanced',
-        createdAt: new Date(now.getTime() - 86400000 * 5),
-        resolvedAt: new Date(now.getTime() - 86400000 * 4),
-      },
-      {
-        tenantId,
-        incidentType: 'key_rotation_failed',
-        severity: 'high' as const,
-        status: 'investigating' as const,
-        description: 'Automated key rotation failed for backup encryption key',
-        affectedSystems: JSON.stringify(['backup_service']),
-        resolution: null,
-        createdAt: new Date(now.getTime() - 86400000 * 2),
-        resolvedAt: null,
-      },
-      {
-        tenantId,
-        incidentType: 'unusual_traffic_pattern',
-        severity: 'low' as const,
-        status: 'resolved' as const,
-        description: 'Spike in encryption requests detected outside normal hours',
-        affectedSystems: JSON.stringify(['encryption_api']),
-        resolution: 'Confirmed as legitimate batch processing job',
-        createdAt: new Date(now.getTime() - 86400000 * 1),
-        resolvedAt: new Date(now.getTime() - 86400000 * 1 + 7200000), // 2 hours later
+      // 3. Generate realistic security incidents from actual operations
+      const incidentsData = [];
+      const totalOps = operationsData.length;
+      const failedOps = operationsData.filter(op => op.status === 'failure');
+      
+      // Generate incidents based on actual operational data
+      if (failedOps.length > 20) {
+        incidentsData.push({
+          tenantId,
+          incidentType: 'high_failure_rate',
+          severity: 'high' as const,
+          status: 'investigating' as const,
+          description: `Elevated failure rate detected: ${failedOps.length} failed operations out of ${totalOps} total`,
+          affectedSystems: JSON.stringify(['encryption_api', 'sdk_endpoints']),
+          resolution: null,
+          createdAt: new Date(now.getTime() - Math.random() * 86400000 * 2),
+          resolvedAt: null,
+        });
       }
-    ];
+      
+      if (totalOps > 500) {
+        incidentsData.push({
+          tenantId,
+          incidentType: 'traffic_anomaly',
+          severity: 'medium' as const,
+          status: 'resolved' as const,
+          description: `Unusual traffic volume: ${totalOps} operations processed in monitoring period`,
+          affectedSystems: JSON.stringify(['encryption_api']),
+          resolution: 'Verified as legitimate batch processing activity',
+          createdAt: new Date(now.getTime() - Math.random() * 86400000 * 3),
+          resolvedAt: new Date(now.getTime() - Math.random() * 86400000),
+        });
+      }
+      
+      // Only add minimal incidents if no operational issues detected
+      if (incidentsData.length === 0) {
+        incidentsData.push({
+          tenantId,
+          incidentType: 'routine_security_scan',
+          severity: 'low' as const,
+          status: 'resolved' as const,
+          description: 'Routine security compliance verification completed successfully',
+          affectedSystems: JSON.stringify(['monitoring_system']),
+          resolution: 'All systems operating within normal parameters',
+          createdAt: new Date(now.getTime() - 86400000 * 1),
+          resolvedAt: new Date(now.getTime() - 86400000 * 1 + 3600000),
+        });
+      }
 
       await db.insert(securityIncidents).values(incidentsData);
       console.log(`✅ Inserted ${incidentsData.length} security incidents for tenant:`, tenantId);
@@ -2461,7 +2473,7 @@ export class DatabaseStorage implements IStorage {
         .from(cryptoOperations)
         .where(eq(cryptoOperations.tenantId, tenantId));
       
-      if (distinctAlgorithms.length < 8) {
+      if (distinctAlgorithms.length < 15) { // Force reseed if less than 15 algorithms
         console.log(`🔄 Auto-reseeding monitoring data - only ${distinctAlgorithms.length} algorithms found, expected 15+`);
         await this.seedMonitoringData(tenantId);
       }
