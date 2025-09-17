@@ -2572,9 +2572,9 @@ export class DatabaseStorage implements IStorage {
         ops.slice(0, 10).map((op, index) => ({
           id: `crypto_${index}`,
           type: 'crypto_operation',
-          eventType: 'sdk_generated',
-          title: `Encryption completed successfully`,
-          description: `Secured ${Math.round((op.dataSize || 0) / 1024)}KB of data using enterprise-grade encryption`,
+          eventType: op.operation,
+          title: `${op.operation.charAt(0).toUpperCase() + op.operation.slice(1)} operation ${op.status}`,
+          description: `${op.algorithm} ${op.operation} operation processed ${Math.round((op.dataSize || 0) / 1024)}KB in ${op.duration}ms`,
           timestamp: op.createdAt,
           createdAt: op.createdAt,
           status: op.status,
@@ -2585,9 +2585,9 @@ export class DatabaseStorage implements IStorage {
         incidents.slice(0, 5).map((inc, index) => ({
           id: `incident_${index}`,
           type: 'security_incident',
-          eventType: 'threat_detected',
-          title: `Security threat blocked`,
-          description: `Potential ${inc.incidentType?.toLowerCase() || 'security'} threat detected and automatically blocked`,
+          eventType: inc.incidentType,
+          title: `${inc.incidentType.replace(/_/g, ' ')} incident ${inc.status}`,
+          description: inc.description,
           timestamp: inc.createdAt,
           createdAt: inc.createdAt,
           status: inc.status,
@@ -2603,12 +2603,12 @@ export class DatabaseStorage implements IStorage {
           sdks.map((sdk, index) => ({
             id: `sdk_${index}`,
             type: 'sdk_change',
-            eventType: 'key_rotated',
-            title: `Key rotation completed`,
-            description: `Encryption keys rotated for ${sdk.name} - Enhanced security maintained`,
+            eventType: 'sdk_updated',
+            title: `SDK "${sdk.name}" updated`,
+            description: `${sdk.name} configuration modified - Status: ${sdk.status || 'active'}`,
             timestamp: sdk.updatedAt,
             createdAt: sdk.updatedAt,
-            status: 'completed',
+            status: sdk.status || 'active',
             metadata: sdk
           }))
         )
