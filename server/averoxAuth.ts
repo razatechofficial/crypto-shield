@@ -92,10 +92,9 @@ export async function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
-  // Check if we're in development mode without proper client ID
-  const clientId = process.env.AVEROX_CLIENT_ID || process.env.REPL_ID;
-  if (!clientId && process.env.NODE_ENV === 'development') {
-    console.log('🔧 Development mode: Using mock authentication (no REPL_ID provided)');
+  // Force development mode for local development
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🔧 Development mode: Using mock authentication for Averox');
     
     // Set up mock user for development only
     passport.serializeUser((user, done) => {
@@ -172,15 +171,15 @@ export async function setupAuth(app: Express) {
 
   const verify: VerifyFunction = async (
     tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers,
-    userinfo: any,
     done: passport.AuthenticateCallback
   ) => {
-    updateUserSession(userinfo, tokens);
+    const user = {};
+    updateUserSession(user, tokens);
     try {
       const dbUser = await upsertUser(tokens.claims());
       // Store the full database user object in session, not just OIDC claims
       const sessionUser = {
-        ...userinfo,
+        ...user,
         id: dbUser.id,
         tenantId: dbUser.tenantId,
         role: dbUser.role,
