@@ -37,7 +37,17 @@ export function getSession() {
     tableName: "sessions",
   });
   return session({
-    secret: process.env.SESSION_SECRET || "averox-dev-session-secret",
+    secret: (() => {
+      const secret = process.env.SESSION_SECRET;
+      if (!secret) {
+        if (process.env.NODE_ENV === 'production') {
+          throw new Error('SESSION_SECRET environment variable is required in production');
+        }
+        console.warn('⚠️  Using default session secret in development. Set SESSION_SECRET for production.');
+        return "averox-dev-session-secret";
+      }
+      return secret;
+    })(),
     store: sessionStore,
     resave: false,
     saveUninitialized: false,
@@ -81,77 +91,129 @@ export async function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
-  // Development mode: Skip OIDC configuration if not provided
-  if (process.env.NODE_ENV === 'development' && (!OIDC_ISSUER_URL || !OIDC_CLIENT_ID)) {
-    console.log('🔧 Development mode: Using mock authentication (no OIDC config provided)');
-    
-    // Set up mock user for development
-    passport.serializeUser((user, done) => {
-      done(null, user);
-    });
+  // Check if OIDC configuration is available
+  if (!OIDC_ISSUER_URL || !OIDC_CLIENT_ID) {
+    // No OIDC configuration provided
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔧 Development mode: Using mock authentication (no OIDC config provided)');
+      
+      // Set up mock user for development only
+      passport.serializeUser((user, done) => {
+        done(null, user);
+      });
 
-    passport.deserializeUser((user: any, done) => {
-      done(null, user);
-    });
+      passport.deserializeUser((user: any, done) => {
+        done(null, user);
+      });
 
-    // Mock authentication routes for development
-    app.get("/api/login", async (req, res) => {
-      try {
-        // Create a mock user for development
-        const mockClaims = {
-          sub: "dev-user-001",
-          email: "dev@averox.com", 
-          username: "developer",
-          first_name: "Development",
-          last_name: "User",
-          exp: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
-        };
-        
-        // Create the user in the database (same as production flow)
-        const dbUser = await upsertUser(mockClaims);
-        
-        const mockUser = {
-          claims: mockClaims,
-          access_token: "dev-access-token",
-          refresh_token: "dev-refresh-token", 
-          expires_at: Math.floor(Date.now() / 1000) + 3600,
-          // Include database user info (same as production)
-          id: dbUser.id,
-          tenantId: dbUser.tenantId,
-          role: dbUser.role,
-          email: dbUser.email
-        };
-        
-        req.login(mockUser, (err) => {
-          if (err) {
-            console.error('Mock login error:', err);
-            return res.redirect('/?error=login_failed');
-          }
-          res.redirect('/');
-        });
-      } catch (error) {
-        console.error('Mock user creation error:', error);
-        res.redirect('/?error=user_creation_failed');
-      }
-    });
+      // Mock authentication routes for development only
+      app.get("/api/login", async (req, res) => {
+        try {
+          // Create a mock user for development
+          const mockClaims = {
+            sub: "dev-user-001",
+            email: "dev@averox.com", 
+            username: "developer",
+            first_name: "Development",
+            last_name: "User",
+            exp: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
+          };
+          
+          // Create the user in the database (same as production flow)
+          const dbUser = await upsertUser(mockClaims);
+          
+          const mockUser = {
+            claims: mockClaims,
+            access_token: "dev-access-token",
+            refresh_token: "dev-refresh-token", 
+            expires_at: Math.floor(Date.now() / 1000) + 3600,
+            // Include database user info
+            id: dbUser.id,
+            tenantId: dbUser.tenantId,
+            role: dbUser.role,
+            email: dbUser.email
+          };
+          
+          req.login(mockUser, (err) => {
+            if (err) {
+              console.error('Mock login error:', err);
+              return res.redirect('/?error=login_failed');
+            }
+            res.redirect('/');
+          });
+        } catch (error) {
+          console.error('Mock user creation error:', error);
+          res.redirect('/?error=user_creation_failed');
+        }
+      });
 
-    app.get("/api/callback", (req, res) => {
-      res.redirect('/');
-    });
-
-    app.get("/api/logout", (req, res) => {
-      req.logout(() => {
+      app.get("/api/callback", (req, res) => {
         res.redirect('/');
       });
-    });
 
-    return;
+      app.get("/api/logout", (req, res) => {
+        req.logout(() => {
+          res.redirect('/');
+        });
+      });
+
+      return;
+    } else {
+      // Production mode without OIDC configuration
+      console.error('❌ Production mode requires OIDC configuration. Please set OIDC_ISSUER_URL and OIDC_CLIENT_ID environment variables.');
+      console.error('Alternatively, set ALLOW_INSECURE_FALLBACK=true to enable insecure fallback authentication (NOT RECOMMENDED).');
+      
+      if (process.env.ALLOW_INSECURE_FALLBACK !== 'true') {
+        throw new Error('Production deployment failed: OIDC configuration is required. Set OIDC_ISSUER_URL and OIDC_CLIENT_ID environment variables, or set ALLOW_INSECURE_FALLBACK=true (not recommended).');
+      }
+      
+      console.warn('⚠️  WARNING: Running with insecure fallback authentication in production. This is not recommended for security reasons.');
+      
+      // Insecure fallback for production (only if explicitly enabled)
+      passport.serializeUser((user, done) => {
+        done(null, user);
+      });
+
+      passport.deserializeUser((user: any, done) => {
+        done(null, user);
+      });
+
+      // Minimal fallback routes that return 503 Service Unavailable
+      app.get("/api/login", (req, res) => {
+        res.status(503).json({ 
+          error: 'Authentication service unavailable', 
+          message: 'OIDC configuration is required for authentication. Please contact your administrator.' 
+        });
+      });
+
+      app.get("/api/callback", (req, res) => {
+        res.status(503).json({ 
+          error: 'Authentication service unavailable', 
+          message: 'OIDC configuration is required for authentication. Please contact your administrator.' 
+        });
+      });
+
+      app.get("/api/logout", (req, res) => {
+        req.logout(() => {
+          res.redirect('/');
+        });
+      });
+
+      return;
+    }
   }
 
-  // Production mode: Use real OIDC
-  const config = await getOidcConfig();
+  // OIDC configuration is available - use real OIDC
+  console.log('🔐 OIDC configuration found, setting up production authentication');
+  let config;
+  try {
+    config = await getOidcConfig();
+  } catch (error) {
+    console.error('Failed to get OIDC configuration:', error);
+    throw new Error('OIDC configuration failed to load. Please check your OIDC_ISSUER_URL and OIDC_CLIENT_ID environment variables.');
+  }
 
-  const verify: VerifyFunction = async (tokens, userinfo, done) => {
+  const verify: VerifyFunction = async (tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers, userinfo: any, done: (error: any, user?: any) => void) => {
     updateUserSession(userinfo, tokens);
     try {
       const dbUser = await upsertUser(tokens.claims());
