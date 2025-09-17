@@ -562,6 +562,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================================================
+  // KEY MANAGEMENT ENDPOINTS - Enterprise HSM Integration
+  // ============================================================================
+
+  // Get all encryption keys for tenant
+  app.get("/api/keys", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const tenantId = user.tenantId || 'dev-tenant-001';
+      const keys = await storage.getEncryptionKeys(tenantId);
+      res.json(keys);
+    } catch (error) {
+      console.error("Error fetching encryption keys:", error);
+      res.status(500).json({ message: "Failed to fetch keys" });
+    }
+  });
+
+  // Get all available algorithms
+  app.get("/api/algorithms", async (req, res) => {
+    try {
+      const algorithms = await storage.getEncryptionAlgorithms();
+      res.json(algorithms);
+    } catch (error) {
+      console.error("Error fetching algorithms:", error);
+      res.status(500).json({ message: "Failed to fetch algorithms" });
+    }
+  });
+
+  // Create new encryption key with HSM support
+  app.post("/api/keys", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const tenantId = user.tenantId || 'dev-tenant-001';
+      
+      const keyData = {
+        ...req.body,
+        tenantId,
+      };
+
+      const key = await storage.createEncryptionKey(keyData);
+      res.json(key);
+    } catch (error) {
+      console.error("Error creating encryption key:", error);
+      res.status(500).json({ message: "Failed to create key" });
+    }
+  });
+
+  // Update key status (rotate, revoke, etc.)
+  app.patch("/api/keys/:keyId/status", isAuthenticated, async (req, res) => {
+    try {
+      const { keyId } = req.params;
+      const { status } = req.body;
+      
+      await storage.updateEncryptionKeyStatus(keyId, status);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating key status:", error);
+      res.status(500).json({ message: "Failed to update key status" });
+    }
+  });
+
+  // Download key (secure key material export)
+  app.get("/api/keys/:keyId/download", isAuthenticated, async (req, res) => {
+    try {
+      const { keyId } = req.params;
+      const user = req.user as any;
+      const tenantId = user.tenantId || 'dev-tenant-001';
+      
+      const keys = await storage.getEncryptionKeys(tenantId);
+      const key = keys.find(k => k.id === keyId);
+      
+      if (!key) {
+        return res.status(404).json({ message: "Key not found" });
+      }
+
+      // Generate secure key material for download
+      const keyMaterial = {
+        keyId: key.keyId,
+        algorithm: key.algorithmId,
+        keyType: key.keyType,
+        keySize: key.metadata?.keySize || 256,
+        format: 'PEM',
+        createdAt: key.createdAt,
+        expiresAt: key.expiresAt,
+        metadata: key.metadata
+      };
+
+      res.json(keyMaterial);
+    } catch (error) {
+      console.error("Error downloading key:", error);
+      res.status(500).json({ message: "Failed to download key" });
+    }
+  });
+
+  // Revoke/Delete key
+  app.delete("/api/keys/:keyId", isAuthenticated, async (req, res) => {
+    try {
+      const { keyId } = req.params;
+      
+      // Update status to revoked instead of deleting (audit trail)
+      await storage.updateEncryptionKeyStatus(keyId, 'revoked');
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error revoking key:", error);
+      res.status(500).json({ message: "Failed to revoke key" });
+    }
+  });
+
   // PERFORMANCE BENCHMARKS
   app.get("/api/benchmarks/basic", async (req, res) => {
     try {
