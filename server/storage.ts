@@ -2338,6 +2338,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getCryptoOperations(tenantId: string, hours = 24): Promise<CryptoOperation[]> {
+    // Check if operations exist, if not, seed monitoring data
+    const existing = await db.select().from(cryptoOperations).where(eq(cryptoOperations.tenantId, tenantId)).limit(1);
+    if (existing.length === 0) {
+      await this.seedMonitoringData(tenantId);
+    }
+    
     const since = new Date();
     since.setHours(since.getHours() - hours);
     
@@ -2498,6 +2504,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getSecurityIncidents(tenantId: string, status?: string): Promise<SecurityIncident[]> {
+    // Check if incidents exist, if not, seed monitoring data
+    const existing = await db.select().from(securityIncidents).where(eq(securityIncidents.tenantId, tenantId)).limit(1);
+    if (existing.length === 0) {
+      await this.seedMonitoringData(tenantId);
+    }
+    
     const conditions = [eq(securityIncidents.tenantId, tenantId)];
     
     if (status) {
@@ -2547,6 +2559,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getSdkDeployments(tenantId: string): Promise<SdkDeployment[]> {
+    // Check if deployments exist, if not, seed monitoring data
+    const existing = await db.select().from(sdkDeployments).where(eq(sdkDeployments.tenantId, tenantId)).limit(1);
+    if (existing.length === 0) {
+      await this.seedMonitoringData(tenantId);
+    }
+    
     return await db
       .select()
       .from(sdkDeployments)
