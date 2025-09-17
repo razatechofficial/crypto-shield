@@ -567,51 +567,98 @@ export class DatabaseStorage implements IStorage {
       await db.insert(securityIncidents).values(incidentsData);
       console.log(`✅ Inserted ${incidentsData.length} security incidents for tenant:`, tenantId);
 
-      // 4. Seed SDK deployments
-      const deploymentsData = [
-      {
-        tenantId,
-        sdkId: 'finance-sdk-prod',
-        version: '2.1.0',
-        environment: 'production',
-        platform: 'nodejs',
-        region: 'us-east-1',
-        instanceCount: 5,
-        healthStatus: 'healthy' as const,
-        totalOperations: 15420,
-        successRate: 99,
-        lastHeartbeat: new Date(now.getTime() - 300000), // 5 minutes ago
-        createdAt: new Date(now.getTime() - 86400000 * 14)
-      },
-      {
-        tenantId,
-        sdkId: 'healthcare-sdk-staging',
-        version: '1.8.3',
-        environment: 'staging',
-        platform: 'python',
-        region: 'us-west-2',
-        instanceCount: 2,
-        healthStatus: 'healthy' as const,
-        totalOperations: 3240,
-        successRate: 98,
-        lastHeartbeat: new Date(now.getTime() - 180000), // 3 minutes ago
-        createdAt: new Date(now.getTime() - 86400000 * 10)
-      },
-      {
-        tenantId,
-        sdkId: 'mobile-sdk-prod',
-        version: '2.0.1',
-        environment: 'production',
-        platform: 'swift',
-        region: 'eu-west-1',
-        instanceCount: 8,
-        healthStatus: 'degraded' as const,
-        totalOperations: 8750,
-        successRate: 95,
-        lastHeartbeat: new Date(now.getTime() - 900000), // 15 minutes ago (degraded)
-        createdAt: new Date(now.getTime() - 86400000 * 21)
+      // 4. Seed SDK deployments with actual SDK IDs from database
+      let existingSDKs = await db.select().from(sdks).where(eq(sdks.tenantId, tenantId)).limit(10);
+      
+      if (existingSDKs.length === 0) {
+        // Create sample SDKs if none exist
+        const sampleSDKsData = [
+          {
+            tenantId,
+            userId: 'dev-user-001', // Mock user ID for development
+            name: 'Finance Platform SDK',
+            languages: JSON.stringify(['javascript', 'python']),
+            algorithms: JSON.stringify(['aes-256-gcm', 'chacha20-poly1305']),
+            applicationType: 'web_application',
+            deploymentEnvironment: 'production',
+            securityLevel: 'enhanced' as const,
+            configuration: { features: ['encryption', 'key_rotation'] },
+            features: { telemetry: true, monitoring: true }
+          },
+          {
+            tenantId,
+            userId: 'dev-user-001',
+            name: 'Healthcare Data SDK',
+            languages: JSON.stringify(['python', 'java']),
+            algorithms: JSON.stringify(['aes-256-gcm']),
+            applicationType: 'mobile_application',
+            deploymentEnvironment: 'staging',
+            securityLevel: 'maximum' as const,
+            configuration: { features: ['encryption', 'compliance'] },
+            features: { telemetry: true, hipaa: true }
+          },
+          {
+            tenantId,
+            userId: 'dev-user-001',
+            name: 'Mobile App SDK',
+            languages: JSON.stringify(['swift', 'kotlin']),
+            algorithms: JSON.stringify(['aes-256-gcm', 'rsa-2048']),
+            applicationType: 'mobile_application',
+            deploymentEnvironment: 'production',
+            securityLevel: 'standard' as const,
+            configuration: { features: ['encryption'] },
+            features: { telemetry: true }
+          }
+        ];
+        
+        existingSDKs = await db.insert(sdks).values(sampleSDKsData).returning();
+        console.log(`✅ Created ${existingSDKs.length} sample SDKs for tenant:`, tenantId);
       }
-    ];
+      
+      const deploymentsData = [
+        {
+          tenantId,
+          sdkId: existingSDKs[0]?.id, // Use actual SDK ID
+          version: '2.1.0',
+          environment: 'production',
+          applicationName: 'Finance Platform',
+          healthStatus: 'healthy' as const,
+          instanceCount: 5,
+          totalOperations: 15420,
+          successRate: 99,
+          averageLatency: 25,
+          lastHeartbeat: new Date(now.getTime() - 300000), // 5 minutes ago
+          createdAt: new Date(now.getTime() - 86400000 * 14)
+        },
+        ...(existingSDKs[1] ? [{
+          tenantId,
+          sdkId: existingSDKs[1].id, // Use actual SDK ID
+          version: '1.8.3',
+          environment: 'staging',
+          applicationName: 'Healthcare Data Platform',
+          healthStatus: 'healthy' as const,
+          instanceCount: 2,
+          totalOperations: 3240,
+          successRate: 98,
+          averageLatency: 18,
+          lastHeartbeat: new Date(now.getTime() - 180000), // 3 minutes ago
+          createdAt: new Date(now.getTime() - 86400000 * 10)
+        }] : []),
+        ...(existingSDKs[2] ? [{
+          tenantId,
+          sdkId: existingSDKs[2].id, // Use actual SDK ID
+          version: '2.0.1',
+          environment: 'production',
+          applicationName: 'Mobile App',
+          healthStatus: 'degraded' as const,
+          instanceCount: 8,
+          totalOperations: 8750,
+          successRate: 95,
+          averageLatency: 35,
+          lastHeartbeat: new Date(now.getTime() - 900000), // 15 minutes ago (degraded)
+          createdAt: new Date(now.getTime() - 86400000 * 21)
+        }] : [])
+      ];
 
       await db.insert(sdkDeployments).values(deploymentsData);
       console.log(`✅ Inserted ${deploymentsData.length} SDK deployments for tenant:`, tenantId);
