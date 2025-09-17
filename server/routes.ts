@@ -1,8 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth } from "./genericAuth";
-import { isAuthenticated } from "./middleware";
+import { setupAuth, isAuthenticated } from "./replitAuth";
 import { insertSdkSchema, insertEncryptionKeySchema } from "@shared/schema";
 import { z } from "zod";
 import archiver from "archiver";
@@ -195,11 +194,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
 
   // Authentication routes
-  app.get("/api/auth/user", (req, res) => {
-    if (req.user) {
-      res.json(req.user);
-    } else {
-      res.status(401).json({ message: "Not authenticated" });
+  app.get("/api/auth/user", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const userId = user.id || user.claims?.sub;
+      
+      if (userId) {
+        const dbUser = await storage.getUser(userId);
+        if (dbUser) {
+          res.json(dbUser);
+        } else {
+          res.json(user); // Fallback to session user
+        }
+      } else {
+        res.json(user);
+      }
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
     }
   });
 
