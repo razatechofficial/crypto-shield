@@ -40,7 +40,7 @@ export default function KeyManagement() {
 
   const getAlgorithmByName = (algorithmName: string) => {
     if (!algorithms || !Array.isArray(algorithms)) return null;
-    return algorithms.find((alg: any) => alg.name === algorithmName);
+    return (algorithms as any[]).find((alg: any) => alg.name === algorithmName);
   };
 
   const getSelectedAlgorithmDetails = () => {
@@ -407,32 +407,32 @@ export default function KeyManagement() {
                 </p>
               </div>
               <div>
-                <Label htmlFor="algorithm">Encryption Algorithm ({algorithms.length} Available)</Label>
+                <Label htmlFor="algorithm">Encryption Algorithm ({Array.isArray(algorithms) ? algorithms.length : 0} Available)</Label>
                 <Select value={selectedAlgorithm} onValueChange={setSelectedAlgorithm}>
                   <SelectTrigger className="bg-gray-50 border-gray-300">
                     <SelectValue placeholder="Select from 83+ enterprise algorithms" />
                   </SelectTrigger>
                   <SelectContent className="max-h-96 overflow-y-auto">
                     <div className="p-2 text-xs font-medium text-gray-500 border-b">🔐 Symmetric Encryption</div>
-                    {algorithms.filter((alg: any) => alg.type === 'symmetric').map((alg: any) => (
+                    {(algorithms as any[] || []).filter((alg: any) => alg.type === 'symmetric').map((alg: any) => (
                       <SelectItem key={alg.id} value={alg.name}>
                         {alg.displayName} {alg.isPostQuantum && '(Post-Quantum)'}
                       </SelectItem>
                     ))}
                     <div className="p-2 text-xs font-medium text-gray-500 border-b">🔑 Asymmetric Encryption</div>
-                    {algorithms.filter((alg: any) => alg.type === 'asymmetric').map((alg: any) => (
+                    {(algorithms as any[] || []).filter((alg: any) => alg.type === 'asymmetric').map((alg: any) => (
                       <SelectItem key={alg.id} value={alg.name}>
                         {alg.displayName} {alg.keySize && `(${alg.keySize}-bit)`}
                       </SelectItem>
                     ))}
                     <div className="p-2 text-xs font-medium text-gray-500 border-b">🛡️ Post-Quantum Security</div>
-                    {algorithms.filter((alg: any) => alg.type === 'post_quantum').map((alg: any) => (
+                    {(algorithms as any[] || []).filter((alg: any) => alg.type === 'post_quantum').map((alg: any) => (
                       <SelectItem key={alg.id} value={alg.name}>
                         {alg.displayName} (NIST 2024)
                       </SelectItem>
                     ))}
                     <div className="p-2 text-xs font-medium text-gray-500 border-b">🔗 Hash Functions & KDF</div>
-                    {algorithms.filter((alg: any) => alg.type === 'hash').map((alg: any) => (
+                    {(algorithms as any[] || []).filter((alg: any) => alg.type === 'hash').map((alg: any) => (
                       <SelectItem key={alg.id} value={alg.name}>
                         {alg.displayName}
                       </SelectItem>

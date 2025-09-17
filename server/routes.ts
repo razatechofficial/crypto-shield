@@ -642,7 +642,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         keyId: key.keyId,
         algorithm: key.algorithmId,
         keyType: key.keyType,
-        keySize: key.metadata?.keySize || 256,
+        keySize: (key.metadata as any)?.keySize || 256,
         format: 'PEM',
         createdAt: key.createdAt,
         expiresAt: key.expiresAt,
