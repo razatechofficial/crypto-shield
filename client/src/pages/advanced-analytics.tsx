@@ -66,47 +66,53 @@ export default function AdvancedAnalytics() {
   })) || [];
 
   // Calculate algorithm usage from real data
-  const algorithmUsage = algorithmStats?.reduce((acc: any[], alg: any) => {
-    const operations = operationsData?.stats?.algorithmStats?.[alg.name] || 0;
-    if (operations > 0) {
-      acc.push({
-        algorithm: alg.displayName || alg.name,
-        operations,
-        percentage: ((operations / (operationsData?.stats?.totalOperations || 1)) * 100).toFixed(1),
-        color: alg.type === 'symmetric' ? '#3B82F6' : 
-               alg.type === 'asymmetric' ? '#10B981' :
-               alg.isPostQuantum ? '#8B5CF6' : '#6B7280'
-      });
-    }
-    return acc;
-  }, []) || [];
+  const algorithmUsage = Array.isArray(algorithmStats) 
+    ? algorithmStats.reduce((acc: any[], alg: any) => {
+        const operations = operationsData?.stats?.algorithmStats?.[alg.name] || 0;
+        if (operations > 0) {
+          acc.push({
+            algorithm: alg.displayName || alg.name,
+            operations,
+            percentage: ((operations / (operationsData?.stats?.totalOperations || 1)) * 100).toFixed(1),
+            color: alg.type === 'symmetric' ? '#3B82F6' : 
+                   alg.type === 'asymmetric' ? '#10B981' :
+                   alg.isPostQuantum ? '#8B5CF6' : '#6B7280'
+          });
+        }
+        return acc;
+      }, [])
+    : [];
 
   // Process real security incidents
-  const processedSecurityEvents = securityIncidents?.slice(0, 10).map((incident: any) => ({
-    type: incident.incidentType || 'Security Event',
-    count: incident.count || 1,
-    severity: incident.severity || 'medium',
-    timestamp: incident.timestamp ? new Date(incident.timestamp).toLocaleString() : 'Recently'
-  })) || [];
+  const processedSecurityEvents = Array.isArray(securityIncidents) 
+    ? securityIncidents.slice(0, 10).map((incident: any) => ({
+        type: incident.incidentType || 'Security Event',
+        count: incident.count || 1,
+        severity: incident.severity || 'medium',
+        timestamp: incident.createdAt ? new Date(incident.createdAt).toLocaleString() : 'Recently'
+      }))
+    : [];
 
   // Calculate geographic distribution from deployments
-  const geographicData = deployments?.reduce((regions: any[], deployment: any) => {
-    const region = deployment.region || 'Unknown';
-    const existingRegion = regions.find(r => r.region === region);
-    
-    if (existingRegion) {
-      existingRegion.operations += deployment.operationCount || 0;
-      existingRegion.latency = (existingRegion.latency + (deployment.averageLatency || 0)) / 2;
-    } else {
-      regions.push({
-        region,
-        operations: deployment.operationCount || 0,
-        latency: deployment.averageLatency || 0,
-        uptime: deployment.uptime || 99.5
-      });
-    }
-    return regions;
-  }, []) || [];
+  const geographicData = Array.isArray(deployments) 
+    ? deployments.reduce((regions: any[], deployment: any) => {
+        const region = deployment.region || 'Unknown';
+        const existingRegion = regions.find(r => r.region === region);
+        
+        if (existingRegion) {
+          existingRegion.operations += deployment.totalOperations || 0;
+          existingRegion.latency = (existingRegion.latency + (deployment.averageLatency || 0)) / 2;
+        } else {
+          regions.push({
+            region,
+            operations: deployment.totalOperations || 0,
+            latency: deployment.averageLatency || 0,
+            uptime: deployment.successRate || 99.5
+          });
+        }
+        return regions;
+      }, [])
+    : [];
 
   // Calculate total operations for percentage calculation
   const totalOperations = geographicData.reduce((sum, region) => sum + region.operations, 0);
@@ -118,26 +124,26 @@ export default function AdvancedAnalytics() {
   const compliance = [
     { 
       standard: 'NIST SP 800-38D', 
-      status: algorithmStats?.some((alg: any) => alg.name.includes('AES') && alg.name.includes('GCM')) ? 'Compliant' : 'Non-Compliant',
-      tests: algorithmStats?.filter((alg: any) => alg.name.includes('AES')).length + '/3',
+      status: Array.isArray(algorithmStats) && algorithmStats.some((alg: any) => alg.name.includes('AES') && alg.name.includes('GCM')) ? 'Compliant' : 'Non-Compliant',
+      tests: (Array.isArray(algorithmStats) ? algorithmStats.filter((alg: any) => alg.name.includes('AES')).length : 0) + '/3',
       lastCheck: '2 hours ago' 
     },
     { 
       standard: 'FIPS 140-2 Level 3', 
-      status: algorithmStats?.some((alg: any) => alg.name.includes('AES-256')) ? 'Compliant' : 'In Progress',
-      tests: algorithmStats?.filter((alg: any) => alg.name.includes('AES') || alg.name.includes('SHA')).length + '/5',
+      status: Array.isArray(algorithmStats) && algorithmStats.some((alg: any) => alg.name.includes('AES-256')) ? 'Compliant' : 'In Progress',
+      tests: (Array.isArray(algorithmStats) ? algorithmStats.filter((alg: any) => alg.name.includes('AES') || alg.name.includes('SHA')).length : 0) + '/5',
       lastCheck: '6 hours ago' 
     },
     { 
       standard: 'Post-Quantum Ready', 
-      status: algorithmStats?.some((alg: any) => alg.isPostQuantum) ? 'Compliant' : 'In Progress',
-      tests: algorithmStats?.filter((alg: any) => alg.isPostQuantum).length + '/2',
+      status: Array.isArray(algorithmStats) && algorithmStats.some((alg: any) => alg.isPostQuantum) ? 'Compliant' : 'In Progress',
+      tests: (Array.isArray(algorithmStats) ? algorithmStats.filter((alg: any) => alg.isPostQuantum).length : 0) + '/2',
       lastCheck: '1 day ago' 
     },
     { 
       standard: 'Enterprise Security', 
-      status: (securityIncidents?.filter((i: any) => i.severity === 'high').length || 0) < 5 ? 'Compliant' : 'At Risk',
-      tests: Math.max(0, 10 - (securityIncidents?.filter((i: any) => i.severity === 'high').length || 0)) + '/10',
+      status: (Array.isArray(securityIncidents) ? securityIncidents.filter((i: any) => i.severity === 'high').length : 0) < 5 ? 'Compliant' : 'At Risk',
+      tests: Math.max(0, 10 - (Array.isArray(securityIncidents) ? securityIncidents.filter((i: any) => i.severity === 'high').length : 0)) + '/10',
       lastCheck: '3 hours ago' 
     },
   ];

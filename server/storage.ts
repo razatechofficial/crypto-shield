@@ -419,87 +419,98 @@ export class DatabaseStorage implements IStorage {
     const aes256cbcId = algorithms.find(a => a.name === 'AES-256-CBC')?.id;
 
     if (!aes256gcmId || !chacha20Id || !aes256cbcId) {
-      console.warn('⚠️ Some algorithms not found, skipping key seeding');
+      console.warn('⚠️ Some algorithms not found, skipping monitoring data seeding');
       return;
     }
 
-    // 1. Seed encryption keys
-    const encryptionKeysData = [
-      {
-        tenantId,
-        keyId: `key_${randomUUID().replace(/-/g, '')}`,
-        keyType: 'primary',
-        algorithmId: aes256gcmId,
-        status: 'active' as const,
-        rotationInterval: 90,
-        metadata: {
-          name: 'Production API Key',
-          description: 'Primary encryption key for production API endpoints',
-          algorithm: 'AES-256-GCM',
-          keySize: 256,
-          purpose: 'encryption'
-        },
-        createdAt: new Date(now.getTime() - 86400000 * 30), // 30 days ago
-      },
-      {
-        tenantId,
-        keyId: `key_${randomUUID().replace(/-/g, '')}`,
-        keyType: 'backup',
-        algorithmId: chacha20Id,
-        status: 'active' as const,
-        rotationInterval: 30,
-        metadata: {
-          name: 'Backup Encryption Key',
-          description: 'Secondary key for data backup encryption',
-          algorithm: 'ChaCha20-Poly1305',
-          keySize: 256,
-          purpose: 'backup'
-        },
-        createdAt: new Date(now.getTime() - 86400000 * 15), // 15 days ago
-      },
-      {
-        tenantId,
-        keyId: `key_${randomUUID().replace(/-/g, '')}`,
-        keyType: 'session',
-        algorithmId: aes256cbcId,
-        status: 'rotating' as const,
-        rotationInterval: 7,
-        metadata: {
-          name: 'Legacy Migration Key',
-          description: 'Temporary key for legacy data migration',
-          algorithm: 'AES-256-CBC',
-          keySize: 256,
-          purpose: 'migration'
-        },
-        createdAt: new Date(now.getTime() - 86400000 * 7), // 7 days ago
-      }
-    ];
-
-    await db.insert(encryptionKeys).values(encryptionKeysData);
-
-    // 2. Seed crypto operations (last 7 days of activity)
-    const operationsData = [];
-    for (let day = 0; day < 7; day++) {
-      const dayDate = new Date(now.getTime() - 86400000 * day);
-      const operationsPerDay = Math.floor(Math.random() * 500) + 200; // 200-700 operations per day
-      
-      for (let op = 0; op < operationsPerDay; op++) {
-        const opTime = new Date(dayDate.getTime() + Math.random() * 86400000);
-        operationsData.push({
-          tenantId,
-          operation: Math.random() > 0.6 ? 'encryption' : 'decryption',
-          algorithm: ['AES-256-GCM', 'ChaCha20-Poly1305', 'RSA-2048'][Math.floor(Math.random() * 3)],
-          keyId: encryptionKeysData[Math.floor(Math.random() * encryptionKeysData.length)].keyId,
-          dataSize: Math.floor(Math.random() * 10000) + 100, // 100-10KB
-          duration: Math.floor(Math.random() * 50) + 5, // 5-55ms
-          status: Math.random() > 0.05 ? 'success' : 'failure', // 95% success rate
-          metadata: { source: Math.random() > 0.5 ? 'api' : 'sdk' },
-          createdAt: opTime
-        });
-      }
+    // Check if monitoring data already exists to prevent duplicates
+    const existingKeys = await db.select().from(encryptionKeys).where(eq(encryptionKeys.tenantId, tenantId)).limit(1);
+    if (existingKeys.length > 0) {
+      console.log('✅ Monitoring data already seeded for tenant:', tenantId);
+      return;
     }
 
-    await db.insert(cryptoOperations).values(operationsData);
+    try {
+      // 1. Seed encryption keys first
+      const encryptionKeysData = [
+        {
+          tenantId,
+          keyId: `key_${randomUUID().replace(/-/g, '')}`,
+          keyType: 'primary',
+          algorithmId: aes256gcmId,
+          status: 'active' as const,
+          rotationInterval: 90,
+          metadata: {
+            name: 'Production API Key',
+            description: 'Primary encryption key for production API endpoints',
+            algorithm: 'AES-256-GCM',
+            keySize: 256,
+            purpose: 'encryption'
+          },
+          createdAt: new Date(now.getTime() - 86400000 * 30), // 30 days ago
+        },
+        {
+          tenantId,
+          keyId: `key_${randomUUID().replace(/-/g, '')}`,
+          keyType: 'backup',
+          algorithmId: chacha20Id,
+          status: 'active' as const,
+          rotationInterval: 30,
+          metadata: {
+            name: 'Backup Encryption Key',
+            description: 'Secondary key for data backup encryption',
+            algorithm: 'ChaCha20-Poly1305',
+            keySize: 256,
+            purpose: 'backup'
+          },
+          createdAt: new Date(now.getTime() - 86400000 * 15), // 15 days ago
+        },
+        {
+          tenantId,
+          keyId: `key_${randomUUID().replace(/-/g, '')}`,
+          keyType: 'session',
+          algorithmId: aes256cbcId,
+          status: 'rotating' as const,
+          rotationInterval: 7,
+          metadata: {
+            name: 'Legacy Migration Key',
+            description: 'Temporary key for legacy data migration',
+            algorithm: 'AES-256-CBC',
+            keySize: 256,
+            purpose: 'migration'
+          },
+          createdAt: new Date(now.getTime() - 86400000 * 7), // 7 days ago
+        }
+      ];
+
+      // Insert keys and verify they were created
+      const insertedKeys = await db.insert(encryptionKeys).values(encryptionKeysData).returning();
+      console.log(`✅ Inserted ${insertedKeys.length} encryption keys for tenant:`, tenantId);
+
+      // 2. Seed crypto operations using the actual inserted key IDs
+      const operationsData = [];
+      for (let day = 0; day < 7; day++) {
+        const dayDate = new Date(now.getTime() - 86400000 * day);
+        const operationsPerDay = Math.floor(Math.random() * 100) + 50; // 50-150 operations per day
+        
+        for (let op = 0; op < operationsPerDay; op++) {
+          const opTime = new Date(dayDate.getTime() + Math.random() * 86400000);
+          operationsData.push({
+            tenantId,
+            operation: Math.random() > 0.6 ? 'encryption' : 'decryption',
+            algorithm: ['AES-256-GCM', 'ChaCha20-Poly1305', 'RSA-2048'][Math.floor(Math.random() * 3)],
+            keyId: insertedKeys[Math.floor(Math.random() * insertedKeys.length)].keyId,
+            dataSize: Math.floor(Math.random() * 10000) + 100, // 100-10KB
+            duration: Math.floor(Math.random() * 50) + 5, // 5-55ms
+            status: Math.random() > 0.05 ? 'success' : 'failure', // 95% success rate
+            metadata: { source: Math.random() > 0.5 ? 'api' : 'sdk' },
+            createdAt: opTime
+          });
+        }
+      }
+
+      await db.insert(cryptoOperations).values(operationsData);
+      console.log(`✅ Inserted ${operationsData.length} crypto operations for tenant:`, tenantId);
 
     // 3. Seed security incidents
     const incidentsData = [
@@ -538,9 +549,10 @@ export class DatabaseStorage implements IStorage {
       }
     ];
 
-    await db.insert(securityIncidents).values(incidentsData);
+      await db.insert(securityIncidents).values(incidentsData);
+      console.log(`✅ Inserted ${incidentsData.length} security incidents for tenant:`, tenantId);
 
-    // 4. Seed SDK deployments
+      // 4. Seed SDK deployments
     const deploymentsData = [
       {
         tenantId,
@@ -586,9 +598,10 @@ export class DatabaseStorage implements IStorage {
       }
     ];
 
-    await db.insert(sdkDeployments).values(deploymentsData);
+      await db.insert(sdkDeployments).values(deploymentsData);
+      console.log(`✅ Inserted ${deploymentsData.length} SDK deployments for tenant:`, tenantId);
 
-    // 5. Seed performance metrics
+      // 5. Seed performance metrics
     const metricsData = [];
     for (let hour = 0; hour < 24; hour++) {
       const hourTime = new Date(now.getTime() - 3600000 * hour);
@@ -610,9 +623,10 @@ export class DatabaseStorage implements IStorage {
       });
     }
 
-    await db.insert(performanceMetrics).values(metricsData);
+      await db.insert(performanceMetrics).values(metricsData);
+      console.log(`✅ Inserted ${metricsData.length} performance metrics for tenant:`, tenantId);
 
-    // 6. Seed API usage data
+      // 6. Seed API usage data
     const usageData = [];
     for (let day = 0; day < 30; day++) {
       const dayDate = new Date(now.getTime() - 86400000 * day);
@@ -629,9 +643,14 @@ export class DatabaseStorage implements IStorage {
       });
     }
 
-    await db.insert(apiUsage).values(usageData);
+      await db.insert(apiUsage).values(usageData);
+      console.log(`✅ Inserted ${usageData.length} API usage records for tenant:`, tenantId);
 
-    console.log('✅ Seeded comprehensive monitoring data (keys, operations, incidents, deployments, metrics, usage)');
+      console.log('✅ Seeded comprehensive monitoring data (keys, operations, incidents, deployments, metrics, usage)');
+    } catch (error) {
+      console.error('❌ Error seeding monitoring data:', error);
+      throw error;
+    }
   }
 
   // Seed encryption algorithms - COMPREHENSIVE MARKET COVERAGE
