@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 import { TrendingUp, Shield, Activity, AlertTriangle, Download, Calendar, Eye, Zap, Loader2 } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 
 export default function AdvancedAnalytics() {
   const [timeRange, setTimeRange] = useState("24");
@@ -57,7 +57,7 @@ export default function AdvancedAnalytics() {
 
   // Process real data for analytics
   // Process real performance data from monitoring API - aggregate operations by hour
-  const performanceData = React.useMemo(() => {
+  const performanceData = useMemo(() => {
     if (!operationsData?.operations) return [];
     
     // Group operations by hour
