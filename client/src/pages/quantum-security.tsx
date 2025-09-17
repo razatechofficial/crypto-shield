@@ -26,6 +26,18 @@ export default function QuantumSecurity() {
     retry: false,
   });
 
+  // Fetch real algorithms from database
+  const { data: postQuantumAlgorithms = [], isLoading: algorithmsLoading } = useQuery<any[]>({
+    queryKey: ["/api/quantum/algorithms"],
+    retry: false,
+  });
+
+  // Fetch real threat assessment
+  const { data: quantumThreats = [], isLoading: threatsLoading } = useQuery<any[]>({
+    queryKey: ["/api/quantum/threats"],
+    retry: false,
+  });
+
   // Real migration assessment mutation
   const startMigrationMutation = useMutation({
     mutationFn: async () => {
@@ -114,111 +126,6 @@ export default function QuantumSecurity() {
       });
     },
   });
-  const postQuantumAlgorithms = [
-    {
-      name: "ML-KEM-512",
-      type: "Key Encapsulation",
-      status: "FIPS 203 Standard",
-      securityLevel: 128,
-      description: "NIST Post-Quantum Key Encapsulation Mechanism (Level 1 security)",
-      available: true,
-      fipsStatus: "FIPS 203"
-    },
-    {
-      name: "ML-KEM-768",
-      type: "Key Encapsulation",
-      status: "FIPS 203 Standard",
-      securityLevel: 192,
-      description: "NIST Post-Quantum Key Encapsulation Mechanism (Level 3 security)",
-      available: true,
-      fipsStatus: "FIPS 203"
-    },
-    {
-      name: "ML-KEM-1024",
-      type: "Key Encapsulation",
-      status: "FIPS 203 Standard",
-      securityLevel: 256,
-      description: "NIST Post-Quantum Key Encapsulation Mechanism (Level 5 security)",
-      available: true,
-      fipsStatus: "FIPS 203"
-    },
-    {
-      name: "ML-DSA-44",
-      type: "Digital Signature",
-      status: "FIPS 204 Standard",
-      securityLevel: 128,
-      description: "NIST Post-Quantum Digital Signature Algorithm (Dilithium2)",
-      available: true,
-      fipsStatus: "FIPS 204"
-    },
-    {
-      name: "ML-DSA-65",
-      type: "Digital Signature",
-      status: "FIPS 204 Standard",
-      securityLevel: 192,
-      description: "NIST Post-Quantum Digital Signature Algorithm (Dilithium3)",
-      available: true,
-      fipsStatus: "FIPS 204"
-    },
-    {
-      name: "ML-DSA-87",
-      type: "Digital Signature",
-      status: "FIPS 204 Standard",
-      securityLevel: 256,
-      description: "NIST Post-Quantum Digital Signature Algorithm (Dilithium5)",
-      available: true,
-      fipsStatus: "FIPS 204"
-    },
-    {
-      name: "SLH-DSA-SHA2-128s",
-      type: "Hash-based Signature",
-      status: "FIPS 205 Standard",
-      securityLevel: 128,
-      description: "NIST Stateless Hash-based Digital Signature (SPHINCS+)",
-      available: true,
-      fipsStatus: "FIPS 205"
-    },
-    {
-      name: "SLH-DSA-SHAKE-128f",
-      type: "Hash-based Signature",
-      status: "FIPS 205 Standard",
-      securityLevel: 128,
-      description: "NIST Stateless Hash-based Digital Signature (SPHINCS+ Fast)",
-      available: true,
-      fipsStatus: "FIPS 205"
-    }
-  ];
-
-  const quantumThreats = [
-    {
-      algorithm: "RSA-2048",
-      currentSecurity: "Secure",
-      quantumVulnerable: "Completely Broken",
-      timeframe: "~2030-2040",
-      severity: "Critical"
-    },
-    {
-      algorithm: "ECDSA P-256",
-      currentSecurity: "Secure", 
-      quantumVulnerable: "Completely Broken",
-      timeframe: "~2030-2040",
-      severity: "Critical"
-    },
-    {
-      algorithm: "AES-256",
-      currentSecurity: "Secure",
-      quantumVulnerable: "Weakened to AES-128",
-      timeframe: "~2040+",
-      severity: "Moderate"
-    },
-    {
-      algorithm: "SHA-256",
-      currentSecurity: "Secure",
-      quantumVulnerable: "Weakened",
-      timeframe: "~2050+", 
-      severity: "Low"
-    }
-  ];
 
   return (
     <div className="space-y-6 p-6 bg-background text-foreground">
@@ -337,33 +244,53 @@ export default function QuantumSecurity() {
         <TabsContent value="algorithms" className="space-y-4">
           <Card className="bg-card border-border">
             <CardHeader>
-              <CardTitle className="text-card-foreground">NIST Post-Quantum Standards</CardTitle>
-              <p className="text-muted-foreground">Quantum-resistant algorithms for enterprise deployment</p>
+              <CardTitle className="text-card-foreground">Database-Driven Algorithm Catalog</CardTitle>
+              <p className="text-muted-foreground">Real algorithms available in your encryption platform</p>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {postQuantumAlgorithms.map((algo, index) => (
-                  <div key={index} className="flex items-center justify-between p-4 bg-muted/50 border border-border rounded-lg" data-testid={`algorithm-${algo.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`}>
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3">
-                        <h3 className="font-semibold text-foreground">{algo.name}</h3>
-                        <Badge className={algo.available ? "bg-green-600 dark:bg-green-500 text-white" : "bg-gray-600 dark:bg-gray-500 text-white"}>
-                          {algo.available ? "Available" : "Coming Soon"}
-                        </Badge>
-                        <Badge variant="outline" className="text-purple-600 dark:text-purple-400 border-purple-600 dark:border-purple-400">
-                          {algo.status}
-                        </Badge>
+              {algorithmsLoading ? (
+                <div className="space-y-4">
+                  {[...Array(6)].map((_, i) => (
+                    <div key={i} className="p-4 bg-muted/50 border border-border rounded-lg animate-pulse">
+                      <div className="h-4 bg-muted rounded w-1/3 mb-2"></div>
+                      <div className="h-3 bg-muted rounded w-2/3"></div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {postQuantumAlgorithms.map((algo: any, index: number) => (
+                    <div key={index} className="flex items-center justify-between p-4 bg-muted/50 border border-border rounded-lg" data-testid={`algorithm-${algo.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`}>
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-3">
+                          <h3 className="font-semibold text-foreground">{algo.displayName || algo.name}</h3>
+                          <Badge className={algo.available ? "bg-green-600 dark:bg-green-500 text-white" : "bg-gray-600 dark:bg-gray-500 text-white"}>
+                            {algo.available ? "Available" : "Inactive"}
+                          </Badge>
+                          <Badge variant="outline" className={
+                            algo.isPostQuantum ? "text-purple-600 dark:text-purple-400 border-purple-600 dark:border-purple-400" :
+                            algo.isQuantumSafe ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400" :
+                            "text-orange-600 dark:text-orange-400 border-orange-600 dark:border-orange-400"
+                          }>
+                            {algo.status}
+                          </Badge>
+                          {algo.fipsStatus !== 'Standard' && (
+                            <Badge className="bg-indigo-600 dark:bg-indigo-500 text-white text-xs">
+                              {algo.fipsStatus}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-1">{algo.type}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{algo.description}</p>
                       </div>
-                      <p className="text-sm text-muted-foreground mt-1">{algo.type}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{algo.description}</p>
+                      <div className="text-right">
+                        <div className="text-sm text-foreground">{algo.securityLevel || algo.keySize || 'N/A'}</div>
+                        <div className="text-xs text-muted-foreground">Key Size/Security</div>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-sm text-foreground">{algo.securityLevel}-bit</div>
-                      <div className="text-xs text-muted-foreground">Security Level</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -371,41 +298,74 @@ export default function QuantumSecurity() {
         <TabsContent value="threats" className="space-y-4">
           <Card className="bg-card border-border">
             <CardHeader>
-              <CardTitle className="text-card-foreground">Quantum Threat Timeline</CardTitle>
-              <p className="text-muted-foreground">Impact assessment of quantum computers on current cryptography</p>
+              <CardTitle className="text-card-foreground">Real-Time Threat Assessment</CardTitle>
+              <p className="text-muted-foreground">Analysis based on algorithms currently in use across your SDKs</p>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {quantumThreats.map((threat, index) => (
-                  <div key={index} className="p-4 bg-muted/50 border border-border rounded-lg" data-testid={`threat-${threat.algorithm.toLowerCase().replace(/[^a-z0-9]/g, '-')}`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-semibold text-foreground">{threat.algorithm}</h3>
-                      <Badge className={
-                        threat.severity === 'Critical' ? 'bg-red-600 dark:bg-red-500 text-white' :
-                        threat.severity === 'Moderate' ? 'bg-orange-600 dark:bg-orange-500 text-white' : 'bg-green-600 dark:bg-green-500 text-white'
-                      }>
-                        {threat.severity} Risk
-                      </Badge>
-                    </div>
-                    <div className="grid grid-cols-3 gap-4 text-sm">
-                      <div>
-                        <div className="text-muted-foreground">Current Status</div>
-                        <div className="text-green-600 dark:text-green-400">{threat.currentSecurity}</div>
+              {threatsLoading ? (
+                <div className="space-y-4">
+                  {[...Array(4)].map((_, i) => (
+                    <div key={i} className="p-4 bg-muted/50 border border-border rounded-lg animate-pulse">
+                      <div className="h-4 bg-muted rounded w-1/4 mb-2"></div>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="h-3 bg-muted rounded"></div>
+                        <div className="h-3 bg-muted rounded"></div>
+                        <div className="h-3 bg-muted rounded"></div>
                       </div>
-                      <div>
-                        <div className="text-muted-foreground">Post-Quantum</div>
-                        <div className={threat.quantumVulnerable.includes('Broken') ? 'text-red-600 dark:text-red-400' : 'text-orange-600 dark:text-orange-400'}>
-                          {threat.quantumVulnerable}
+                    </div>
+                  ))}
+                </div>
+              ) : quantumThreats.length === 0 ? (
+                <div className="text-center py-8">
+                  <AlertTriangle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">No active algorithms found in your SDKs.</p>
+                  <p className="text-xs text-muted-foreground mt-1">Deploy SDKs with algorithms to see threat assessment.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {quantumThreats.map((threat: any, index: number) => (
+                    <div key={index} className="p-4 bg-muted/50 border border-border rounded-lg" data-testid={`threat-${threat.algorithm.toLowerCase().replace(/[^a-z0-9]/g, '-')}`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center space-x-3">
+                          <h3 className="font-semibold text-foreground">{threat.algorithm}</h3>
+                          <Badge variant="outline" className="text-xs">
+                            Used in {threat.totalSDKs} SDK{threat.totalSDKs !== 1 ? 's' : ''}
+                          </Badge>
+                        </div>
+                        <Badge className={
+                          threat.severity === 'Critical' ? 'bg-red-600 dark:bg-red-500 text-white' :
+                          threat.severity === 'Moderate' ? 'bg-orange-600 dark:bg-orange-500 text-white' : 'bg-green-600 dark:bg-green-500 text-white'
+                        }>
+                          {threat.severity} Risk
+                        </Badge>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4 text-sm mb-3">
+                        <div>
+                          <div className="text-muted-foreground">Current Status</div>
+                          <div className="text-green-600 dark:text-green-400">{threat.currentSecurity}</div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground">Post-Quantum</div>
+                          <div className={threat.quantumVulnerable.includes('Broken') ? 'text-red-600 dark:text-red-400' : 
+                                         threat.quantumVulnerable.includes('Weakened') ? 'text-orange-600 dark:text-orange-400' : 'text-green-600 dark:text-green-400'}>
+                            {threat.quantumVulnerable}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground">Timeline</div>
+                          <div className="text-foreground">{threat.timeframe}</div>
                         </div>
                       </div>
-                      <div>
-                        <div className="text-muted-foreground">Timeline</div>
-                        <div className="text-foreground">{threat.timeframe}</div>
-                      </div>
+                      {threat.usedInSDKs && threat.usedInSDKs.length > 0 && (
+                        <div className="text-xs text-muted-foreground">
+                          <span className="font-medium">Used in:</span> {threat.usedInSDKs.slice(0, 3).join(', ')}
+                          {threat.usedInSDKs.length > 3 && ` and ${threat.usedInSDKs.length - 3} more`}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
