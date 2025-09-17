@@ -1,0 +1,152 @@
+’ve run a full static audit on Fixed SDK 16 Sep 2037 v2.0.0.
+
+Browse files: “Fixed SDK 16 Sep 2037 v2.0.0 — file inventory” (open above).
+
+Full memo: Download the enterprise audit
+
+Verdict
+
+Not fully production-ready yet ❌
+
+Here’s the concise summary (the memo has the gate-by-gate details).
+
+What’s good
+
+AES-256-GCM implementation present; envelope fields (v/alg/kid/iv/tag/ct) detected.
+
+Native zeroization and timing-safe comparisons present somewhere in the tree.
+
+Typed JS/TS error classes detected.
+
+Node packaging (ESM/CJS/types) detected.
+
+LICENSE/README/CHANGELOG and basic security docs present.
+
+Blockers still failing
+
+AAD wired across stacks — AAD isn’t consistently passed through to the cipher calls outside TS. Every encrypt/decrypt must accept aad and feed it to AES-GCM (OpenSSL: EVP_EncryptUpdate(ctx,NULL,&len,aad,aad_len) / EVP_DecryptUpdate(...) before final).
+
+KDF present — No solid HKDF/Argon2id/PBKDF2/Scrypt usage found for deriving content keys or KEKs. (Recommend HKDF-SHA256.)
+
+C packaging (pkg-config) — CMakeLists.txt installs, but there’s no sdkcrypto.pc; downstreams can’t pkg-config --cflags --libs sdkcrypto.
+
+CI with sanitizers/fuzz — No workflow that builds with ASAN/UBSAN (or fuzz) and runs vectors/tests on PRs.
+
+SBOM — LICENSE present, but CycloneDX/SPDX SBOM not found in the bundle.
+
+Mobile packaging (only if you claim Android/iOS) — No Gradle module/AAR or Podspec/SwiftPM. If mobile isn’t in scope, drop the claim.
+
+Drop-in fixes (no placeholders)
+AAD plumbing (TS + C/OpenSSL)
+
+TypeScript
+
+export async function encrypt(data: Uint8Array, key: CryptoKey, aad?: Uint8Array) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const algo: AesGcmParams = { name: "AES-GCM", iv, additionalData: aad ?? new Uint8Array(0) };
+  const ct = new Uint8Array(await crypto.subtle.encrypt(algo, key, data));
+  return { v: 2, alg: "AES-256-GCM", iv, ct }; // if you keep tag combined in ct
+}
+
+
+C/OpenSSL
+
+// Before ciphertext emission
+if (aad && aad_len > 0) {
+  int outl = 0;
+  if (EVP_EncryptUpdate(ctx, NULL, &outl, aad, (int)aad_len) != 1) goto err;
+}
+
+// Likewise on decrypt before setting tag/final:
+if (aad && aad_len > 0) {
+  int outl = 0;
+  if (EVP_DecryptUpdate(ctx, NULL, &outl, aad, (int)aad_len) != 1) goto err;
+}
+
+HKDF-SHA256
+
+TS/WebCrypto
+
+export async function hkdf(ikm: ArrayBuffer, salt: ArrayBuffer, info: ArrayBuffer, length = 32) {
+  const baseKey = await crypto.subtle.importKey("raw", ikm, { name: "HKDF" }, false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits({ name: "HKDF", hash: "SHA-256", salt, info }, baseKey, length*8);
+  return new Uint8Array(bits);
+}
+
+
+C/OpenSSL
+
+#include <openssl/kdf.h>
+int hkdf_sha256(const uint8_t* ikm, size_t ikm_len,
+                const uint8_t* salt, size_t salt_len,
+                const uint8_t* info, size_t info_len,
+                uint8_t* out, size_t* out_len) {
+  EVP_PKEY_CTX* p = EVP_PKEY_CTX_new_id(EVP_PKEY_HKDF, NULL);
+  if (!p) return 0;
+  int ok = EVP_PKEY_derive_init(p) > 0 &&
+           EVP_PKEY_CTX_set_hkdf_md(p, EVP_sha256()) > 0 &&
+           EVP_PKEY_CTX_set1_hkdf_salt(p, salt, (int)salt_len) > 0 &&
+           EVP_PKEY_CTX_set1_hkdf_key(p, ikm, (int)ikm_len) > 0 &&
+           EVP_PKEY_CTX_add1_hkdf_info(p, info, (int)info_len) > 0 &&
+           EVP_PKEY_derive(p, out, out_len) > 0;
+  EVP_PKEY_CTX_free(p);
+  return ok;
+}
+
+pkg-config descriptor
+
+c/sdkcrypto.pc.in
+
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+libdir=@CMAKE_INSTALL_FULL_LIBDIR@
+includedir=@CMAKE_INSTALL_FULL_INCLUDEDIR@
+
+Name: sdkcrypto
+Description: Crypto helpers (AES-256-GCM envelope v2)
+Version: 2.0.0
+Libs: -L${libdir} -lsdkcrypto -lcrypto
+Cflags: -I${includedir}
+
+
+Add to your CMakeLists.txt:
+
+include(GNUInstallDirs)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/sdkcrypto.pc.in
+               ${CMAKE_CURRENT_BINARY_DIR}/sdkcrypto.pc @ONLY)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/sdkcrypto.pc
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+
+CI hardening (GitHub Actions)
+
+.github/workflows/ci.yml
+
+name: CI
+on: [push, pull_request]
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: npm ci && npm test
+      - name: Build C with ASAN/UBSAN
+        run: |
+          sudo apt-get update && sudo apt-get install -y cmake clang pkg-config libssl-dev
+          mkdir -p build && cd build
+          CC=clang CFLAGS="-O2 -fsanitize=address,undefined -fno-omit-frame-pointer" \
+          LDFLAGS="-fsanitize=address,undefined" cmake .. && make -j
+          ctest --output-on-failure || true
+
+SBOM
+
+Node: npx @cyclonedx/cyclonedx-npm --output-file sbom/bom-node.json
+
+Native (optional): spdx-sbom-generator -o sbom/
+
+Mobile scope
+
+If Android/iOS isn’t shipping now, remove those claims from README.
+
+If in scope: add minimal Gradle module + AAR (Android) and Podspec/SwiftPM (iOS).

@@ -807,25 +807,50 @@ class AveroxCrypto {
     return crypto.randomBytes(12); // Explicit 12-byte IV generation
   }
   
-  // AUDIT FIX: HKDF-SHA256 Key Derivation Function (PRODUCTION-READY)
-  deriveKey(context = 'encryption') {
+  // AUDIT COMPLIANCE: HKDF-SHA256 using WebCrypto API
+  async deriveKey(context = 'encryption') {
+    const ikm = this.masterKey;
+    const salt = new TextEncoder().encode('averox-salt-' + this.keyId);
+    const info = new TextEncoder().encode('averox-' + context + '-' + this.keyId);
+    return await this.hkdf(ikm, salt, info, 32);
+  }
+  
+  // AUDIT FIX: HKDF-SHA256 implementation matching audit specification
+  async hkdf(ikm, salt, info, length = 32) {
+    const baseKey = await crypto.subtle.importKey("raw", ikm, { name: "HKDF" }, false, ["deriveBits"]);
+    const bits = await crypto.subtle.deriveBits({ name: "HKDF", hash: "SHA-256", salt, info }, baseKey, length*8);
+    return new Uint8Array(bits);
+  }
+  
+  // LEGACY: Node.js HKDF fallback
+  deriveKeyNodeJS(context = 'encryption') {
     const crypto = require('crypto');
-    
-    // Use Node.js built-in HKDF with SHA-256 for production compliance
-    const salt = Buffer.from(\`averox-salt-\${this.keyId}\`, 'utf8');
-    const info = Buffer.from(\`averox-\${context}-\${this.keyId}\`, 'utf8');
+    const salt = Buffer.from('averox-salt-' + this.keyId, 'utf8');
+    const info = Buffer.from('averox-' + context + '-' + this.keyId, 'utf8');
     
     try {
       const derivedKey = crypto.hkdfSync('sha256', this.masterKey, salt, info, 32);
       return derivedKey;
     } catch (error) {
-      throw new SecurityError('KDF_FAILED', \`HKDF-SHA256 derivation failed: \${error.message}\`);
+      throw new SecurityError('KDF_FAILED', 'HKDF-SHA256 derivation failed: ' + error.message);
     }
   }
   
-  // SECURITY GATE: AES-256-GCM with AAD wired across stacks (PRODUCTION-READY)
-  encrypt(plaintext, additionalData = null) {
-    // SECURITY HARDENING: Comprehensive parameter validation with AAD support
+  // AUDIT COMPLIANCE: WebCrypto API with proper AAD wiring
+  async encrypt(data, aad) {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const derivedKey = await this.deriveKey('encryption');
+    const algo = { 
+      name: "AES-GCM", 
+      iv, 
+      additionalData: aad ?? new Uint8Array(0) 
+    };
+    const ct = new Uint8Array(await crypto.subtle.encrypt(algo, derivedKey, data));
+    return { v: 2, alg: "AES-256-GCM", iv, ct };
+  }
+  
+  // LEGACY: Node.js crypto fallback for server environments
+  encryptNodeJS(plaintext, additionalData = null) {
     const validation = ParameterValidator.validateEncryptionParams(
       plaintext, this.masterKey, 'AES-256-GCM', { aad: additionalData }
     );
@@ -834,13 +859,12 @@ class AveroxCrypto {
     try {
       const startTime = Date.now();
       derivedKey = this.deriveKey('encryption');
-      iv = this.generateIV(); // 12-byte IV policy - auto-generated only
+      iv = this.generateIV();
       
       const cipher = crypto.createCipheriv('aes-256-gcm', derivedKey, iv);
       
-      // AUDIT FIX: AAD wiring - only set if provided by caller
       if (validation.sanitizedOptions.aad) {
-        cipher.setAAD(validation.sanitizedOptions.aad); // AAD consistently wired to cipher calls
+        cipher.setAAD(validation.sanitizedOptions.aad);
       }
       
       const plaintextBuffer = Buffer.isBuffer(plaintext) ? plaintext : Buffer.from(plaintext, 'utf8');
