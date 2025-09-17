@@ -868,89 +868,259 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Download migration guide
+  // Download migration guide as PDF
   app.get("/api/quantum/migration/guide", isAuthenticated, async (req, res) => {
     try {
       const user = req.user as any;
       const tenantId = user.tenantId || user.id;
+      const htmlPdf = require('html-pdf-node');
 
-      // Generate comprehensive migration guide
-      const migrationGuide = `
-AVEROX QUANTUM SECURITY MIGRATION GUIDE
-=====================================
+      // Generate comprehensive migration guide HTML template
+      const migrationGuideHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Averox Quantum Security Migration Guide</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Arial, sans-serif; 
+            line-height: 1.6; 
+            color: #333; 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 40px 20px;
+        }
+        .header { 
+            text-align: center; 
+            border-bottom: 3px solid #1a56db; 
+            padding-bottom: 20px; 
+            margin-bottom: 30px; 
+        }
+        .header h1 { 
+            color: #1a56db; 
+            font-size: 28px; 
+            margin: 0; 
+            font-weight: 700;
+        }
+        .header .subtitle { 
+            color: #64748b; 
+            font-size: 14px; 
+            margin-top: 10px; 
+        }
+        h2 { 
+            color: #1e40af; 
+            border-left: 4px solid #3b82f6; 
+            padding-left: 15px; 
+            margin-top: 30px; 
+            font-size: 20px;
+        }
+        h3 { 
+            color: #1e40af; 
+            font-size: 16px; 
+            margin-top: 25px; 
+        }
+        .phase { 
+            background: #f8fafc; 
+            border-left: 4px solid #06b6d4; 
+            padding: 15px; 
+            margin: 15px 0; 
+            border-radius: 0 8px 8px 0;
+        }
+        .phase-title { 
+            font-weight: bold; 
+            color: #0891b2; 
+            margin-bottom: 8px; 
+        }
+        ul { 
+            margin: 10px 0; 
+            padding-left: 25px; 
+        }
+        li { 
+            margin: 8px 0; 
+        }
+        .checklist { 
+            background: #fefce8; 
+            border: 1px solid #eab308; 
+            padding: 20px; 
+            border-radius: 8px; 
+            margin: 20px 0;
+        }
+        .checklist ul { 
+            list-style: none; 
+            padding-left: 0; 
+        }
+        .checklist li::before { 
+            content: "☐ "; 
+            color: #059669; 
+            font-weight: bold; 
+            margin-right: 8px; 
+        }
+        .footer { 
+            margin-top: 40px; 
+            padding-top: 20px; 
+            border-top: 2px solid #e5e7eb; 
+            text-align: center; 
+            color: #6b7280; 
+            font-size: 12px; 
+        }
+        .cost-box { 
+            background: #eff6ff; 
+            border: 1px solid #3b82f6; 
+            padding: 20px; 
+            border-radius: 8px; 
+            margin: 20px 0;
+        }
+        .algorithm-card { 
+            background: #f0f9ff; 
+            border-left: 4px solid #0ea5e9; 
+            padding: 12px; 
+            margin: 10px 0; 
+            border-radius: 0 6px 6px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>AVEROX QUANTUM SECURITY MIGRATION GUIDE</h1>
+        <div class="subtitle">Enterprise-Grade Post-Quantum Cryptography Implementation</div>
+    </div>
 
-Executive Summary
------------------
-This guide provides a comprehensive roadmap for transitioning to post-quantum cryptography (PQC) to protect against quantum computing threats.
+    <h2>Executive Summary</h2>
+    <p>This guide provides a comprehensive roadmap for transitioning to post-quantum cryptography (PQC) to protect against quantum computing threats. Our enterprise-grade approach ensures seamless migration with minimal disruption to business operations.</p>
 
-Current Quantum Threat Landscape
---------------------------------
-• Quantum computers pose significant risks to current cryptographic systems
-• RSA, ECDSA, and traditional key exchange will be vulnerable by 2030-2035
-• NIST has standardized post-quantum algorithms (FIPS 203, 204, 205)
+    <h2>Current Quantum Threat Landscape</h2>
+    <ul>
+        <li><strong>Immediate Risk:</strong> Quantum computers pose significant risks to current cryptographic systems</li>
+        <li><strong>Timeline:</strong> RSA, ECDSA, and traditional key exchange will be vulnerable by 2030-2035</li>
+        <li><strong>Standards:</strong> NIST has standardized post-quantum algorithms (FIPS 203, 204, 205)</li>
+        <li><strong>Compliance:</strong> Government agencies require PQC readiness by 2035</li>
+    </ul>
 
-Recommended Migration Timeline
------------------------------
-Phase 1: Assessment & Planning (1-2 weeks)
-- Inventory current cryptographic implementations
-- Identify critical systems requiring immediate attention
-- Assess business impact and compliance requirements
+    <h2>Recommended Migration Timeline</h2>
+    
+    <div class="phase">
+        <div class="phase-title">Phase 1: Assessment & Planning (1-2 weeks)</div>
+        <ul>
+            <li>Inventory current cryptographic implementations</li>
+            <li>Identify critical systems requiring immediate attention</li>
+            <li>Assess business impact and compliance requirements</li>
+            <li>Define migration priorities and risk assessment</li>
+        </ul>
+    </div>
 
-Phase 2: Implementation (4-8 weeks)
-- Deploy ML-KEM for key encapsulation
-- Implement ML-DSA for digital signatures  
-- Enable hybrid mode for backward compatibility
-- Update HSM configurations for post-quantum support
+    <div class="phase">
+        <div class="phase-title">Phase 2: Implementation (4-8 weeks)</div>
+        <ul>
+            <li>Deploy ML-KEM for key encapsulation</li>
+            <li>Implement ML-DSA for digital signatures</li>
+            <li>Enable hybrid mode for backward compatibility</li>
+            <li>Update HSM configurations for post-quantum support</li>
+            <li>Integrate with existing infrastructure</li>
+        </ul>
+    </div>
 
-Phase 3: Testing & Validation (2-4 weeks)
-- Performance testing and benchmarking
-- Interoperability validation
-- Security assessment and compliance verification
+    <div class="phase">
+        <div class="phase-title">Phase 3: Testing & Validation (2-4 weeks)</div>
+        <ul>
+            <li>Performance testing and benchmarking</li>
+            <li>Interoperability validation</li>
+            <li>Security assessment and compliance verification</li>
+            <li>Load testing and stress testing</li>
+        </ul>
+    </div>
 
-Phase 4: Deployment (1-2 weeks)
-- Gradual rollout to production systems
-- Monitoring and incident response
-- Documentation and training
+    <div class="phase">
+        <div class="phase-title">Phase 4: Deployment (1-2 weeks)</div>
+        <ul>
+            <li>Gradual rollout to production systems</li>
+            <li>Monitoring and incident response</li>
+            <li>Documentation and training</li>
+            <li>Post-deployment optimization</li>
+        </ul>
+    </div>
 
-NIST Post-Quantum Algorithms
-----------------------------
-• ML-KEM (FIPS 203): Key Encapsulation Mechanism
-• ML-DSA (FIPS 204): Digital Signature Algorithm  
-• SLH-DSA (FIPS 205): Stateless Hash-based Signatures
+    <h2>NIST Post-Quantum Algorithms</h2>
+    
+    <div class="algorithm-card">
+        <strong>ML-KEM (FIPS 203):</strong> Key Encapsulation Mechanism - Secure key exchange resistant to quantum attacks
+    </div>
+    
+    <div class="algorithm-card">
+        <strong>ML-DSA (FIPS 204):</strong> Digital Signature Algorithm - Quantum-resistant digital signatures
+    </div>
+    
+    <div class="algorithm-card">
+        <strong>SLH-DSA (FIPS 205):</strong> Stateless Hash-based Signatures - Alternative signature scheme for high-security applications
+    </div>
 
-Implementation Checklist
-------------------------
-☐ Complete cryptographic inventory
-☐ Update key management systems
-☐ Implement hybrid algorithms
-☐ Validate performance requirements
-☐ Update compliance documentation
-☐ Train development teams
-☐ Establish monitoring procedures
+    <h2>Implementation Checklist</h2>
+    <div class="checklist">
+        <ul>
+            <li>Complete cryptographic inventory</li>
+            <li>Update key management systems</li>
+            <li>Implement hybrid algorithms</li>
+            <li>Validate performance requirements</li>
+            <li>Update compliance documentation</li>
+            <li>Train development teams</li>
+            <li>Establish monitoring procedures</li>
+            <li>Conduct security audits</li>
+            <li>Plan rollback procedures</li>
+            <li>Document migration process</li>
+        </ul>
+    </div>
 
-Cost Estimation
----------------
-Development: $25,000 - $100,000
-Timeline: 8-16 weeks total
-Resources: Cryptography team, security testing, infrastructure
+    <h2>Cost Estimation</h2>
+    <div class="cost-box">
+        <h3>Investment Breakdown</h3>
+        <ul>
+            <li><strong>Development:</strong> $25,000 - $100,000</li>
+            <li><strong>Timeline:</strong> 8-16 weeks total</li>
+            <li><strong>Resources:</strong> Cryptography team, security testing, infrastructure</li>
+            <li><strong>Training:</strong> $5,000 - $15,000 for team education</li>
+            <li><strong>Compliance:</strong> $10,000 - $25,000 for audit and certification</li>
+        </ul>
+    </div>
 
-Contact Information
--------------------
-For technical support and implementation guidance:
-Email: quantum-support@averox.com
-Phone: +1-800-AVEROX-Q
-Documentation: https://docs.averox.com/quantum
+    <h2>Contact Information</h2>
+    <p>For technical support and implementation guidance:</p>
+    <ul>
+        <li><strong>Email:</strong> quantum-support@averox.com</li>
+        <li><strong>Phone:</strong> +1-800-AVEROX-Q</li>
+        <li><strong>Documentation:</strong> https://docs.averox.com/quantum</li>
+        <li><strong>Emergency Support:</strong> 24/7 quantum security hotline</li>
+    </ul>
 
-Generated: ${new Date().toLocaleString()}
-Tenant ID: ${tenantId}
-`;
+    <div class="footer">
+        <p>Generated: ${new Date().toLocaleString()}</p>
+        <p>Tenant ID: ${tenantId}</p>
+        <p>&copy; 2025 Averox Ltd. All rights reserved. | Enterprise Quantum Security Solutions</p>
+    </div>
+</body>
+</html>`;
 
-      res.setHeader('Content-Type', 'text/plain');
-      res.setHeader('Content-Disposition', 'attachment; filename="Averox-Quantum-Migration-Guide.txt"');
-      res.send(migrationGuide);
+      // PDF generation options
+      const options = { 
+        format: 'A4',
+        border: {
+          top: "0.5in",
+          right: "0.5in",
+          bottom: "0.5in",
+          left: "0.5in"
+        }
+      };
+      
+      const file = { content: migrationGuideHtml };
+      
+      // Generate PDF
+      const pdfBuffer = await htmlPdf.generatePdf(file, options);
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename="Averox-Quantum-Migration-Guide.pdf"');
+      res.send(pdfBuffer);
     } catch (error: any) {
-      console.error("Migration guide download error:", error);
-      res.status(500).json({ message: "Failed to generate migration guide", error: error.message });
+      console.error("Migration guide PDF generation error:", error);
+      res.status(500).json({ message: "Failed to generate migration guide PDF", error: error.message });
     }
   });
 
