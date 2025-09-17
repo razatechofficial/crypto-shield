@@ -506,7 +506,7 @@ export default function KeyManagement() {
                 </div>
               </div>
               
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <div className="flex items-center space-x-2">
                   <input 
                     type="checkbox" 
@@ -517,6 +517,42 @@ export default function KeyManagement() {
                   />
                   <Label htmlFor="hsm" className="text-sm">Hardware Security Module (HSM) Protection</Label>
                 </div>
+                
+                {enableHSM && (
+                  <div className="ml-6 space-y-3 p-3 bg-blue-50 rounded border border-blue-200">
+                    <div>
+                      <Label htmlFor="hsmProvider" className="text-sm font-medium">HSM Provider</Label>
+                      <Select defaultValue="thales">
+                        <SelectTrigger className="bg-white border-blue-300">
+                          <SelectValue placeholder="Select HSM provider" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <div className="p-2 text-xs font-medium text-gray-500 border-b">🏛️ Enterprise HSMs</div>
+                          <SelectItem value="thales">Thales Luna HSM (FIPS 140-2 Level 3)</SelectItem>
+                          <SelectItem value="safenet">SafeNet Network Attached HSM</SelectItem>
+                          <SelectItem value="utimaco">Utimaco CryptoServer (Common Criteria EAL4+)</SelectItem>
+                          <SelectItem value="gemalto">Gemalto ProtectServer HSM</SelectItem>
+                          <SelectItem value="ncipher">nCipher nShield HSM</SelectItem>
+                          <div className="p-2 text-xs font-medium text-gray-500 border-b">☁️ Cloud HSMs</div>
+                          <SelectItem value="aws_cloudhsm">AWS CloudHSM (FIPS 140-2 Level 3)</SelectItem>
+                          <SelectItem value="azure_dedicated_hsm">Azure Dedicated HSM</SelectItem>
+                          <div className="p-2 text-xs font-medium text-gray-500 border-b">🔐 Smart Tokens</div>
+                          <SelectItem value="yubico">YubiKey HSM (PIV/FIDO2)</SelectItem>
+                          <SelectItem value="nitrokey">Nitrokey HSM</SelectItem>
+                          <SelectItem value="securenet">SecureNet Token</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="text-xs text-blue-700 space-y-1">
+                      <p><strong>HSM Features:</strong> Hardware-backed key generation, tamper resistance, FIPS compliance</p>
+                      <p><strong>Protocols:</strong> PKCS#11, KMIP 2.1, REST APIs, Smart Card (PIV/CAC)</p>
+                      <p><strong>Government:</strong> FIPS 140-2 Level 3, Common Criteria, Federal PKI approved</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              <div className="space-y-3">
                 <div className="flex items-center space-x-2">
                   <input 
                     type="checkbox" 
