@@ -598,54 +598,56 @@ export default function QuantumSecurity() {
                       </div>
                       <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="text-center p-3 bg-white dark:bg-gray-800 rounded border">
-                          <div className="text-2xl font-bold text-foreground">{assessmentResults.summary?.riskLevel || 'N/A'}</div>
+                          <div className="text-2xl font-bold text-foreground">{assessmentResults?.summary?.riskLevel || 'N/A'}</div>
                           <div className="text-xs text-muted-foreground">Risk Level</div>
                         </div>
                         <div className="text-center p-3 bg-white dark:bg-gray-800 rounded border">
-                          <div className="text-2xl font-bold text-foreground">{assessmentResults.summary?.quantumReadiness || '0%'}</div>
+                          <div className="text-2xl font-bold text-foreground">{assessmentResults?.summary?.quantumReadiness || '0%'}</div>
                           <div className="text-xs text-muted-foreground">Quantum Ready</div>
                         </div>
                         <div className="text-center p-3 bg-white dark:bg-gray-800 rounded border">
-                          <div className="text-2xl font-bold text-foreground">{assessmentResults.summary?.migrationCost || '$0'}</div>
+                          <div className="text-2xl font-bold text-foreground">{assessmentResults?.summary?.migrationCost || '$0'}</div>
                           <div className="text-xs text-muted-foreground">Migration Cost</div>
                         </div>
                       </div>
                     </div>
 
                     {/* Detailed Assessment Results */}
-                    {assessmentResults.assessment && (
+                    {assessmentResults?.assessment && (
                       <div className="p-4 bg-muted/50 border border-border rounded-lg">
                         <h5 className="font-medium text-foreground mb-3">Infrastructure Analysis</h5>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                           <div>
-                            <div className="font-medium text-foreground">{assessmentResults.assessment.infrastructure.totalSDKs}</div>
+                            <div className="font-medium text-foreground">{assessmentResults?.assessment?.infrastructureAnalysis?.totalSDKs || 0}</div>
                             <div className="text-muted-foreground">Total SDKs</div>
                           </div>
                           <div>
-                            <div className="font-medium text-foreground">{assessmentResults.assessment.infrastructure.totalAlgorithms}</div>
-                            <div className="text-muted-foreground">Total Algorithms</div>
+                            <div className="font-medium text-foreground">{assessmentResults?.assessment?.infrastructureAnalysis?.totalKeys || 0}</div>
+                            <div className="text-muted-foreground">Total Keys</div>
                           </div>
                           <div>
-                            <div className="font-medium text-red-600 dark:text-red-400">{assessmentResults.assessment.infrastructure.quantumVulnerableOperations}</div>
-                            <div className="text-muted-foreground">Vulnerable Operations</div>
+                            <div className="font-medium text-red-600 dark:text-red-400">{assessmentResults?.assessment?.infrastructureAnalysis?.vulnerableCount || 0}</div>
+                            <div className="text-muted-foreground">Vulnerable Systems</div>
                           </div>
                           <div>
-                            <div className="font-medium text-green-600 dark:text-green-400">{assessmentResults.assessment.infrastructure.quantumSafeOperations}</div>
-                            <div className="text-muted-foreground">Quantum-Safe Operations</div>
+                            <div className="font-medium text-green-600 dark:text-green-400">{assessmentResults?.assessment?.infrastructureAnalysis?.quantumReadyCount || 0}</div>
+                            <div className="text-muted-foreground">Quantum-Safe Systems</div>
                           </div>
                         </div>
                         
-                        {assessmentResults.assessment.riskAssessment.complianceIssues.length > 0 && (
+                        {assessmentResults?.assessment?.costEstimation && (
                           <div className="mt-4">
-                            <h6 className="font-medium text-foreground mb-2">Compliance Issues:</h6>
-                            <ul className="text-sm text-muted-foreground space-y-1">
-                              {assessmentResults.assessment.riskAssessment.complianceIssues.map((issue: string, index: number) => (
-                                <li key={index} className="flex items-start space-x-2">
-                                  <AlertTriangle className="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5" />
-                                  <span>{issue}</span>
-                                </li>
-                              ))}
-                            </ul>
+                            <h6 className="font-medium text-foreground mb-2">Cost & Timeline Estimate:</h6>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                              <div className="p-3 bg-background border border-border rounded">
+                                <div className="font-medium text-foreground">{assessmentResults?.assessment?.costEstimation?.totalCost || 'N/A'}</div>
+                                <div className="text-xs text-muted-foreground">Estimated Cost</div>
+                              </div>
+                              <div className="p-3 bg-background border border-border rounded">
+                                <div className="font-medium text-foreground">{assessmentResults?.assessment?.timeline?.implementation || 'N/A'}</div>
+                                <div className="text-xs text-muted-foreground">Implementation Time</div>
+                              </div>
+                            </div>
                           </div>
                         )}
                       </div>
