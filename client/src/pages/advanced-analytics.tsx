@@ -95,22 +95,22 @@ export default function AdvancedAnalytics() {
     })).slice(-24); // Show last 24 data points
   }, [operationsData?.operations]);
 
-  // Calculate algorithm usage from real data
+  // Calculate algorithm usage from real data - show all algorithms, not just active ones
   const algorithmUsage = Array.isArray(algorithmStats) 
-    ? algorithmStats.reduce((acc: any[], alg: any) => {
+    ? algorithmStats.map((alg: any) => {
         const operations = operationsData?.stats?.algorithmStats?.[alg.name] || 0;
-        if (operations > 0) {
-          acc.push({
-            algorithm: alg.displayName || alg.name,
-            operations,
-            percentage: ((operations / (operationsData?.stats?.totalOperations || 1)) * 100).toFixed(1),
-            color: alg.type === 'symmetric' ? '#3B82F6' : 
-                   alg.type === 'asymmetric' ? '#10B981' :
-                   alg.isPostQuantum ? '#8B5CF6' : '#6B7280'
-          });
-        }
-        return acc;
-      }, [])
+        return {
+          algorithm: alg.displayName || alg.name,
+          operations,
+          percentage: operationsData?.stats?.totalOperations > 0 
+            ? ((operations / operationsData.stats.totalOperations) * 100).toFixed(1)
+            : '0.0',
+          color: alg.type === 'symmetric' ? '#3B82F6' : 
+                 alg.type === 'asymmetric' ? '#10B981' :
+                 alg.isPostQuantum ? '#8B5CF6' : '#6B7280',
+          status: operations > 0 ? 'active' : 'inactive'
+        };
+      }).sort((a, b) => b.operations - a.operations) // Sort by operations count, most active first
     : [];
 
   // Process real security incidents
@@ -450,7 +450,13 @@ export default function AdvancedAnalytics() {
                       </div>
                       <div className="text-right">
                         <div className="text-gray-900 font-medium">{algo.percentage}%</div>
-                        <Badge className="bg-green-600 text-white text-xs">Optimal</Badge>
+                        <Badge className={
+                          algo.status === 'active' 
+                            ? "bg-green-600 text-white text-xs" 
+                            : "bg-gray-400 text-white text-xs"
+                        }>
+                          {algo.status === 'active' ? 'Active' : 'No Recent Activity'}
+                        </Badge>
                       </div>
                     </div>
                   ))}
