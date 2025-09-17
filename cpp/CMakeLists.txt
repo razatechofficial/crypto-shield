@@ -73,6 +73,13 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/averox-crypto.pc"
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
 )
 
+# Generate and install sdkcrypto pkg-config descriptor for external audit compliance
+include(GNUInstallDirs)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/sdkcrypto.pc.in
+               ${CMAKE_CURRENT_BINARY_DIR}/sdkcrypto.pc @ONLY)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/sdkcrypto.pc
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+
 # Install CMake config files
 include(CMakePackageConfigHelpers)
 

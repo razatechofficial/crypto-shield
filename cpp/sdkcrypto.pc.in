@@ -1,0 +1,10 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+libdir=@CMAKE_INSTALL_FULL_LIBDIR@
+includedir=@CMAKE_INSTALL_FULL_INCLUDEDIR@
+
+Name: sdkcrypto
+Description: Crypto helpers (AES-256-GCM envelope v2)
+Version: 2.0.0
+Libs: -L${libdir} -lsdkcrypto -lcrypto
+Cflags: -I${includedir}

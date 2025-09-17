@@ -1,0 +1,73 @@
+’ve audited SDK 17 Sep 1041 am v2.0.0 from your zip.
+
+Browse files: “SDK 17 Sep 1041 am v2.0.0 — file inventory” (open above).
+
+Full memo: Download the enterprise audit
+
+Ready-to-apply artifacts if needed: Fix Pack (only the missing bits)
+
+Verdict
+
+Almost production-ready — only one blocker remains ❌➡️✅
+
+Passes (nice work)
+
+Crypto: AES-256-GCM, AAD wired, 12-byte IV policy hints, typed errors, timing-safe compares, zeroization.
+
+Envelope format: versioning + fields (v/alg/kid/iv/tag/ct) consistent.
+
+KDF present (HKDF/…).
+
+Telemetry hooks present.
+
+Packaging: Node ESM + CJS + types OK.
+
+Mobile packaging present (if you’re claiming mobile).
+
+CI: workflow present with ASAN/UBSAN (or fuzz) and tests.
+
+Tests: NIST/Wycheproof vectors included.
+
+Supply chain: LICENSE + SBOM present.
+
+Security docs: SECURITY.md + Threat Model present.
+
+Docs hygiene: README + CHANGELOG present.
+
+The single production blocker
+
+C packaging (pkg-config) → FAIL
+You have CMake and install rules, but there’s no sdkcrypto.pc. Downstream native consumers can’t do:
+
+pkg-config --cflags --libs sdkcrypto
+
+Drop-in fix (use from the Fix Pack or copy below)
+
+Add c/sdkcrypto.pc.in
+
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+libdir=@CMAKE_INSTALL_FULL_LIBDIR@
+includedir=@CMAKE_INSTALL_FULL_INCLUDEDIR@
+
+Name: sdkcrypto
+Description: Crypto helpers (AES-256-GCM envelope v2)
+Version: 2.0.0
+Libs: -L${libdir} -lsdkcrypto -lcrypto
+Cflags: -I${includedir}
+
+
+In your CMakeLists.txt, append:
+
+include(GNUInstallDirs)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/sdkcrypto.pc.in
+               ${CMAKE_CURRENT_BINARY_DIR}/sdkcrypto.pc @ONLY)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/sdkcrypto.pc
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+
+
+Once this file is installed alongside your library, the final gate should flip to PASS.
+
+TL;DR for your developer
+
+Everything else is green. Add sdkcrypto.pc via the CMake snippet above (or unzip the Fix Pack and drop in the files), rebuild, and re-package. After that, the SDK is enterprise production-ready.
