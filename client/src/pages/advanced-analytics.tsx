@@ -57,13 +57,31 @@ export default function AdvancedAnalytics() {
 
   // Process real data for analytics
   // Process real performance data from monitoring API
-  const performanceData = operationsData?.operations?.slice(-24).map((op: any, index: number) => ({
-    time: new Date(op.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    operations: op.operationCount || 0,
-    latency: op.averageLatency || 0,
-    errors: op.errorCount || 0,
-    throughput: op.successRate || 0
-  })) || [];
+  const performanceData = operationsData?.operations?.slice(-24).map((op: any, index: number) => {
+    // Handle various timestamp formats and provide fallback
+    let timeValue;
+    try {
+      const timestamp = op.timestamp || op.createdAt;
+      if (timestamp) {
+        const date = new Date(timestamp);
+        timeValue = !isNaN(date.getTime()) 
+          ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          : `${index}:00`; // Fallback to index-based time
+      } else {
+        timeValue = `${index}:00`; // Fallback to index-based time
+      }
+    } catch (error) {
+      timeValue = `${index}:00`; // Fallback on any error
+    }
+    
+    return {
+      time: timeValue,
+      operations: op.operationCount || 0,
+      latency: op.averageLatency || op.duration || 0,
+      errors: op.errorCount || (op.status === 'failure' ? 1 : 0),
+      throughput: op.successRate || 0
+    };
+  }) || [];
 
   // Calculate algorithm usage from real data
   const algorithmUsage = Array.isArray(algorithmStats) 
