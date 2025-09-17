@@ -14,7 +14,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from 'drizzle-orm';
 
-// Session storage table for Replit Auth
+// Session storage table for Averox authentication
 export const sessions = pgTable(
   "sessions",
   {
@@ -76,7 +76,7 @@ export const hsmOperationTypeEnum = pgEnum('hsm_operation_type', ['key_generate'
 // HSM audit event type enum
 export const hsmAuditEventTypeEnum = pgEnum('hsm_audit_event_type', ['login', 'logout', 'key_access', 'key_modification', 'configuration_change', 'security_violation', 'maintenance_access', 'backup_operation', 'recovery_operation']);
 
-// User storage table for Replit Auth
+// User storage table for Averox authentication
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: varchar("email").unique(),

@@ -1,4 +1,4 @@
-// Replit Auth implementation - replaces genericAuth.ts for production deployment
+// Averox Ltd Authentication implementation - production-ready authentication system
 import * as client from "openid-client";
 import { Strategy, type VerifyFunction } from "openid-client/passport";
 
@@ -10,22 +10,22 @@ import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
 
 // Configure domains for production and development
-const REPLIT_DOMAINS = process.env.REPLIT_DOMAINS || 
+const AVEROX_DOMAINS = process.env.AVEROX_DOMAINS || 
   process.env.ALLOWED_DOMAINS || 
   "crypto.averox.com,localhost:5000";
 
-console.log('🔗 Configured domains for Replit Auth:', REPLIT_DOMAINS);
+console.log('🔗 Configured domains for Averox authentication:', AVEROX_DOMAINS);
 
 const getOidcConfig = memoize(
   async () => {
     const issuerUrl = process.env.ISSUER_URL || "https://replit.com/oidc";
-    const clientId = process.env.REPL_ID;
+    const clientId = process.env.AVEROX_CLIENT_ID || process.env.REPL_ID;
     
     if (!clientId) {
-      throw new Error("REPL_ID environment variable is required for Replit Auth");
+      throw new Error("AVEROX_CLIENT_ID environment variable is required for Averox authentication");
     }
 
-    console.log('🔐 Configuring Replit OIDC with issuer:', issuerUrl, 'client:', clientId);
+    console.log('🔐 Configuring Averox OIDC with issuer:', issuerUrl, 'client:', clientId);
     return await client.discovery(
       new URL(issuerUrl),
       clientId
@@ -92,8 +92,9 @@ export async function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
-  // Check if we're in development mode without REPL_ID
-  if (!process.env.REPL_ID && process.env.NODE_ENV === 'development') {
+  // Check if we're in development mode without proper client ID
+  const clientId = process.env.AVEROX_CLIENT_ID || process.env.REPL_ID;
+  if (!clientId && process.env.NODE_ENV === 'development') {
     console.log('🔧 Development mode: Using mock authentication (no REPL_ID provided)');
     
     // Set up mock user for development only
@@ -159,14 +160,14 @@ export async function setupAuth(app: Express) {
     return;
   }
 
-  // Production mode with Replit Auth
-  console.log('🔐 Production mode: Setting up Replit Auth with domains:', REPLIT_DOMAINS);
+  // Production mode with Averox authentication
+  console.log('🔐 Production mode: Setting up Averox authentication with domains:', AVEROX_DOMAINS);
   let config;
   try {
     config = await getOidcConfig();
   } catch (error) {
     console.error('Failed to get OIDC configuration:', error);
-    throw new Error('Replit Auth configuration failed to load. Please check your REPL_ID environment variable.');
+    throw new Error('Averox authentication configuration failed to load. Please check your AVEROX_CLIENT_ID environment variable.');
   }
 
   const verify: VerifyFunction = async (
@@ -192,10 +193,10 @@ export async function setupAuth(app: Express) {
   };
 
   // Configure authentication strategies for allowed domains
-  for (const domain of REPLIT_DOMAINS.split(",")) {
+  for (const domain of AVEROX_DOMAINS.split(",")) {
     const strategy = new Strategy(
       {
-        name: `replitauth:${domain}`,
+        name: `averoxauth:${domain}`,
         config,
         scope: "openid email profile offline_access",
         callbackURL: `https://${domain}/api/callback`,
@@ -210,14 +211,14 @@ export async function setupAuth(app: Express) {
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
   app.get("/api/login", (req, res, next) => {
-    passport.authenticate(`replitauth:${req.hostname}`, {
+    passport.authenticate(`averoxauth:${req.hostname}`, {
       prompt: "login consent",
       scope: ["openid", "email", "profile", "offline_access"],
     })(req, res, next);
   });
 
   app.get("/api/callback", (req, res, next) => {
-    passport.authenticate(`replitauth:${req.hostname}`, {
+    passport.authenticate(`averoxauth:${req.hostname}`, {
       successReturnToOrRedirect: "/",
       failureRedirect: "/api/login",
     })(req, res, next);
@@ -227,7 +228,7 @@ export async function setupAuth(app: Express) {
     req.logout(() => {
       res.redirect(
         client.buildEndSessionUrl(config, {
-          client_id: process.env.REPL_ID!,
+          client_id: process.env.AVEROX_CLIENT_ID || process.env.REPL_ID!,
           post_logout_redirect_uri: `${req.protocol}://${req.hostname}`,
         }).href
       );
@@ -247,7 +248,7 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     return next();
   }
 
-  // Production mode with Replit Auth
+  // Production mode with Averox authentication
   if (!req.isAuthenticated() || !user.expires_at) {
     return res.status(401).json({ message: "Unauthorized" });
   }
