@@ -728,22 +728,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let postQuantumAlgorithms = 0;
       let hybridSupport = 0;
 
+      // Get all available algorithms to check against
+      const allAlgorithms = await storage.getEncryptionAlgorithms();
+      const postQuantumAlgos = allAlgorithms.filter((alg: any) => 
+        alg.isPostQuantum || alg.isQuantumSafe || alg.type === 'post_quantum'
+      );
+
       for (const sdk of sdks) {
         const algorithms = JSON.parse(sdk.algorithms || '[]');
-        const hasPostQuantum = algorithms.some((alg: string) => 
-          alg.includes('ML-KEM') || alg.includes('ML-DSA') || alg.includes('SLH-DSA') || 
-          alg.includes('Kyber') || alg.includes('Dilithium') || alg.includes('SPHINCS+')
+        
+        // Check if SDK uses any post-quantum algorithms
+        const hasPostQuantum = algorithms.some((algName: string) => 
+          postQuantumAlgos.some((pqAlg: any) => pqAlg.name === algName || algName.includes('ML-') || algName.includes('SLH-'))
         );
         
         if (hasPostQuantum) {
           quantumReadyCount++;
-          postQuantumAlgorithms += algorithms.filter((alg: string) => 
-            alg.includes('ML-KEM') || alg.includes('ML-DSA') || alg.includes('SLH-DSA')
+          // Count actual post-quantum algorithms in this SDK
+          postQuantumAlgorithms += algorithms.filter((algName: string) => 
+            postQuantumAlgos.some((pqAlg: any) => pqAlg.name === algName)
           ).length;
         }
 
-        const hasHybrid = algorithms.some((alg: string) => 
-          alg.toLowerCase().includes('hybrid')
+        // Check for hybrid algorithms
+        const hasHybrid = algorithms.some((algName: string) => 
+          algName.toLowerCase().includes('hybrid') || algName.includes('+')
         );
         if (hasHybrid) hybridSupport++;
       }
@@ -809,21 +818,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       };
 
-      // Count vulnerable algorithms
-      const vulnerableAlgorithms = ['RSA', 'ECDSA', 'DH', 'ECDH'];
-      const quantumSafeAlgorithms = ['ML-KEM', 'ML-DSA', 'SLH-DSA', 'Kyber', 'Dilithium'];
+      // Get algorithm details for proper assessment
+      const allAlgorithms = await storage.getEncryptionAlgorithms();
+      const postQuantumAlgos = allAlgorithms.filter((alg: any) => alg.isPostQuantum || alg.isQuantumSafe);
+      const vulnerableAlgos = allAlgorithms.filter((alg: any) => !alg.isQuantumSafe && !alg.isPostQuantum);
 
       for (const sdk of sdks) {
         const algorithms = JSON.parse(sdk.algorithms || '[]');
-        const hasVulnerable = algorithms.some((alg: string) => 
-          vulnerableAlgorithms.some(vuln => alg.includes(vuln))
+        
+        // Check for vulnerable algorithms (RSA, ECDSA, etc.)
+        const hasVulnerable = algorithms.some((algName: string) => 
+          vulnerableAlgos.some((vAlg: any) => vAlg.name === algName) ||
+          algName.includes('RSA') || algName.includes('ECDSA') || algName.includes('DH')
         );
-        const hasQuantumSafe = algorithms.some((alg: string) => 
-          quantumSafeAlgorithms.some(safe => alg.includes(safe))
+        
+        // Check for quantum-safe algorithms
+        const hasQuantumSafe = algorithms.some((algName: string) => 
+          postQuantumAlgos.some((pqAlg: any) => pqAlg.name === algName)
         );
 
         if (hasVulnerable) assessment.infrastructureAnalysis.vulnerableCount++;
         if (hasQuantumSafe) assessment.infrastructureAnalysis.quantumReadyCount++;
+        
+        // Add current algorithms to assessment
+        assessment.infrastructureAnalysis.currentAlgorithms.push(...algorithms);
       }
 
       const quantumReadiness = sdks.length > 0 ? 
