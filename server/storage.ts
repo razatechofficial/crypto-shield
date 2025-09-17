@@ -424,68 +424,77 @@ export class DatabaseStorage implements IStorage {
     }
 
     // Check if monitoring data already exists to prevent duplicates
-    const existingKeys = await db.select().from(encryptionKeys).where(eq(encryptionKeys.tenantId, tenantId)).limit(1);
-    if (existingKeys.length > 0) {
+    const existingOperations = await db.select().from(cryptoOperations).where(eq(cryptoOperations.tenantId, tenantId)).limit(1);
+    const existingIncidents = await db.select().from(securityIncidents).where(eq(securityIncidents.tenantId, tenantId)).limit(1);
+    const existingDeployments = await db.select().from(sdkDeployments).where(eq(sdkDeployments.tenantId, tenantId)).limit(1);
+    
+    if (existingOperations.length > 0 && existingIncidents.length > 0 && existingDeployments.length > 0) {
       console.log('✅ Monitoring data already seeded for tenant:', tenantId);
       return;
     }
 
     try {
-      // 1. Seed encryption keys first
-      const encryptionKeysData = [
-        {
-          tenantId,
-          keyId: `key_${randomUUID().replace(/-/g, '')}`,
-          keyType: 'primary',
-          algorithmId: aes256gcmId,
-          status: 'active' as const,
-          rotationInterval: 90,
-          metadata: {
-            name: 'Production API Key',
-            description: 'Primary encryption key for production API endpoints',
-            algorithm: 'AES-256-GCM',
-            keySize: 256,
-            purpose: 'encryption'
+      // 1. Get or create encryption keys
+      let insertedKeys = await db.select().from(encryptionKeys).where(eq(encryptionKeys.tenantId, tenantId));
+      
+      if (insertedKeys.length === 0) {
+        const encryptionKeysData = [
+          {
+            tenantId,
+            keyId: `key_${randomUUID().replace(/-/g, '')}`,
+            keyType: 'primary',
+            algorithmId: aes256gcmId,
+            status: 'active' as const,
+            rotationInterval: 90,
+            metadata: {
+              name: 'Production API Key',
+              description: 'Primary encryption key for production API endpoints',
+              algorithm: 'AES-256-GCM',
+              keySize: 256,
+              purpose: 'encryption'
+            },
+            createdAt: new Date(now.getTime() - 86400000 * 30), // 30 days ago
           },
-          createdAt: new Date(now.getTime() - 86400000 * 30), // 30 days ago
-        },
-        {
-          tenantId,
-          keyId: `key_${randomUUID().replace(/-/g, '')}`,
-          keyType: 'backup',
-          algorithmId: chacha20Id,
-          status: 'active' as const,
-          rotationInterval: 30,
-          metadata: {
-            name: 'Backup Encryption Key',
-            description: 'Secondary key for data backup encryption',
-            algorithm: 'ChaCha20-Poly1305',
-            keySize: 256,
-            purpose: 'backup'
+          {
+            tenantId,
+            keyId: `key_${randomUUID().replace(/-/g, '')}`,
+            keyType: 'backup',
+            algorithmId: chacha20Id,
+            status: 'active' as const,
+            rotationInterval: 30,
+            metadata: {
+              name: 'Backup Encryption Key',
+              description: 'Secondary key for data backup encryption',
+              algorithm: 'ChaCha20-Poly1305',
+              keySize: 256,
+              purpose: 'backup'
+            },
+            createdAt: new Date(now.getTime() - 86400000 * 15), // 15 days ago
           },
-          createdAt: new Date(now.getTime() - 86400000 * 15), // 15 days ago
-        },
-        {
-          tenantId,
-          keyId: `key_${randomUUID().replace(/-/g, '')}`,
-          keyType: 'session',
-          algorithmId: aes256cbcId,
-          status: 'rotating' as const,
-          rotationInterval: 7,
-          metadata: {
-            name: 'Legacy Migration Key',
-            description: 'Temporary key for legacy data migration',
-            algorithm: 'AES-256-CBC',
-            keySize: 256,
-            purpose: 'migration'
-          },
-          createdAt: new Date(now.getTime() - 86400000 * 7), // 7 days ago
-        }
-      ];
+          {
+            tenantId,
+            keyId: `key_${randomUUID().replace(/-/g, '')}`,
+            keyType: 'session',
+            algorithmId: aes256cbcId,
+            status: 'rotating' as const,
+            rotationInterval: 7,
+            metadata: {
+              name: 'Legacy Migration Key',
+              description: 'Temporary key for legacy data migration',
+              algorithm: 'AES-256-CBC',
+              keySize: 256,
+              purpose: 'migration'
+            },
+            createdAt: new Date(now.getTime() - 86400000 * 7), // 7 days ago
+          }
+        ];
 
-      // Insert keys and verify they were created
-      const insertedKeys = await db.insert(encryptionKeys).values(encryptionKeysData).returning();
-      console.log(`✅ Inserted ${insertedKeys.length} encryption keys for tenant:`, tenantId);
+        // Insert keys and verify they were created
+        insertedKeys = await db.insert(encryptionKeys).values(encryptionKeysData).returning();
+        console.log(`✅ Inserted ${insertedKeys.length} encryption keys for tenant:`, tenantId);
+      } else {
+        console.log(`✅ Using existing ${insertedKeys.length} encryption keys for tenant:`, tenantId);
+      }
 
       // 2. Seed crypto operations using the actual inserted key IDs
       const operationsData = [];
