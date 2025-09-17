@@ -56,32 +56,56 @@ export default function AdvancedAnalytics() {
   }
 
   // Process real data for analytics
-  // Process real performance data from monitoring API
-  const performanceData = operationsData?.operations?.slice(-24).map((op: any, index: number) => {
-    // Handle various timestamp formats and provide fallback
-    let timeValue;
-    try {
-      const timestamp = op.timestamp || op.createdAt;
-      if (timestamp) {
-        const date = new Date(timestamp);
-        timeValue = !isNaN(date.getTime()) 
-          ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          : `${index}:00`; // Fallback to index-based time
-      } else {
-        timeValue = `${index}:00`; // Fallback to index-based time
-      }
-    } catch (error) {
-      timeValue = `${index}:00`; // Fallback on any error
-    }
+  // Process real performance data from monitoring API - aggregate operations by hour
+  const performanceData = React.useMemo(() => {
+    if (!operationsData?.operations) return [];
     
-    return {
-      time: timeValue,
-      operations: op.operationCount || 0,
-      latency: op.averageLatency || op.duration || 0,
-      errors: op.errorCount || (op.status === 'failure' ? 1 : 0),
-      throughput: op.successRate || 0
-    };
-  }) || [];
+    // Group operations by hour
+    const hourlyData = operationsData.operations.reduce((acc: any, op: any) => {
+      let hourKey;
+      try {
+        const timestamp = op.timestamp || op.createdAt;
+        if (timestamp) {
+          const date = new Date(timestamp);
+          if (!isNaN(date.getTime())) {
+            hourKey = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          }
+        }
+      } catch (error) {
+        // Skip invalid timestamps
+      }
+      
+      if (!hourKey) return acc;
+      
+      if (!acc[hourKey]) {
+        acc[hourKey] = {
+          time: hourKey,
+          operations: 0,
+          totalLatency: 0,
+          errors: 0,
+          successes: 0,
+          count: 0
+        };
+      }
+      
+      acc[hourKey].operations += 1;
+      acc[hourKey].totalLatency += (op.duration || 0);
+      acc[hourKey].errors += (op.status === 'failure' ? 1 : 0);
+      acc[hourKey].successes += (op.status === 'success' ? 1 : 0);
+      acc[hourKey].count += 1;
+      
+      return acc;
+    }, {});
+    
+    // Convert to array and calculate averages
+    return Object.values(hourlyData).map((hour: any) => ({
+      time: hour.time,
+      operations: hour.operations,
+      latency: hour.count > 0 ? Math.round(hour.totalLatency / hour.count) : 0,
+      errors: hour.errors,
+      throughput: hour.count > 0 ? Math.round((hour.successes / hour.count) * 100) : 100
+    })).slice(-24); // Show last 24 data points
+  }, [operationsData?.operations]);
 
   // Calculate algorithm usage from real data
   const algorithmUsage = Array.isArray(algorithmStats) 
