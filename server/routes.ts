@@ -709,6 +709,233 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
   });
 
+  // ============================================================================
+  // QUANTUM SECURITY ENDPOINTS - Post-Quantum Cryptography Assessment
+  // ============================================================================
+
+  // Get quantum readiness status
+  app.get("/api/quantum/readiness", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const tenantId = user.tenantId || user.id;
+
+      // Get tenant's current SDKs and algorithms
+      const sdks = await storage.getSDKs(tenantId);
+      const totalSDKs = sdks.length;
+      
+      // Calculate quantum readiness based on actual data
+      let quantumReadyCount = 0;
+      let postQuantumAlgorithms = 0;
+      let hybridSupport = 0;
+
+      for (const sdk of sdks) {
+        const algorithms = JSON.parse(sdk.algorithms || '[]');
+        const hasPostQuantum = algorithms.some((alg: string) => 
+          alg.includes('ML-KEM') || alg.includes('ML-DSA') || alg.includes('SLH-DSA') || 
+          alg.includes('Kyber') || alg.includes('Dilithium') || alg.includes('SPHINCS+')
+        );
+        
+        if (hasPostQuantum) {
+          quantumReadyCount++;
+          postQuantumAlgorithms += algorithms.filter((alg: string) => 
+            alg.includes('ML-KEM') || alg.includes('ML-DSA') || alg.includes('SLH-DSA')
+          ).length;
+        }
+
+        const hasHybrid = algorithms.some((alg: string) => 
+          alg.toLowerCase().includes('hybrid')
+        );
+        if (hasHybrid) hybridSupport++;
+      }
+
+      const quantumReadiness = totalSDKs > 0 ? Math.round((quantumReadyCount / totalSDKs) * 100) : 0;
+
+      const readinessData = {
+        quantumReadiness,
+        totalSDKs,
+        quantumReadySDKs: quantumReadyCount,
+        postQuantumAlgorithms,
+        hybridSupport,
+        riskLevel: quantumReadiness >= 80 ? 'Low' : quantumReadiness >= 50 ? 'Moderate' : 'High',
+        lastAssessment: new Date().toISOString(),
+        recommendations: [
+          quantumReadiness < 50 ? 'Prioritize post-quantum algorithm implementation' : null,
+          hybridSupport < totalSDKs / 2 ? 'Enable hybrid mode for gradual migration' : null,
+          'Review NIST post-quantum standards compliance'
+        ].filter(Boolean)
+      };
+
+      res.json(readinessData);
+    } catch (error: any) {
+      console.error("Quantum readiness assessment error:", error);
+      res.status(500).json({ message: "Failed to assess quantum readiness", error: error.message });
+    }
+  });
+
+  // Start quantum migration assessment
+  app.post("/api/quantum/migration/start", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const tenantId = user.tenantId || user.id;
+
+      // Analyze current infrastructure
+      const sdks = await storage.getSDKs(tenantId);
+      const keys = await storage.getEncryptionKeys(tenantId);
+
+      // Perform real assessment
+      const assessment = {
+        infrastructureAnalysis: {
+          totalSDKs: sdks.length,
+          totalKeys: keys.length,
+          currentAlgorithms: sdks.flatMap(sdk => JSON.parse(sdk.algorithms || '[]')),
+          vulnerableCount: 0,
+          quantumReadyCount: 0
+        },
+        riskAnalysis: {
+          criticalSystems: 0,
+          highRiskAlgorithms: [],
+          migrationPriority: []
+        },
+        costEstimation: {
+          developmentEffort: "2-6 weeks",
+          totalCost: "$25,000 - $100,000",
+          resourcesNeeded: ["Cryptography Team", "Security Testing", "Infrastructure Updates"]
+        },
+        timeline: {
+          assessment: "1-2 weeks",
+          implementation: "4-8 weeks", 
+          testing: "2-4 weeks",
+          deployment: "1-2 weeks"
+        }
+      };
+
+      // Count vulnerable algorithms
+      const vulnerableAlgorithms = ['RSA', 'ECDSA', 'DH', 'ECDH'];
+      const quantumSafeAlgorithms = ['ML-KEM', 'ML-DSA', 'SLH-DSA', 'Kyber', 'Dilithium'];
+
+      for (const sdk of sdks) {
+        const algorithms = JSON.parse(sdk.algorithms || '[]');
+        const hasVulnerable = algorithms.some((alg: string) => 
+          vulnerableAlgorithms.some(vuln => alg.includes(vuln))
+        );
+        const hasQuantumSafe = algorithms.some((alg: string) => 
+          quantumSafeAlgorithms.some(safe => alg.includes(safe))
+        );
+
+        if (hasVulnerable) assessment.infrastructureAnalysis.vulnerableCount++;
+        if (hasQuantumSafe) assessment.infrastructureAnalysis.quantumReadyCount++;
+      }
+
+      const quantumReadiness = sdks.length > 0 ? 
+        Math.round((assessment.infrastructureAnalysis.quantumReadyCount / sdks.length) * 100) : 0;
+
+      const summary = {
+        riskLevel: assessment.infrastructureAnalysis.vulnerableCount > sdks.length * 0.5 ? 'High' : 
+                  assessment.infrastructureAnalysis.vulnerableCount > 0 ? 'Moderate' : 'Low',
+        quantumReadiness: `${quantumReadiness}%`,
+        migrationCost: assessment.costEstimation.totalCost,
+        estimatedTimeline: assessment.timeline.implementation,
+        priority: assessment.infrastructureAnalysis.vulnerableCount > 0 ? 'Immediate' : 'Standard'
+      };
+
+      res.json({
+        status: 'completed',
+        timestamp: new Date().toISOString(),
+        assessment,
+        summary
+      });
+    } catch (error: any) {
+      console.error("Migration assessment error:", error);
+      res.status(500).json({ message: "Migration assessment failed", error: error.message });
+    }
+  });
+
+  // Download migration guide
+  app.get("/api/quantum/migration/guide", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const tenantId = user.tenantId || user.id;
+
+      // Generate comprehensive migration guide
+      const migrationGuide = `
+AVEROX QUANTUM SECURITY MIGRATION GUIDE
+=====================================
+
+Executive Summary
+-----------------
+This guide provides a comprehensive roadmap for transitioning to post-quantum cryptography (PQC) to protect against quantum computing threats.
+
+Current Quantum Threat Landscape
+--------------------------------
+• Quantum computers pose significant risks to current cryptographic systems
+• RSA, ECDSA, and traditional key exchange will be vulnerable by 2030-2035
+• NIST has standardized post-quantum algorithms (FIPS 203, 204, 205)
+
+Recommended Migration Timeline
+-----------------------------
+Phase 1: Assessment & Planning (1-2 weeks)
+- Inventory current cryptographic implementations
+- Identify critical systems requiring immediate attention
+- Assess business impact and compliance requirements
+
+Phase 2: Implementation (4-8 weeks)
+- Deploy ML-KEM for key encapsulation
+- Implement ML-DSA for digital signatures  
+- Enable hybrid mode for backward compatibility
+- Update HSM configurations for post-quantum support
+
+Phase 3: Testing & Validation (2-4 weeks)
+- Performance testing and benchmarking
+- Interoperability validation
+- Security assessment and compliance verification
+
+Phase 4: Deployment (1-2 weeks)
+- Gradual rollout to production systems
+- Monitoring and incident response
+- Documentation and training
+
+NIST Post-Quantum Algorithms
+----------------------------
+• ML-KEM (FIPS 203): Key Encapsulation Mechanism
+• ML-DSA (FIPS 204): Digital Signature Algorithm  
+• SLH-DSA (FIPS 205): Stateless Hash-based Signatures
+
+Implementation Checklist
+------------------------
+☐ Complete cryptographic inventory
+☐ Update key management systems
+☐ Implement hybrid algorithms
+☐ Validate performance requirements
+☐ Update compliance documentation
+☐ Train development teams
+☐ Establish monitoring procedures
+
+Cost Estimation
+---------------
+Development: $25,000 - $100,000
+Timeline: 8-16 weeks total
+Resources: Cryptography team, security testing, infrastructure
+
+Contact Information
+-------------------
+For technical support and implementation guidance:
+Email: quantum-support@averox.com
+Phone: +1-800-AVEROX-Q
+Documentation: https://docs.averox.com/quantum
+
+Generated: ${new Date().toLocaleString()}
+Tenant ID: ${tenantId}
+`;
+
+      res.setHeader('Content-Type', 'text/plain');
+      res.setHeader('Content-Disposition', 'attachment; filename="Averox-Quantum-Migration-Guide.txt"');
+      res.send(migrationGuide);
+    } catch (error: any) {
+      console.error("Migration guide download error:", error);
+      res.status(500).json({ message: "Failed to generate migration guide", error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
