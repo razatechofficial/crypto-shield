@@ -508,13 +508,13 @@ export class DatabaseStorage implements IStorage {
         
         for (let op = 0; op < operationsPerDay; op++) {
           const opTime = new Date(dayDate.getTime() + Math.random() * 86400000);
-          // Use the actual keyId field from the database records
+          // Use the primary key ID from the database records (not keyId field!)
           const selectedKey = insertedKeys[Math.floor(Math.random() * insertedKeys.length)];
           operationsData.push({
             tenantId,
             operation: Math.random() > 0.6 ? 'encryption' : 'decryption',
             algorithm: ['AES-256-GCM', 'ChaCha20-Poly1305', 'RSA-2048'][Math.floor(Math.random() * 3)],
-            keyId: selectedKey.keyId, // Use the actual keyId from database
+            keyId: selectedKey.id, // Use the primary key ID (not keyId field!)
             dataSize: Math.floor(Math.random() * 10000) + 100, // 100-10KB
             duration: Math.floor(Math.random() * 50) + 5, // 5-55ms
             status: Math.random() > 0.05 ? 'success' : 'failure', // 95% success rate
@@ -579,7 +579,7 @@ export class DatabaseStorage implements IStorage {
         instanceCount: 5,
         healthStatus: 'healthy' as const,
         totalOperations: 15420,
-        successRate: 99.2,
+        successRate: 99,
         lastHeartbeat: new Date(now.getTime() - 300000), // 5 minutes ago
         createdAt: new Date(now.getTime() - 86400000 * 14)
       },
@@ -593,7 +593,7 @@ export class DatabaseStorage implements IStorage {
         instanceCount: 2,
         healthStatus: 'healthy' as const,
         totalOperations: 3240,
-        successRate: 97.8,
+        successRate: 98,
         lastHeartbeat: new Date(now.getTime() - 180000), // 3 minutes ago
         createdAt: new Date(now.getTime() - 86400000 * 10)
       },
@@ -607,7 +607,7 @@ export class DatabaseStorage implements IStorage {
         instanceCount: 8,
         healthStatus: 'degraded' as const,
         totalOperations: 8750,
-        successRate: 94.5,
+        successRate: 95,
         lastHeartbeat: new Date(now.getTime() - 900000), // 15 minutes ago (degraded)
         createdAt: new Date(now.getTime() - 86400000 * 21)
       }
