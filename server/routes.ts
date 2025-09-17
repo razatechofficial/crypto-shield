@@ -518,8 +518,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const user = req.user as any;
       const tenantId = user.tenantId || 'default-tenant';
-      const operations = await storage.getCryptoOperations(tenantId);
-      res.json(operations);
+      const hours = parseInt(req.query.hours as string) || 24;
+      
+      // Get operations and stats
+      const operations = await storage.getCryptoOperations(tenantId, hours);
+      const stats = await storage.getOperationStats(tenantId, hours);
+      
+      // Calculate additional stats for frontend
+      const totalOperations = stats.totalOperations;
+      const successRate = totalOperations > 0 ? stats.successfulOperations / totalOperations : 1;
+      const algorithmStats = stats.operationsByAlgorithm.reduce((acc: any, algo: any) => {
+        acc[algo.algorithm] = algo.count;
+        return acc;
+      }, {});
+      
+      res.json({
+        operations,
+        stats: {
+          totalOperations,
+          averageLatency: stats.averageLatency,
+          successRate,
+          growthRate: 0.15, // Mock growth rate
+          latencyImprovement: 0.08, // Mock improvement
+          algorithmStats
+        }
+      });
     } catch (error: any) {
       console.error('Error fetching monitoring operations:', error);
       res.status(500).json({ message: "Failed to fetch monitoring operations" });
