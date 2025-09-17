@@ -1074,6 +1074,135 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get post-quantum algorithms from database
+  app.get("/api/quantum/algorithms", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const tenantId = user.tenantId || user.id;
+      
+      // Fetch all algorithms from database
+      const allAlgorithms = await storage.getEncryptionAlgorithms();
+      
+      // Filter and format for quantum security display
+      const quantumAlgorithms = allAlgorithms.map(alg => ({
+        id: alg.id,
+        name: alg.name,
+        displayName: alg.displayName || alg.name,
+        type: alg.type === 'post_quantum' ? 'Post-Quantum' : 
+              alg.type === 'symmetric' ? 'Symmetric' :
+              alg.type === 'asymmetric' ? 'Asymmetric' : 
+              alg.type === 'hash' ? 'Hash Function' :
+              alg.type.charAt(0).toUpperCase() + alg.type.slice(1),
+        description: alg.description,
+        keySize: alg.keySize,
+        isPostQuantum: alg.isPostQuantum || false,
+        isQuantumSafe: alg.isQuantumSafe || false,
+        isActive: alg.isActive || false,
+        securityLevel: alg.keySize || 0,
+        status: alg.isPostQuantum ? "Post-Quantum Ready" : 
+                alg.isQuantumSafe ? "Quantum-Safe" : "Quantum-Vulnerable",
+        fipsStatus: alg.name.includes('ML-KEM') ? 'FIPS 203' :
+                   alg.name.includes('ML-DSA') ? 'FIPS 204' :
+                   alg.name.includes('SLH-DSA') ? 'FIPS 205' :
+                   alg.name.includes('AES') ? 'FIPS 197' :
+                   alg.name.includes('SHA') ? 'FIPS 180' : 'Standard',
+        available: alg.isActive || false
+      }));
+      
+      res.json(quantumAlgorithms);
+    } catch (error: any) {
+      console.error("Quantum algorithms fetch error:", error);
+      res.status(500).json({ message: "Failed to fetch algorithms", error: error.message });
+    }
+  });
+
+  // Get quantum threat assessment based on real usage
+  app.get("/api/quantum/threats", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const tenantId = user.tenantId || user.id;
+      
+      // Get all algorithms and SDKs
+      const allAlgorithms = await storage.getEncryptionAlgorithms();
+      const sdks = await storage.getSDKs(tenantId);
+      
+      // Build usage map of algorithms across SDKs
+      const algorithmUsage = new Map();
+      
+      sdks.forEach(sdk => {
+        const algorithms = JSON.parse(sdk.algorithms || '[]');
+        algorithms.forEach((algName: string) => {
+          const alg = allAlgorithms.find(a => a.name === algName || a.id === algName);
+          if (alg) {
+            if (!algorithmUsage.has(alg.name)) {
+              algorithmUsage.set(alg.name, { algorithm: alg, count: 0, sdks: [] });
+            }
+            algorithmUsage.get(alg.name).count++;
+            algorithmUsage.get(alg.name).sdks.push(sdk.name);
+          }
+        });
+      });
+      
+      // Generate threat assessment for algorithms in use
+      const threats = Array.from(algorithmUsage.values()).map(usage => {
+        const alg = usage.algorithm;
+        let severity = 'Low';
+        let quantumVulnerable = 'Quantum-Safe';
+        let timeframe = '2040+';
+        
+        // Determine threat level based on algorithm type
+        if (!alg.isQuantumSafe && !alg.isPostQuantum) {
+          if (alg.name.includes('RSA') || alg.name.includes('ECDSA') || alg.name.includes('DH')) {
+            severity = 'Critical';
+            quantumVulnerable = 'Completely Broken';
+            timeframe = '2030-2035';
+          } else if (alg.name.includes('AES-256')) {
+            severity = 'Moderate';
+            quantumVulnerable = 'Weakened to AES-128 equivalent';
+            timeframe = '2040+';
+          } else if (alg.type === 'hash') {
+            severity = 'Low';
+            quantumVulnerable = 'Slightly Weakened';
+            timeframe = '2050+';
+          } else {
+            severity = 'Moderate';
+            quantumVulnerable = 'Potentially Vulnerable';
+            timeframe = '2035-2040';
+          }
+        }
+        
+        return {
+          algorithm: alg.displayName || alg.name,
+          algorithmType: alg.type,
+          currentSecurity: 'Secure',
+          quantumVulnerable,
+          timeframe,
+          severity,
+          usageCount: usage.count,
+          usedInSDKs: usage.sdks.slice(0, 3), // Show first 3 SDKs
+          totalSDKs: usage.count,
+          description: alg.description,
+          isPostQuantum: alg.isPostQuantum || false,
+          isQuantumSafe: alg.isQuantumSafe || false
+        };
+      });
+      
+      // Sort by severity and usage count
+      const severityOrder = { 'Critical': 3, 'Moderate': 2, 'Low': 1 };
+      threats.sort((a, b) => {
+        const severityDiff = (severityOrder[b.severity as keyof typeof severityOrder] || 0) - 
+                            (severityOrder[a.severity as keyof typeof severityOrder] || 0);
+        if (severityDiff !== 0) return severityDiff;
+        return b.usageCount - a.usageCount;
+      });
+      
+      res.json(threats);
+    } catch (error: any) {
+      console.error("Quantum threats assessment error:", error);
+      res.status(500).json({ message: "Failed to assess quantum threats", error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
