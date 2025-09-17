@@ -513,6 +513,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // MONITORING ENDPOINTS
+  app.get("/api/monitoring/operations", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const tenantId = user.tenantId || 'default-tenant';
+      const operations = await storage.getCryptoOperations(tenantId);
+      res.json(operations);
+    } catch (error: any) {
+      console.error('Error fetching monitoring operations:', error);
+      res.status(500).json({ message: "Failed to fetch monitoring operations" });
+    }
+  });
+
+  app.get("/api/monitoring/health", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const tenantId = user.tenantId || 'default-tenant';
+      const health = await storage.getSystemHealthMetrics(tenantId);
+      res.json(health);
+    } catch (error: any) {
+      console.error('Error fetching monitoring health:', error);
+      res.status(500).json({ message: "Failed to fetch monitoring health" });
+    }
+  });
+
+  app.get("/api/monitoring/incidents", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const tenantId = user.tenantId || 'default-tenant';
+      const incidents = await storage.getSecurityIncidents(tenantId);
+      res.json(incidents);
+    } catch (error: any) {
+      console.error('Error fetching monitoring incidents:', error);
+      res.status(500).json({ message: "Failed to fetch monitoring incidents" });
+    }
+  });
+
+  app.get("/api/monitoring/deployments", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const tenantId = user.tenantId || 'default-tenant';
+      const deployments = await storage.getSdkDeployments(tenantId);
+      res.json(deployments);
+    } catch (error: any) {
+      console.error('Error fetching monitoring deployments:', error);
+      res.status(500).json({ message: "Failed to fetch monitoring deployments" });
+    }
+  });
+
+  // PERFORMANCE BENCHMARKS
+  app.get("/api/benchmarks/basic", async (req, res) => {
+    try {
+      const { benchmarkRunner } = await import("./performanceBenchmark");
+      const results = await benchmarkRunner.runBasicBenchmarks({
+        algorithms: ['AES-256-GCM', 'ChaCha20-Poly1305'],
+        payloadSizes: [64, 256, 1024, 4096],
+        iterations: 500
+      });
+      res.json(results);
+    } catch (error) {
+      console.error("Error running basic benchmarks:", error);
+      res.status(500).json({ message: "Failed to run benchmarks" });
+    }
+  });
+
+  app.post("/api/benchmarks/run", async (req, res) => {
+    try {
+      const { algorithms, payloadSizes, iterations } = req.body;
+      const { benchmarkRunner } = await import("./performanceBenchmark");
+      
+      const results = await benchmarkRunner.runBasicBenchmarks({
+        algorithms: algorithms || ['AES-256-GCM'],
+        payloadSizes: payloadSizes || [1024],
+        iterations: Math.min(iterations || 100, 1000)
+      });
+      
+      res.json(results);
+    } catch (error) {
+      console.error("Error running custom benchmarks:", error);
+      res.status(500).json({ message: "Failed to run custom benchmarks" });
+    }
+  });
+
   // Health check
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
