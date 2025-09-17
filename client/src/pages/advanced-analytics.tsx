@@ -43,18 +43,6 @@ export default function AdvancedAnalytics() {
     queryFn: () => fetch('/api/security-events').then(res => res.json())
   });
 
-  // Show loading state while data is being fetched
-  if (operationsLoading || healthLoading || securityLoading || deploymentsLoading || algorithmsLoading || eventsLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-white">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
-          <p className="text-gray-600">Loading advanced analytics...</p>
-        </div>
-      </div>
-    );
-  }
-
   // Process real data for analytics
   // Process real performance data from monitoring API - aggregate operations by hour
   const performanceData = useMemo(() => {
@@ -189,6 +177,18 @@ export default function AdvancedAnalytics() {
       lastCheck: '3 hours ago' 
     },
   ];
+
+  // Show loading state while data is being fetched
+  if (operationsLoading || healthLoading || securityLoading || deploymentsLoading || algorithmsLoading || eventsLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-white">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
+          <p className="text-gray-600">Loading advanced analytics...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 p-6 bg-white min-h-screen">
