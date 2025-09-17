@@ -806,8 +806,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           migrationPriority: []
         },
         costEstimation: {
-          developmentEffort: "2-6 weeks",
-          totalCost: "$25,000 - $100,000",
+          developmentEffort: `${Math.max(2, Math.ceil(sdks.length / 10))}-${Math.max(6, Math.ceil(sdks.length / 5))} weeks`,
+          totalCost: `$${(Math.max(15, sdks.length * 2) * 1000).toLocaleString()} - $${(Math.max(50, sdks.length * 5) * 1000).toLocaleString()}`,
           resourcesNeeded: ["Cryptography Team", "Security Testing", "Infrastructure Updates"]
         },
         timeline: {
@@ -873,7 +873,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const user = req.user as any;
       const tenantId = user.tenantId || user.id;
-      const htmlPdf = require('html-pdf-node');
+      
+      // Use dynamic import for ES modules
+      const { default: htmlPdf } = await import('html-pdf-node');
+
+      // Get dynamic cost information
+      const sdks = await storage.getSDKs(tenantId);
+      const baseCost = Math.max(15, sdks.length * 2) * 1000;
+      const maxCost = Math.max(50, sdks.length * 5) * 1000;
+      const timeline = `${Math.max(8, Math.ceil(sdks.length / 5))}-${Math.max(16, Math.ceil(sdks.length / 2))} weeks`;
 
       // Generate comprehensive migration guide HTML template
       const migrationGuideHtml = `
@@ -1074,8 +1082,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     <div class="cost-box">
         <h3>Investment Breakdown</h3>
         <ul>
-            <li><strong>Development:</strong> $25,000 - $100,000</li>
-            <li><strong>Timeline:</strong> 8-16 weeks total</li>
+            <li><strong>Development:</strong> $${baseCost.toLocaleString()} - $${maxCost.toLocaleString()}</li>
+            <li><strong>Timeline:</strong> ${timeline} total</li>
             <li><strong>Resources:</strong> Cryptography team, security testing, infrastructure</li>
             <li><strong>Training:</strong> $5,000 - $15,000 for team education</li>
             <li><strong>Compliance:</strong> $10,000 - $25,000 for audit and certification</li>
