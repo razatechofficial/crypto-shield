@@ -13,6 +13,12 @@ export default function QuantumSecurity() {
   const { toast } = useToast();
   const [migrationStarted, setMigrationStarted] = useState(false);
   const [assessmentResults, setAssessmentResults] = useState<any>(null);
+  const [customTimeline, setCustomTimeline] = useState({
+    assessment: 2,      // weeks
+    implementation: 6,  // weeks
+    testing: 3,         // weeks
+    deployment: 1       // weeks
+  });
   
   // Fetch quantum readiness data
   const { data: quantumReadiness, isLoading: readinessLoading } = useQuery({
@@ -413,7 +419,21 @@ export default function QuantumSecurity() {
             <CardContent>
               <div className="space-y-6">
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-foreground">Phase 1: Assessment (6 months)</h3>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-foreground">Phase 1: Assessment</h3>
+                    <div className="flex items-center space-x-2">
+                      <input 
+                        type="number" 
+                        min="1" 
+                        max="8" 
+                        value={customTimeline.assessment}
+                        onChange={(e) => setCustomTimeline(prev => ({ ...prev, assessment: Number(e.target.value) }))}
+                        className="w-16 px-2 py-1 text-sm border border-border rounded bg-background text-foreground"
+                        data-testid="input-assessment-weeks"
+                      />
+                      <span className="text-sm text-muted-foreground">weeks</span>
+                    </div>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="p-4 bg-muted/50 border border-border rounded-lg">
                       <h4 className="font-medium text-foreground mb-2">Cryptographic Inventory</h4>
@@ -435,13 +455,27 @@ export default function QuantumSecurity() {
                 </div>
 
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-foreground">Phase 2: Hybrid Implementation (12 months)</h3>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-foreground">Phase 2: Implementation</h3>
+                    <div className="flex items-center space-x-2">
+                      <input 
+                        type="number" 
+                        min="2" 
+                        max="16" 
+                        value={customTimeline.implementation}
+                        onChange={(e) => setCustomTimeline(prev => ({ ...prev, implementation: Number(e.target.value) }))}
+                        className="w-16 px-2 py-1 text-sm border border-border rounded bg-background text-foreground"
+                        data-testid="input-implementation-weeks"
+                      />
+                      <span className="text-sm text-muted-foreground">weeks</span>
+                    </div>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="p-4 bg-muted/50 border border-border rounded-lg">
                       <h4 className="font-medium text-foreground mb-2">Algorithm Integration</h4>
                       <ul className="text-sm text-muted-foreground space-y-1">
-                        <li>• Deploy CRYSTALS-Kyber for key exchange</li>
-                        <li>• Implement CRYSTALS-Dilithium signatures</li>
+                        <li>• Deploy ML-KEM for key encapsulation</li>
+                        <li>• Implement ML-DSA signatures</li>
                         <li>• Enable hybrid classical+post-quantum mode</li>
                       </ul>
                     </div>
@@ -457,16 +491,73 @@ export default function QuantumSecurity() {
                 </div>
 
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-foreground">Phase 3: Full Migration (18 months)</h3>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-foreground">Phase 3: Testing & Validation</h3>
+                    <div className="flex items-center space-x-2">
+                      <input 
+                        type="number" 
+                        min="1" 
+                        max="8" 
+                        value={customTimeline.testing}
+                        onChange={(e) => setCustomTimeline(prev => ({ ...prev, testing: Number(e.target.value) }))}
+                        className="w-16 px-2 py-1 text-sm border border-border rounded bg-background text-foreground"
+                        data-testid="input-testing-weeks"
+                      />
+                      <span className="text-sm text-muted-foreground">weeks</span>
+                    </div>
+                  </div>
                   <div className="p-4 bg-muted/50 border border-border rounded-lg">
-                    <h4 className="font-medium text-foreground mb-2">Complete Transition</h4>
+                    <h4 className="font-medium text-foreground mb-2">Security & Performance Testing</h4>
                     <ul className="text-sm text-muted-foreground space-y-1">
-                      <li>• Retire classical algorithms in high-risk scenarios</li>
-                      <li>• Deploy pure post-quantum configurations</li>
-                      <li>• Maintain hybrid support for legacy systems</li>
-                      <li>• Continuous monitoring and updates</li>
+                      <li>• Performance benchmarking and optimization</li>
+                      <li>• Interoperability testing with legacy systems</li>
+                      <li>• Security validation and penetration testing</li>
+                      <li>• NIST compliance verification</li>
                     </ul>
                   </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-foreground">Phase 4: Deployment</h3>
+                    <div className="flex items-center space-x-2">
+                      <input 
+                        type="number" 
+                        min="1" 
+                        max="4" 
+                        value={customTimeline.deployment}
+                        onChange={(e) => setCustomTimeline(prev => ({ ...prev, deployment: Number(e.target.value) }))}
+                        className="w-16 px-2 py-1 text-sm border border-border rounded bg-background text-foreground"
+                        data-testid="input-deployment-weeks"
+                      />
+                      <span className="text-sm text-muted-foreground">weeks</span>
+                    </div>
+                  </div>
+                  <div className="p-4 bg-muted/50 border border-border rounded-lg">
+                    <h4 className="font-medium text-foreground mb-2">Production Deployment</h4>
+                    <ul className="text-sm text-muted-foreground space-y-1">
+                      <li>• Gradual rollout to production systems</li>
+                      <li>• Monitor post-quantum algorithm performance</li>
+                      <li>• Maintain hybrid support for legacy compatibility</li>
+                      <li>• Documentation and team training</li>
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Total Timeline Summary */}
+                <div className="p-4 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 border border-border rounded-lg">
+                  <h4 className="font-medium text-foreground mb-2">Total Migration Timeline</h4>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Estimated Duration:</span>
+                    <span className="text-lg font-bold text-foreground" data-testid="text-total-timeline">
+                      {customTimeline.assessment + customTimeline.implementation + customTimeline.testing + customTimeline.deployment} weeks
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="text-xs text-muted-foreground">Business Days:</span>
+                    <span className="text-sm text-muted-foreground">
+                      ~{Math.ceil((customTimeline.assessment + customTimeline.implementation + customTimeline.testing + customTimeline.deployment) * 5)} working days
+                    </span>
                 </div>
 
                 <div className="flex space-x-4">
@@ -495,6 +586,7 @@ export default function QuantumSecurity() {
                     {downloadGuideMutation.isPending ? "Downloading..." : "Download Migration Guide"}
                   </Button>
                 </div>
+              </div>
 
                 {migrationStarted && assessmentResults && (
                   <div className="mt-6 space-y-4">
