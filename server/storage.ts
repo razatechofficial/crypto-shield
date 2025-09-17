@@ -421,14 +421,15 @@ export class DatabaseStorage implements IStorage {
     const algorithms = await this.getEncryptionAlgorithms();
     
     // Map of algorithm names to their usage frequency (simulated based on typical enterprise usage)
+    // Names must match EXACTLY with database algorithm names
     const algorithmUsage = {
       'AES-256-GCM': 1000,        // Most common
       'ChaCha20-Poly1305': 650,   // Second most common
       'AES-256-CBC': 400,         // Legacy but still used
       'AES-128-GCM': 300,         // Mobile/performance optimized
       'RSA-2048': 200,            // Asymmetric encryption
-      'ECDSA P-256': 180,         // Digital signatures
-      'ECDSA P-384': 120,         // Healthcare compliance
+      'ECDSA-P256': 180,          // Digital signatures (fixed: was 'ECDSA P-256')
+      'ECDSA-P384': 120,          // Healthcare compliance (fixed: was 'ECDSA P-384')
       'AES-256-CTR': 100,         // Stream cipher applications
       'ML-KEM-1024': 80,          // Post-quantum (emerging)
       'ML-DSA-87': 60,            // Post-quantum signatures
@@ -436,7 +437,10 @@ export class DatabaseStorage implements IStorage {
       'SHA-256': 350,             // Hashing
       'SHA-512': 200,             // Enhanced hashing
       'RSA-4096': 150,            // High-security RSA
-      'ChaCha20': 90              // Stream cipher variant
+      'ChaCha20': 90,             // Stream cipher variant
+      'BLAKE3': 200,              // Modern hashing
+      'Ed25519': 160,             // Modern EdDSA signatures
+      'Dilithium-3': 50           // Post-quantum signatures
     };
 
     const algorithmMap = new Map();
