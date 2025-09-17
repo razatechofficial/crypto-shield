@@ -30,7 +30,7 @@ export default function Monitoring() {
   const runBenchmark = async () => {
     try {
       toast({ title: "Running benchmarks...", description: "Please wait while we measure performance." });
-      await apiRequest('/api/benchmarks/run', 'POST', {
+      await apiRequest('POST', '/api/benchmarks/run', {
         algorithms: ['AES-256-GCM', 'ChaCha20-Poly1305'],
         payloadSizes: [64, 256, 1024, 4096],
         iterations: 500
