@@ -885,18 +885,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const doc = new jsPDF();
       
       // Add Averox branding and title
-      doc.setFontSize(24);
+      doc.setFontSize(20);
       doc.setTextColor(26, 86, 219); // Averox blue
-      doc.text('AVEROX QUANTUM SECURITY MIGRATION GUIDE', 20, 30);
+      doc.text('AVEROX QUANTUM SECURITY', 20, 25);
+      doc.text('MIGRATION GUIDE', 20, 40);
       
       doc.setFontSize(12);
       doc.setTextColor(100, 116, 139);
-      doc.text('Enterprise-Grade Post-Quantum Cryptography Implementation', 20, 40);
+      doc.text('Enterprise-Grade Post-Quantum Cryptography Implementation', 20, 50);
       
       // Reset color for body text
       doc.setTextColor(51, 51, 51);
       
-      let yPos = 60;
+      let yPos = 70;
       
       // Executive Summary
       doc.setFontSize(16);
