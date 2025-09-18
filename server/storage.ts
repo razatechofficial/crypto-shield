@@ -85,6 +85,17 @@ export interface IStorage {
   updateOrganization(tenantId: string, updates: Partial<Tenant>, updatedBy: string): Promise<Tenant>;
   getUserStats(tenantId: string): Promise<{totalUsers: number, activeUsers: number, adminUsers: number, developerUsers: number, viewerUsers: number}>;
   
+  // Subscription & Billing operations
+  getSubscriptionPlans(): Promise<SubscriptionPlan[]>;
+  getSubscriptionPlan(planId: string): Promise<SubscriptionPlan | undefined>;
+  getTenantSubscription(tenantId: string): Promise<TenantSubscription | undefined>;
+  getTenantSubscriptionByStripeId(stripeSubscriptionId: string): Promise<TenantSubscription | undefined>;
+  createTenantSubscription(data: InsertTenantSubscription): Promise<TenantSubscription>;
+  updateTenantSubscriptionStatus(tenantId: string, updates: Partial<TenantSubscription>): Promise<TenantSubscription>;
+  recordPaymentEvent(event: InsertPaymentEvent): Promise<PaymentEvent>;
+  getPaymentHistory(tenantId: string, limit?: number): Promise<PaymentEvent[]>;
+  getInvoices(tenantId: string, limit?: number): Promise<Invoice[]>;
+  
   // Audit operations
   logAuditEvent(event: {
     tenantId: string,
@@ -3192,6 +3203,93 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return user;
+  }
+
+  // ====== SUBSCRIPTION & BILLING OPERATIONS ======
+
+  async getSubscriptionPlans(): Promise<SubscriptionPlan[]> {
+    return await db.select().from(subscriptionPlans).where(eq(subscriptionPlans.isActive, true));
+  }
+
+  async getSubscriptionPlan(planId: string): Promise<SubscriptionPlan | undefined> {
+    const [plan] = await db
+      .select()
+      .from(subscriptionPlans)
+      .where(eq(subscriptionPlans.id, planId));
+    return plan;
+  }
+
+  async getTenantSubscription(tenantId: string): Promise<TenantSubscription | undefined> {
+    const [subscription] = await db
+      .select()
+      .from(tenantSubscriptions)
+      .where(eq(tenantSubscriptions.tenantId, tenantId))
+      .orderBy(desc(tenantSubscriptions.createdAt))
+      .limit(1);
+    return subscription;
+  }
+
+  async getTenantSubscriptionByStripeId(stripeSubscriptionId: string): Promise<TenantSubscription | undefined> {
+    const [subscription] = await db
+      .select()
+      .from(tenantSubscriptions)
+      .where(eq(tenantSubscriptions.subscriptionId, stripeSubscriptionId))
+      .limit(1);
+    return subscription;
+  }
+
+  async createTenantSubscription(data: InsertTenantSubscription): Promise<TenantSubscription> {
+    const [subscription] = await db
+      .insert(tenantSubscriptions)
+      .values(data)
+      .returning();
+    return subscription;
+  }
+
+  async updateTenantSubscriptionStatus(
+    tenantId: string, 
+    updates: Partial<TenantSubscription>
+  ): Promise<TenantSubscription> {
+    const [subscription] = await db
+      .update(tenantSubscriptions)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(tenantSubscriptions.tenantId, tenantId))
+      .returning();
+    return subscription;
+  }
+
+  async recordPaymentEvent(event: InsertPaymentEvent): Promise<PaymentEvent> {
+    const [paymentEvent] = await db
+      .insert(paymentEvents)
+      .values(event)
+      .returning();
+    return paymentEvent;
+  }
+
+  async getPaymentHistory(tenantId: string, limit: number = 50): Promise<PaymentEvent[]> {
+    // Get subscription for this tenant first
+    const subscription = await this.getTenantSubscription(tenantId);
+    if (!subscription) return [];
+
+    return await db
+      .select()
+      .from(paymentEvents)
+      .where(eq(paymentEvents.subscriptionId, subscription.id))
+      .orderBy(desc(paymentEvents.createdAt))
+      .limit(limit);
+  }
+
+  async getInvoices(tenantId: string, limit: number = 20): Promise<Invoice[]> {
+    // Get subscription for this tenant first  
+    const subscription = await this.getTenantSubscription(tenantId);
+    if (!subscription) return [];
+
+    return await db
+      .select()
+      .from(invoices)
+      .where(eq(invoices.subscriptionId, subscription.id))
+      .orderBy(desc(invoices.createdAt))
+      .limit(limit);
   }
 
 

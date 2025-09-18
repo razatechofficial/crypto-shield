@@ -69,6 +69,19 @@ app.use((req, res, next) => {
   }, () => {
     log(`serving on port ${port}`);
     
+    // Production configuration validation
+    if (process.env.NODE_ENV === 'production') {
+      if (!process.env.STRIPE_SECRET_KEY || process.env.STRIPE_SECRET_KEY.startsWith('sk_test_development')) {
+        console.error('❌ CRITICAL: STRIPE_SECRET_KEY not configured for production');
+        process.exit(1);
+      }
+      if (!process.env.STRIPE_WEBHOOK_SECRET) {
+        console.error('❌ CRITICAL: STRIPE_WEBHOOK_SECRET not configured for production');
+        process.exit(1);
+      }
+      console.log('✅ Production Stripe configuration validated');
+    }
+    
     // Initialize automated key rotation scheduler
     initializeKeyRotationScheduler();
   });

@@ -1,6 +1,6 @@
 // Enterprise SaaS Routes with RBAC Integration
 import type { Express } from "express";
-import { enterpriseAuth, adminOnly, requirePermission, requireRole } from "../middleware";
+import { enterpriseAuth, adminOnly, requirePermission, requireRole } from "../middleware/index";
 import { storage } from "../storage";
 
 /**

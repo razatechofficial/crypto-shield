@@ -328,8 +328,19 @@ async function performEnterpriseAudit(sdkResults: Record<string, any>, sdk: any,
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Setup authentication
+  // Setup webhook routes FIRST to ensure raw body parsing for Stripe
+  const { setupWebhookRoutes } = await import("./routes/webhooks");
+  setupWebhookRoutes(app);
+  
+  // Setup authentication (includes JSON middleware)
   await setupAuth(app);
+
+  // Setup enterprise and billing routes
+  const { setupEnterpriseRoutes } = await import("./routes/enterprise");
+  const { setupBillingRoutes } = await import("./routes/billing");
+  
+  setupEnterpriseRoutes(app);
+  setupBillingRoutes(app);
 
   // Authentication routes
   app.get("/api/auth/user", isAuthenticated, async (req, res) => {
