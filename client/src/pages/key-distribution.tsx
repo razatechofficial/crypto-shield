@@ -1,10 +1,18 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { GitBranch, RefreshCw, CheckCircle, AlertTriangle, Loader, Eye, Settings } from "lucide-react";
+import { GitBranch, RefreshCw, CheckCircle, AlertTriangle, Loader, Eye, Settings, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 
@@ -56,9 +64,33 @@ const statusIcons = {
   active: <CheckCircle className="w-4 h-4" />
 };
 
+// Form schema for creating key distributions
+const distributionFormSchema = z.object({
+  keyId: z.string().min(1, "Please select a key"),
+  providerConfigId: z.string().min(1, "Please select a provider"),
+  distributionType: z.enum(["immediate", "scheduled", "manual"]),
+  scheduleAt: z.string().optional(),
+  autoSync: z.boolean().default(true),
+  syncInterval: z.string().default("24h"),
+  notes: z.string().optional(),
+});
+
+type DistributionFormData = z.infer<typeof distributionFormSchema>;
+
 export default function KeyDistribution() {
   const [activeTab, setActiveTab] = useState("distributions");
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const { toast } = useToast();
+
+  // Form for creating distributions
+  const form = useForm<DistributionFormData>({
+    resolver: zodResolver(distributionFormSchema),
+    defaultValues: {
+      distributionType: "immediate",
+      autoSync: true,
+      syncInterval: "24h",
+    },
+  });
 
   // Fetch key distributions
   const { data: distributions = [], isLoading: distributionsLoading } = useQuery<KeyDistribution[]>({
@@ -68,6 +100,40 @@ export default function KeyDistribution() {
   // Fetch key replications
   const { data: replications = [], isLoading: replicationsLoading } = useQuery<KeyReplication[]>({
     queryKey: ["/api/key-replications"],
+  });
+
+  // Fetch available keys for distribution
+  const { data: availableKeys = [] } = useQuery<any[]>({
+    queryKey: ["/api/keys"],
+  });
+
+  // Fetch cloud providers
+  const { data: cloudProviders = [] } = useQuery<any[]>({
+    queryKey: ["/api/cloud-providers"],
+  });
+
+  // Create distribution mutation
+  const createDistributionMutation = useMutation({
+    mutationFn: async (data: DistributionFormData) => {
+      const response = await apiRequest("POST", "/api/key-distributions", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/key-distributions"] });
+      setIsCreateDialogOpen(false);
+      form.reset();
+      toast({
+        title: "Distribution Created",
+        description: "Key distribution has been configured successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Creation Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   // Sync mutation
@@ -148,14 +214,239 @@ export default function KeyDistribution() {
           </Badge>
         </div>
         
-        <Button 
-          onClick={() => syncAllMutation.mutate()}
-          disabled={syncAllMutation.isPending}
-          data-testid="button-sync-all"
-        >
-          <RefreshCw className={`w-4 h-4 mr-2 ${syncAllMutation.isPending ? 'animate-spin' : ''}`} />
-          Sync All
-        </Button>
+        <div className="flex items-center space-x-2">
+          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" data-testid="button-create-distribution">
+                <Plus className="w-4 h-4 mr-2" />
+                Create Distribution
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Create Key Distribution</DialogTitle>
+                <DialogDescription>
+                  Configure how and where to distribute your encryption keys across cloud providers.
+                </DialogDescription>
+              </DialogHeader>
+              
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit((data) => createDistributionMutation.mutate(data))} className="space-y-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="keyId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Select Key</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-key">
+                                <SelectValue placeholder="Choose a key to distribute" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {availableKeys.map((key: any) => (
+                                <SelectItem key={key.id} value={key.id}>
+                                  {key.name || key.id}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>
+                            Select the encryption key you want to distribute
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="providerConfigId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Target Provider</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-provider">
+                                <SelectValue placeholder="Choose destination provider" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {cloudProviders.map((provider: any) => (
+                                <SelectItem key={provider.id} value={provider.id}>
+                                  {provider.name} ({provider.providerType})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>
+                            Target cloud provider for key distribution
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="distributionType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Distribution Type</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-distribution-type">
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="immediate">Immediate Distribution</SelectItem>
+                            <SelectItem value="scheduled">Scheduled Distribution</SelectItem>
+                            <SelectItem value="manual">Manual Distribution</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormDescription>
+                          When should this key be distributed
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {form.watch("distributionType") === "scheduled" && (
+                    <FormField
+                      control={form.control}
+                      name="scheduleAt"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Schedule Date & Time</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="datetime-local" 
+                              {...field} 
+                              data-testid="input-schedule-at"
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            When to execute the distribution
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="autoSync"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">Auto Sync</FormLabel>
+                            <FormDescription>
+                              Automatically sync changes with the provider
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <input
+                              type="checkbox"
+                              checked={field.value}
+                              onChange={field.onChange}
+                              data-testid="checkbox-auto-sync"
+                              className="rounded"
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="syncInterval"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Sync Interval</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-sync-interval">
+                                <SelectValue />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="1h">Every Hour</SelectItem>
+                              <SelectItem value="6h">Every 6 Hours</SelectItem>
+                              <SelectItem value="24h">Daily</SelectItem>
+                              <SelectItem value="168h">Weekly</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>
+                            How often to sync with the provider
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="notes"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Notes (Optional)</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Add any notes about this distribution..."
+                            {...field}
+                            data-testid="textarea-notes"
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Additional context or requirements for this distribution
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="flex items-center justify-end space-x-2">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={() => setIsCreateDialogOpen(false)}
+                      data-testid="button-cancel"
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      type="submit" 
+                      disabled={createDistributionMutation.isPending}
+                      data-testid="button-create"
+                    >
+                      {createDistributionMutation.isPending && (
+                        <Loader className="w-4 h-4 mr-2 animate-spin" />
+                      )}
+                      Create Distribution
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+
+          <Button 
+            onClick={() => syncAllMutation.mutate()}
+            disabled={syncAllMutation.isPending}
+            data-testid="button-sync-all"
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${syncAllMutation.isPending ? 'animate-spin' : ''}`} />
+            Sync All
+          </Button>
+        </div>
       </div>
 
       {/* Main Content */}
