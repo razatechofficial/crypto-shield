@@ -88,8 +88,10 @@ export interface IStorage {
   // Subscription & Billing operations
   getSubscriptionPlans(): Promise<SubscriptionPlan[]>;
   getSubscriptionPlan(planId: string): Promise<SubscriptionPlan | undefined>;
+  getSubscriptionPlanByPayPalId(paypalPlanId: string): Promise<SubscriptionPlan | undefined>;
   getTenantSubscription(tenantId: string): Promise<TenantSubscription | undefined>;
   getTenantSubscriptionByStripeId(stripeSubscriptionId: string): Promise<TenantSubscription | undefined>;
+  getTenantSubscriptionByPayPalId(paypalSubscriptionId: string): Promise<TenantSubscription | undefined>;
   createTenantSubscription(data: InsertTenantSubscription): Promise<TenantSubscription>;
   updateTenantSubscriptionStatus(tenantId: string, updates: Partial<TenantSubscription>): Promise<TenantSubscription>;
   recordPaymentEvent(event: InsertPaymentEvent): Promise<PaymentEvent>;
@@ -3219,6 +3221,14 @@ export class DatabaseStorage implements IStorage {
     return plan;
   }
 
+  async getSubscriptionPlanByPayPalId(paypalPlanId: string): Promise<SubscriptionPlan | undefined> {
+    const [plan] = await db
+      .select()
+      .from(subscriptionPlans)
+      .where(eq(subscriptionPlans.paypalPlanId, paypalPlanId));
+    return plan;
+  }
+
   async getTenantSubscription(tenantId: string): Promise<TenantSubscription | undefined> {
     const [subscription] = await db
       .select()
@@ -3234,6 +3244,18 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(tenantSubscriptions)
       .where(eq(tenantSubscriptions.subscriptionId, stripeSubscriptionId))
+      .limit(1);
+    return subscription;
+  }
+
+  async getTenantSubscriptionByPayPalId(paypalSubscriptionId: string): Promise<TenantSubscription | undefined> {
+    const [subscription] = await db
+      .select()
+      .from(tenantSubscriptions)
+      .where(and(
+        eq(tenantSubscriptions.subscriptionId, paypalSubscriptionId),
+        eq(tenantSubscriptions.provider, 'paypal')
+      ))
       .limit(1);
     return subscription;
   }
