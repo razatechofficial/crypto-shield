@@ -2,8 +2,48 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./averoxAuth";
-import { insertSdkSchema, insertEncryptionKeySchema } from "@shared/schema";
+import { insertSdkSchema, insertEncryptionKeySchema, insertKeyRotationPolicySchema } from "@shared/schema";
 import { z } from "zod";
+
+// KMS operation validation schemas
+const rotateKeySchema = z.object({
+  trigger: z.enum(['manual', 'time_based', 'usage_based', 'emergency', 'policy_driven']).default('manual')
+});
+
+const scheduleRotationSchema = z.object({
+  rotationDate: z.string().datetime()
+});
+
+const rollbackKeySchema = z.object({
+  toVersion: z.number().int().positive()
+});
+
+// Helper function to verify key ownership and get tenant
+async function verifyKeyOwnership(keyId: string, userId: string, requiredRole?: string) {
+  // Get user's tenant
+  const user = await storage.getUser(userId);
+  if (!user) {
+    throw new Error('User not found');
+  }
+  
+  // Verify user role if required
+  if (requiredRole && user.role !== 'admin' && user.role !== requiredRole) {
+    throw new Error('Insufficient permissions');
+  }
+  
+  // Get user's tenant
+  const tenantId = await storage.getOrCreateTenantForUser(userId, user.email || 'unknown@averox.com');
+  
+  // Verify key belongs to tenant
+  const keys = await storage.getEncryptionKeys(tenantId);
+  const key = keys.find(k => k.id === keyId);
+  
+  if (!key) {
+    throw new Error('Key not found or access denied');
+  }
+  
+  return { key, tenantId, user };
+}
 import archiver from "archiver";
 import { EnterpriseAdapter } from "./enterpriseAdapter";
 
@@ -652,21 +692,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Create new encryption key with HSM support
+  // Create new encryption key with HSM support - ADMIN ONLY
   app.post("/api/keys", isAuthenticated, async (req, res) => {
     try {
       const user = req.user as any;
-      const tenantId = user.tenantId || 'dev-tenant-001';
+      const userId = user.id || user.claims?.sub;
+      
+      // Verify admin permissions
+      const userRecord = await storage.getUser(userId);
+      if (!userRecord || userRecord.role !== 'admin') {
+        return res.status(403).json({ message: "Admin permissions required" });
+      }
+      
+      // Get proper tenant ID (never use fallback)
+      const tenantId = await storage.getOrCreateTenantForUser(userId, userRecord.email || 'unknown@averox.com');
+      
+      // Validate request body with schema
+      const validatedData = insertEncryptionKeySchema.parse(req.body);
       
       const keyData = {
-        ...req.body,
+        ...validatedData,
         tenantId,
       };
 
       const key = await storage.createEncryptionKey(keyData);
-      res.json(key);
-    } catch (error) {
+      
+      // Create security event
+      await storage.createSecurityEvent({
+        tenantId,
+        eventType: 'key_created',
+        severity: 'medium',
+        description: `Encryption key created via API`,
+        metadata: {
+          keyId: key.id,
+          keyType: key.keyType,
+          createdBy: userId
+        }
+      });
+      
+      res.json({
+        success: true,
+        message: "Key created successfully",
+        keyId: key.id,
+        keyType: key.keyType,
+        createdAt: key.createdAt
+      });
+    } catch (error: any) {
       console.error("Error creating encryption key:", error);
+      
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Invalid request data", errors: error.errors });
+      }
+      
       res.status(500).json({ message: "Failed to create key" });
     }
   });
@@ -729,6 +806,264 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error revoking key:", error);
       res.status(500).json({ message: "Failed to revoke key" });
+    }
+  });
+
+  // ========== ENTERPRISE KEY LIFECYCLE MANAGEMENT (KMS) APIs ==========
+
+  // Rotate key (manual or policy-triggered) - ADMIN ONLY
+  app.post("/api/keys/:keyId/rotate", isAuthenticated, async (req, res) => {
+    try {
+      const { keyId } = req.params;
+      const user = req.user as any;
+      const userId = user.id || user.claims?.sub;
+      
+      // Validate request body
+      const validatedBody = rotateKeySchema.parse(req.body);
+      const { trigger } = validatedBody;
+      
+      // Verify key ownership and admin permissions
+      const { key, tenantId } = await verifyKeyOwnership(keyId, userId, 'admin');
+      
+      const newKey = await storage.rotateKey(keyId, trigger, userId);
+      
+      // Create security event
+      await storage.createSecurityEvent({
+        tenantId,
+        eventType: 'key_rotated',
+        severity: 'medium',
+        description: `Key ${key.keyId} rotated via API`,
+        metadata: {
+          oldKeyId: keyId,
+          newKeyId: newKey.id,
+          trigger,
+          triggeredBy: userId,
+          version: newKey.version
+        }
+      });
+      
+      res.json({
+        success: true,
+        message: "Key rotated successfully",
+        keyId: newKey.id,
+        version: newKey.version,
+        rotatedAt: newKey.lastRotatedAt
+      });
+    } catch (error: any) {
+      console.error("Error rotating key:", error);
+      
+      if (error.message.includes('not found') || error.message.includes('access denied')) {
+        return res.status(404).json({ message: "Key not found" });
+      }
+      if (error.message.includes('permissions')) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Invalid request data", errors: error.errors });
+      }
+      
+      res.status(500).json({ message: "Failed to rotate key" });
+    }
+  });
+
+  // Get key versions and history
+  app.get("/api/keys/:keyId/versions", isAuthenticated, async (req, res) => {
+    try {
+      const { keyId } = req.params;
+      const versions = await storage.getKeyVersions(keyId);
+      res.json(versions);
+    } catch (error: any) {
+      console.error("Error fetching key versions:", error);
+      res.status(500).json({ message: "Failed to fetch key versions", error: error.message });
+    }
+  });
+
+  // Schedule key rotation - ADMIN ONLY
+  app.post("/api/keys/:keyId/schedule-rotation", isAuthenticated, async (req, res) => {
+    try {
+      const { keyId } = req.params;
+      const user = req.user as any;
+      const userId = user.id || user.claims?.sub;
+      
+      // Validate request body
+      const validatedBody = scheduleRotationSchema.parse(req.body);
+      const { rotationDate } = validatedBody;
+      
+      // Verify key ownership and admin permissions
+      const { key, tenantId } = await verifyKeyOwnership(keyId, userId, 'admin');
+      
+      await storage.scheduleKeyRotation(keyId, new Date(rotationDate));
+      
+      // Create security event
+      await storage.createSecurityEvent({
+        tenantId,
+        eventType: 'key_rotation_scheduled',
+        severity: 'low',
+        description: `Key ${key.keyId} rotation scheduled for ${rotationDate}`,
+        metadata: {
+          keyId,
+          rotationDate,
+          scheduledBy: userId
+        }
+      });
+      
+      res.json({
+        success: true,
+        message: "Key rotation scheduled successfully",
+        rotationDate,
+        scheduledAt: new Date()
+      });
+    } catch (error: any) {
+      console.error("Error scheduling key rotation:", error);
+      
+      if (error.message.includes('not found') || error.message.includes('access denied')) {
+        return res.status(404).json({ message: "Key not found" });
+      }
+      if (error.message.includes('permissions')) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Invalid request data", errors: error.errors });
+      }
+      
+      res.status(500).json({ message: "Failed to schedule key rotation" });
+    }
+  });
+
+  // Rollback key to previous version - ADMIN ONLY
+  app.post("/api/keys/:keyId/rollback", isAuthenticated, async (req, res) => {
+    try {
+      const { keyId } = req.params;
+      const user = req.user as any;
+      const userId = user.id || user.claims?.sub;
+      
+      // Validate request body
+      const validatedBody = rollbackKeySchema.parse(req.body);
+      const { toVersion } = validatedBody;
+      
+      // Verify key ownership and admin permissions
+      const { key, tenantId } = await verifyKeyOwnership(keyId, userId, 'admin');
+      
+      const rolledBackKey = await storage.rollbackKeyVersion(keyId, toVersion, userId);
+      
+      // Create security event for key rollback
+      await storage.createSecurityEvent({
+        tenantId,
+        eventType: 'key_rolled_back',
+        severity: 'high',
+        description: `Key ${key.keyId} rolled back to version ${toVersion}`,
+        metadata: {
+          keyId,
+          fromVersion: key.version,
+          toVersion,
+          rollbackBy: userId,
+          timestamp: new Date()
+        }
+      });
+      
+      res.json({
+        success: true,
+        message: "Key rolled back successfully",
+        keyId: rolledBackKey.id,
+        version: rolledBackKey.version,
+        rolledBackAt: new Date()
+      });
+    } catch (error: any) {
+      console.error("Error rolling back key:", error);
+      
+      if (error.message.includes('not found') || error.message.includes('access denied')) {
+        return res.status(404).json({ message: "Key not found" });
+      }
+      if (error.message.includes('permissions')) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+      if (error.message.includes('Version') && error.message.includes('not found')) {
+        return res.status(400).json({ message: "Target version not found" });
+      }
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Invalid request data", errors: error.errors });
+      }
+      
+      res.status(500).json({ message: "Failed to rollback key" });
+    }
+  });
+
+  // Get rotation policies for tenant
+  app.get("/api/rotation-policies", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const tenantId = user.tenantId || 'dev-tenant-001';
+      
+      const policies = await storage.getKeyRotationPolicies(tenantId);
+      res.json(policies);
+    } catch (error: any) {
+      console.error("Error fetching rotation policies:", error);
+      res.status(500).json({ message: "Failed to fetch rotation policies", error: error.message });
+    }
+  });
+
+  // Create new rotation policy
+  app.post("/api/rotation-policies", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const tenantId = user.tenantId || 'dev-tenant-001';
+      
+      const policyData = {
+        ...req.body,
+        tenantId
+      };
+      
+      const policy = await storage.createKeyRotationPolicy(policyData);
+      res.json({
+        message: "Rotation policy created successfully",
+        policy
+      });
+    } catch (error: any) {
+      console.error("Error creating rotation policy:", error);
+      res.status(500).json({ message: "Failed to create rotation policy", error: error.message });
+    }
+  });
+
+  // Get keys requiring rotation for tenant
+  app.get("/api/keys/requiring-rotation", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const tenantId = user.tenantId || 'dev-tenant-001';
+      
+      const keysRequiringRotation = await storage.getKeysRequiringRotation(tenantId);
+      res.json(keysRequiringRotation);
+    } catch (error: any) {
+      console.error("Error fetching keys requiring rotation:", error);
+      res.status(500).json({ message: "Failed to fetch keys requiring rotation", error: error.message });
+    }
+  });
+
+  // Trigger automated rotation process for tenant
+  app.post("/api/keys/process-rotations", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const tenantId = user.tenantId || 'dev-tenant-001';
+      
+      await storage.processAutomatedRotations(tenantId);
+      res.json({ message: "Automated rotations processed successfully" });
+    } catch (error: any) {
+      console.error("Error processing automated rotations:", error);
+      res.status(500).json({ message: "Failed to process automated rotations", error: error.message });
+    }
+  });
+
+  // Get tenant rotation history (audit trail)
+  app.get("/api/rotation-history", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const tenantId = user.tenantId || 'dev-tenant-001';
+      const limit = parseInt(req.query.limit as string) || 50;
+      
+      const history = await storage.getTenantRotationHistory(tenantId, limit);
+      res.json(history);
+    } catch (error: any) {
+      console.error("Error fetching tenant rotation history:", error);
+      res.status(500).json({ message: "Failed to fetch rotation history", error: error.message });
     }
   });
 
