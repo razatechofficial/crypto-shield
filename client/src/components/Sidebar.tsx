@@ -14,7 +14,10 @@ import {
   Zap,
   TrendingUp,
   Cloud,
-  GitBranch
+  GitBranch,
+  Activity,
+  Upload,
+  ArrowRightLeft
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +29,9 @@ const navigation = [
   { name: "Key Management", href: "/keys", icon: Key },
   { name: "Cloud Providers", href: "/providers", icon: Cloud },
   { name: "Key Distribution", href: "/distributions", icon: GitBranch },
+  { name: "Provider Health", href: "/provider-health", icon: Activity },
+  { name: "BYOK Import", href: "/byok", icon: Upload },
+  { name: "Key Replication", href: "/replication", icon: ArrowRightLeft },
   { name: "Quantum Security", href: "/quantum", icon: Zap },
   { name: "Advanced Analytics", href: "/analytics", icon: TrendingUp },
   { name: "User Management", href: "/users", icon: Users },

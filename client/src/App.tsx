@@ -13,6 +13,9 @@ import Monitoring from "@/pages/monitoring";
 import KeyManagement from "@/pages/key-management";
 import CloudProviders from "@/pages/cloud-providers";
 import KeyDistribution from "@/pages/key-distribution";
+import ProviderHealth from "@/pages/provider-health";
+import BYOKImport from "@/pages/byok-import";
+import KeyReplication from "@/pages/key-replication";
 import UserManagement from "@/pages/user-management";
 import Subscription from "@/pages/subscription";
 import Settings from "@/pages/settings";
@@ -42,9 +45,11 @@ function Router() {
           <Route path="/sdks" component={SdkManagement} />
           <Route path="/monitoring" component={Monitoring} />
           <Route path="/keys" component={KeyManagement} />
-          <Route path="/key-management" component={KeyManagement} />
           <Route path="/providers" component={CloudProviders} />
           <Route path="/distributions" component={KeyDistribution} />
+          <Route path="/provider-health" component={ProviderHealth} />
+          <Route path="/byok" component={BYOKImport} />
+          <Route path="/replication" component={KeyReplication} />
           <Route path="/users" component={UserManagement} />
           <Route path="/subscription" component={Subscription} />
           <Route path="/quantum" component={QuantumSecurity} />
