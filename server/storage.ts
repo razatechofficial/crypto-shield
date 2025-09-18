@@ -52,6 +52,9 @@ import {
   type InsertByokImport,
   type CompliancePolicy,
   type InsertCompliancePolicy,
+  type TenantUser,
+  type InsertTenantUser,
+  tenantUsers,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, count, sum, gte, inArray, sql } from "drizzle-orm";
@@ -62,6 +65,10 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   updateUser(id: string, updates: Partial<User>): Promise<User>;
+  
+  // Enterprise RBAC operations
+  getTenantUser(tenantId: string, userId: string): Promise<TenantUser | undefined>;
+  getRolePermissions(role: string): Promise<string[]>;
   
   // Tenant operations
   getTenant(id: string): Promise<Tenant | undefined>;
@@ -3607,6 +3614,40 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .orderBy(desc(encryptionKeys.createdAt));
+  }
+
+  // Enterprise RBAC Methods Implementation
+  async getTenantUser(tenantId: string, userId: string): Promise<TenantUser | undefined> {
+    // Use statically imported tenantUsers
+    const [tenantUser] = await db
+      .select()
+      .from(tenantUsers)
+      .where(and(eq(tenantUsers.tenantId, tenantId), eq(tenantUsers.userId, userId)));
+    return tenantUser;
+  }
+
+  async getRolePermissions(role: string): Promise<string[]> {
+    // Define role-to-permission mappings for enterprise RBAC
+    const rolePermissions: Record<string, string[]> = {
+      'admin': [
+        'org:manage', 'org:view', 'org:billing',
+        'users:manage', 'users:view', 'users:invite',
+        'keys:manage', 'keys:rotate', 'keys:export', 'keys:delete', 'keys:view',
+        'providers:manage', 'providers:view', 'providers:configure',
+        'analytics:view', 'analytics:export',
+        'billing:manage', 'billing:view',
+        'alerts:manage', 'alerts:view'
+      ],
+      'developer': [
+        'keys:view', 'keys:manage', 'keys:rotate',
+        'providers:view', 'analytics:view'
+      ],
+      'viewer': [
+        'keys:view', 'analytics:view'
+      ]
+    };
+
+    return rolePermissions[role] || ['keys:view'];
   }
 }
 
