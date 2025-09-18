@@ -455,7 +455,7 @@ export default function SDKManagement() {
                           <TableCell>
                             <div className="flex items-center gap-1 text-sm text-muted-foreground">
                               <Calendar className="w-3 h-3" />
-                              {formatDate(sdk.createdAt || new Date().toISOString())}
+                              {formatDate(typeof sdk.createdAt === 'string' ? sdk.createdAt : sdk.createdAt ? new Date(sdk.createdAt).toISOString() : new Date().toISOString())}
                             </div>
                           </TableCell>
                           <TableCell>
