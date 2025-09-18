@@ -7,6 +7,8 @@ const pageInfo = {
   "/wizard": { title: "SDK Wizard", subtitle: "Create custom encryption SDKs" },
   "/monitoring": { title: "Security Monitoring", subtitle: "Real-time threat detection and response" },
   "/keys": { title: "Key Management", subtitle: "Manage encryption keys and certificates" },
+  "/providers": { title: "Cloud Providers", subtitle: "Manage AWS KMS, Azure Key Vault, and GCP KMS configurations" },
+  "/distributions": { title: "Key Distribution", subtitle: "Monitor multi-cloud key synchronization and replication" },
   "/users": { title: "User Management", subtitle: "Manage users and permissions" },
   "/subscription": { title: "Subscription", subtitle: "Manage your billing and usage" },
   "/settings": { title: "Settings", subtitle: "Configure system preferences" },

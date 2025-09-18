@@ -12,7 +12,9 @@ import {
   LogOut,
   Package,
   Zap,
-  TrendingUp
+  TrendingUp,
+  Cloud,
+  GitBranch
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +24,8 @@ const navigation = [
   { name: "SDK Management", href: "/sdks", icon: Package },
   { name: "Monitoring", href: "/monitoring", icon: Eye },
   { name: "Key Management", href: "/keys", icon: Key },
+  { name: "Cloud Providers", href: "/providers", icon: Cloud },
+  { name: "Key Distribution", href: "/distributions", icon: GitBranch },
   { name: "Quantum Security", href: "/quantum", icon: Zap },
   { name: "Advanced Analytics", href: "/analytics", icon: TrendingUp },
   { name: "User Management", href: "/users", icon: Users },
