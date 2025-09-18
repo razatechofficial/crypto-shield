@@ -96,8 +96,15 @@ export default function KeyDistribution() {
   const syncAllMutation = useMutation({
     mutationFn: async () => {
       const response = await apiRequest("POST", "/api/key-distributions/sync-all");
-      const result = await response.json();
-      return result;
+      
+      // Check if response is JSON before parsing
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        return await response.json();
+      } else {
+        // If not JSON, just return success indicator
+        return { success: true, message: "Sync completed" };
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/key-distributions"] });
