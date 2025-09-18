@@ -10,6 +10,7 @@ import {
   integer,
   boolean,
   pgEnum,
+  foreignKey,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -172,8 +173,8 @@ export const encryptionKeys = pgTable("encryption_keys", {
   // Key Versioning & Lifecycle Management
   version: integer("version").default(1).notNull(),
   versionStatus: keyVersionStatusEnum("version_status").default('current'),
-  parentKeyId: varchar("parent_key_id").references(() => encryptionKeys.id), // Self-reference to master key
-  previousVersionId: varchar("previous_version_id").references(() => encryptionKeys.id), // Reference to previous version
+  parentKeyId: varchar("parent_key_id"), // Self-reference to master key (FK defined in relations)
+  previousVersionId: varchar("previous_version_id"), // Reference to previous version (FK defined in relations)
   
   // Expiration & Rotation
   expiresAt: timestamp("expires_at"),
@@ -195,9 +196,24 @@ export const encryptionKeys = pgTable("encryption_keys", {
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => {
   return {
-    // Ensure only one current version per parent key
-    uniqueCurrentVersion: uniqueIndex("unique_current_version_per_parent")
-      .on(table.parentKeyId)
+    // Tenant-scoped composite unique for FK targets
+    tenantKeyUnique: uniqueIndex("unique_tenant_key").on(table.tenantId, table.id),
+    
+    // Tenant-scoped composite FK constraints for cross-tenant protection
+    parentKeyFk: foreignKey({
+      columns: [table.tenantId, table.parentKeyId],
+      foreignColumns: [table.tenantId, table.id],
+      name: "fk_encryption_keys_parent_tenant_scoped"
+    }).onDelete("set null"),
+    previousVersionFk: foreignKey({
+      columns: [table.tenantId, table.previousVersionId], 
+      foreignColumns: [table.tenantId, table.id],
+      name: "fk_encryption_keys_previous_version_tenant_scoped"
+    }).onDelete("set null"),
+    
+    // Ensure only one current version per key family (handles NULL parent keys)
+    uniqueCurrentVersion: uniqueIndex("unique_current_version_per_family")
+      .on(sql`COALESCE(parent_key_id, id)`)
       .where(sql`version_status = 'current'`),
     
     // Index for efficient key rotation queries
@@ -248,7 +264,7 @@ export const keyRotationPolicies = pgTable("key_rotation_policies", {
 export const keyRotationHistory = pgTable("key_rotation_history", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
-  keyId: varchar("key_id").references(() => encryptionKeys.id).notNull(),
+  keyId: varchar("key_id").notNull(),
   fromVersion: integer("from_version"),
   toVersion: integer("to_version").notNull(),
   
@@ -269,7 +285,15 @@ export const keyRotationHistory = pgTable("key_rotation_history", {
   errorMessage: text("error_message"),
   metadata: jsonb("metadata").default({}),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  // Tenant-scoped FK for key rotation history (database-enforced tenant isolation)
+  foreignKey({
+    columns: [table.tenantId, table.keyId],
+    foreignColumns: [encryptionKeys.tenantId, encryptionKeys.id],
+    name: "fk_key_rotation_history_tenant_scoped"
+  }),
+  index("idx_rotation_history_tenant_key").on(table.tenantId, table.keyId),
+]);
 
 // Security events table for monitoring
 export const securityEvents = pgTable("security_events", {
@@ -1332,3 +1356,550 @@ export interface ProviderHealthResult {
   error?: string;
   lastChecked: Date;
 }
+
+// ============================================================================
+// ENTERPRISE SAAS PLATFORM SCHEMA - Multi-tenancy, RBAC, Billing & Governance
+// ============================================================================
+
+// Extended user roles enum (including manager role for enterprise deployment)
+export const extendedUserRoleEnum = pgEnum('extended_user_role', ['admin', 'manager', 'developer', 'viewer']);
+
+// Permission types enum for granular RBAC
+export const permissionEnum = pgEnum('permission', [
+  'org:manage', 'org:view', 'org:billing',
+  'users:manage', 'users:view', 'users:invite',
+  'keys:manage', 'keys:rotate', 'keys:export', 'keys:delete', 'keys:view',
+  'providers:manage', 'providers:view', 'providers:configure',
+  'analytics:view', 'analytics:export',
+  'billing:manage', 'billing:view',
+  'alerts:manage', 'alerts:view',
+  'audit:view', 'audit:export',
+  'policies:manage', 'policies:view',
+  'hsm:manage', 'hsm:view', 'hsm:operate',
+  'compliance:manage', 'compliance:view', 'compliance:report'
+]);
+
+// User status enum
+export const userStatusEnum = pgEnum('user_status', ['active', 'invited', 'disabled', 'suspended']);
+
+// Subscription status enum
+export const subscriptionStatusEnum = pgEnum('subscription_status', [
+  'active', 'past_due', 'canceled', 'unpaid', 'incomplete', 'incomplete_expired', 'trialing'
+]);
+
+// Payment provider enum
+export const paymentProviderEnum = pgEnum('payment_provider', ['stripe', 'paypal']);
+
+// Invoice status enum
+export const invoiceStatusEnum = pgEnum('invoice_status', [
+  'draft', 'open', 'paid', 'uncollectible', 'void', 'deleted'
+]);
+
+// Webhook status enum
+export const webhookStatusEnum = pgEnum('webhook_status', ['pending', 'processed', 'failed', 'retry']);
+
+// Approval status enum for dual control
+export const approvalStatusEnum = pgEnum('approval_status', [
+  'pending', 'approved', 'rejected', 'cancelled', 'expired'
+]);
+
+// Audit event action enum
+export const auditActionEnum = pgEnum('audit_action', [
+  // User management
+  'user:created', 'user:updated', 'user:disabled', 'user:invited', 'user:role_changed',
+  // Organization management  
+  'org:created', 'org:updated', 'org:deleted', 'org:settings_changed',
+  // Key management
+  'key:created', 'key:updated', 'key:deleted', 'key:rotated', 'key:exported', 'key:imported',
+  // Provider management
+  'provider:created', 'provider:updated', 'provider:deleted', 'provider:configured',
+  // Billing events
+  'subscription:created', 'subscription:updated', 'subscription:cancelled', 'invoice:paid',
+  // Security events
+  'login:success', 'login:failed', 'logout', 'permission:granted', 'permission:denied',
+  // Policy events
+  'policy:created', 'policy:updated', 'policy:enforced', 'approval:requested', 'approval:granted'
+]);
+
+// ============================================================================
+// RBAC & USER MANAGEMENT TABLES
+// ============================================================================
+
+// Tenant users - proper multi-tenant membership management
+export const tenantUsers = pgTable("tenant_users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  role: extendedUserRoleEnum("role").default('viewer'),
+  status: userStatusEnum("status").default('active'),
+  
+  // Invitation tracking
+  invitedAt: timestamp("invited_at"),
+  invitedBy: varchar("invited_by").references(() => users.id),
+  joinedAt: timestamp("joined_at"),
+  lastActiveAt: timestamp("last_active_at"),
+  
+  // Access control
+  permissions: text("permissions"), // JSON array of custom permissions
+  metadata: jsonb("metadata").default({}),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("unique_user_tenant_membership").on(table.tenantId, table.userId),
+]);
+
+// Role-based permissions mapping
+export const rolePermissions = pgTable("role_permissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  role: extendedUserRoleEnum("role").notNull(),
+  permission: permissionEnum("permission").notNull(),
+  isGranted: boolean("is_granted").default(true),
+  
+  // Context-specific permissions
+  tenantId: varchar("tenant_id").references(() => tenants.id), // Tenant-specific overrides
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  // Ensure unique role-permission combinations (including tenant-specific overrides)
+  uniqueIndex("unique_role_permission").on(table.role, table.permission, table.tenantId),
+  index("idx_role_permission_granted").on(table.role, table.isGranted),
+]);
+
+// Audit events for comprehensive logging
+export const auditEvents = pgTable("audit_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Event details
+  action: auditActionEnum("action").notNull(),
+  targetType: varchar("target_type"), // 'user', 'key', 'provider', 'org', etc.
+  targetId: varchar("target_id"), // ID of the target resource
+  
+  // Request context
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  requestId: varchar("request_id"),
+  
+  // Event data
+  oldValues: jsonb("old_values").default({}),
+  newValues: jsonb("new_values").default({}),
+  metadata: jsonb("metadata").default({}),
+  
+  // Success/failure
+  success: boolean("success").default(true),
+  errorMessage: text("error_message"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_audit_tenant_action").on(table.tenantId, table.action),
+  index("idx_audit_user_time").on(table.userId, table.createdAt),
+  index("idx_audit_target").on(table.targetType, table.targetId),
+]);
+
+// ============================================================================
+// SUBSCRIPTION & BILLING TABLES
+// ============================================================================
+
+// Subscription plans
+export const subscriptionPlans = pgTable("subscription_plans", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: varchar("code").unique().notNull(), // 'starter', 'professional', 'enterprise'
+  name: varchar("name").notNull(),
+  description: text("description"),
+  
+  // Pricing
+  priceCents: integer("price_cents").notNull(),
+  currency: varchar("currency").default('USD'),
+  interval: varchar("interval").default('month'), // 'month', 'year'
+  
+  // Features and limits
+  features: jsonb("features").notNull().default({}), // Feature flags
+  limits: jsonb("limits").notNull().default({}), // Usage limits
+  
+  // Plan metadata
+  isActive: boolean("is_active").default(true),
+  sortOrder: integer("sort_order").default(0),
+  
+  // External IDs for payment providers
+  stripeProductId: varchar("stripe_product_id"),
+  stripePriceId: varchar("stripe_price_id"),
+  paypalProductId: varchar("paypal_product_id"),
+  paypalPlanId: varchar("paypal_plan_id"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  // Ensure unique provider product/price IDs
+  uniqueIndex("unique_stripe_product").on(table.stripeProductId).where(sql`stripe_product_id IS NOT NULL`),
+  uniqueIndex("unique_stripe_price").on(table.stripePriceId).where(sql`stripe_price_id IS NOT NULL`),
+  uniqueIndex("unique_paypal_product").on(table.paypalProductId).where(sql`paypal_product_id IS NOT NULL`),
+  uniqueIndex("unique_paypal_plan").on(table.paypalPlanId).where(sql`paypal_plan_id IS NOT NULL`),
+  index("idx_plan_active_sort").on(table.isActive, table.sortOrder),
+]);
+
+// Tenant subscriptions  
+export const tenantSubscriptions = pgTable("tenant_subscriptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  planId: varchar("plan_id").references(() => subscriptionPlans.id).notNull(),
+  
+  // Payment provider details
+  provider: paymentProviderEnum("provider").notNull(),
+  customerId: varchar("customer_id").notNull(), // Stripe customer ID or PayPal customer ID
+  subscriptionId: varchar("subscription_id").notNull(), // Provider subscription ID
+  
+  // Subscription state
+  status: subscriptionStatusEnum("status").default('active'),
+  currentPeriodStart: timestamp("current_period_start"),
+  currentPeriodEnd: timestamp("current_period_end"),
+  trialEnd: timestamp("trial_end"),
+  cancelAtPeriodEnd: boolean("cancel_at_period_end").default(false),
+  canceledAt: timestamp("canceled_at"),
+  
+  // Billing details
+  seats: integer("seats").default(1),
+  priceCents: integer("price_cents"), // Actual price paid (may differ from plan price)
+  currency: varchar("currency").default('USD'),
+  
+  // Metadata
+  metadata: jsonb("metadata").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  // Only one active subscription per tenant (including trialing)
+  uniqueIndex("unique_active_tenant_subscription")
+    .on(table.tenantId)
+    .where(sql`status IN ('active', 'trialing')`),
+  index("idx_tenant_subscription_status").on(table.tenantId, table.status),
+]);
+
+// Invoices
+export const invoices = pgTable("invoices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  subscriptionId: varchar("subscription_id").references(() => tenantSubscriptions.id).notNull(),
+  
+  // Provider details
+  provider: paymentProviderEnum("provider").notNull(),
+  providerInvoiceId: varchar("provider_invoice_id").notNull().unique(),
+  
+  // Invoice details
+  status: invoiceStatusEnum("status").default('open'),
+  amountCents: integer("amount_cents").notNull(),
+  currency: varchar("currency").default('USD'),
+  taxCents: integer("tax_cents").default(0),
+  
+  // Dates
+  invoiceDate: timestamp("invoice_date").notNull(),
+  dueDate: timestamp("due_date"),
+  paidAt: timestamp("paid_at"),
+  
+  // Customer access
+  hostedUrl: varchar("hosted_url"), // Provider-hosted invoice URL
+  downloadUrl: varchar("download_url"), // PDF download URL
+  
+  // Metadata
+  lineItems: jsonb("line_items").default({}),
+  metadata: jsonb("metadata").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Webhook processing log
+export const webhooksLog = pgTable("webhooks_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  provider: paymentProviderEnum("provider").notNull(),
+  eventId: varchar("event_id").notNull().unique(), // Provider event ID
+  eventType: varchar("event_type").notNull(),
+  
+  // Webhook data
+  payload: jsonb("payload").notNull(),
+  signature: varchar("signature"),
+  
+  // Processing status
+  status: webhookStatusEnum("status").default('pending'),
+  processedAt: timestamp("processed_at"),
+  retryCount: integer("retry_count").default(0),
+  errorMessage: text("error_message"),
+  
+  // Related data
+  tenantId: varchar("tenant_id").references(() => tenants.id),
+  subscriptionId: varchar("subscription_id").references(() => tenantSubscriptions.id),
+  
+  receivedAt: timestamp("received_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  // Ensure webhook events are idempotent
+  uniqueIndex("unique_webhook_event").on(table.provider, table.eventId),
+  index("idx_webhook_provider_type").on(table.provider, table.eventType),
+  index("idx_webhook_status").on(table.status, table.receivedAt),
+]);
+
+// Tenant-specific feature overrides
+export const tenantFeatureOverrides = pgTable("tenant_feature_overrides", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  featureCode: varchar("feature_code").notNull(),
+  enabled: boolean("enabled").notNull(),
+  notes: text("notes"),
+  
+  // Override metadata
+  overriddenBy: varchar("overridden_by").references(() => users.id),
+  expiresAt: timestamp("expires_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  // Ensure only one feature override per tenant per feature
+  uniqueIndex("unique_tenant_feature").on(table.tenantId, table.featureCode),
+  index("idx_tenant_feature_enabled").on(table.tenantId, table.enabled),
+]);
+
+// ============================================================================
+// ENTERPRISE GOVERNANCE & COMPLIANCE
+// ============================================================================
+
+// Access policies for enterprise compliance
+export const accessPolicies = pgTable("access_policies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull().unique(),
+  
+  // Dual control and separation of duties
+  dualControlRequired: boolean("dual_control_required").default(false),
+  exportApprovalRequired: boolean("export_approval_required").default(true),
+  deleteApprovalRequired: boolean("delete_approval_required").default(true),
+  minApprovers: integer("min_approvers").default(1),
+  separationOfDuties: boolean("separation_of_duties").default(false),
+  
+  // Key management policies
+  keyDeletionGracePeriod: integer("key_deletion_grace_period").default(24), // hours
+  maxKeyAge: integer("max_key_age").default(365), // days
+  mandatoryRotation: boolean("mandatory_rotation").default(false),
+  
+  // Access restrictions
+  ipWhitelist: text("ip_whitelist"), // JSON array of allowed IPs
+  timeRestrictions: jsonb("time_restrictions").default({}), // Business hours, etc.
+  locationRestrictions: jsonb("location_restrictions").default({}),
+  
+  // Compliance settings
+  auditLogRetention: integer("audit_log_retention").default(2555), // days (7 years)
+  complianceFrameworks: text("compliance_frameworks"), // JSON array
+  
+  // Policy metadata
+  enforced: boolean("enforced").default(true),
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Approval workflows for sensitive operations
+export const approvalWorkflows = pgTable("approval_workflows", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  
+  // Request details
+  requestType: varchar("request_type").notNull(), // 'key_export', 'key_delete', 'provider_config', etc.
+  targetType: varchar("target_type").notNull(),
+  targetId: varchar("target_id").notNull(),
+  requestedBy: varchar("requested_by").references(() => users.id).notNull(),
+  
+  // Workflow state
+  status: approvalStatusEnum("status").default('pending'),
+  requiredApprovers: integer("required_approvers").default(1),
+  currentApprovers: integer("current_approvers").default(0),
+  
+  // Request data
+  requestData: jsonb("request_data").notNull(),
+  justification: text("justification"),
+  
+  // Timing
+  requestedAt: timestamp("requested_at").defaultNow(),
+  expiresAt: timestamp("expires_at"),
+  completedAt: timestamp("completed_at"),
+  
+  // Execution
+  executeAt: timestamp("execute_at"), // Scheduled execution time
+  executedAt: timestamp("executed_at"),
+  executionResult: jsonb("execution_result").default({}),
+  
+  // Link to audit event for proper governance tracking
+  auditEventId: varchar("audit_event_id").references(() => auditEvents.id),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_approval_tenant_status").on(table.tenantId, table.status),
+  index("idx_approval_expires").on(table.expiresAt),
+]);
+
+// Individual approval records
+export const approvals = pgTable("approvals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workflowId: varchar("workflow_id").references(() => approvalWorkflows.id).notNull(),
+  
+  // Approver details
+  approverId: varchar("approver_id").references(() => users.id).notNull(),
+  status: approvalStatusEnum("status").default('pending'),
+  
+  // Approval data
+  decision: varchar("decision"), // 'approved', 'rejected'
+  comments: text("comments"),
+  signatureData: jsonb("signature_data").default({}),
+  
+  // Timing
+  requestedAt: timestamp("requested_at").defaultNow(),
+  respondedAt: timestamp("responded_at"),
+  
+  // Link to audit event for proper governance tracking
+  auditEventId: varchar("audit_event_id").references(() => auditEvents.id),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("unique_workflow_approver").on(table.workflowId, table.approverId),
+  index("idx_approval_audit_link").on(table.auditEventId),
+]);
+
+// ============================================================================
+// ENTERPRISE SAAS RELATIONS
+// ============================================================================
+
+export const tenantUsersRelations = relations(tenantUsers, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [tenantUsers.tenantId],
+    references: [tenants.id],
+  }),
+  user: one(users, {
+    fields: [tenantUsers.userId],
+    references: [users.id],
+  }),
+  inviter: one(users, {
+    fields: [tenantUsers.invitedBy],
+    references: [users.id],
+  }),
+}));
+
+export const subscriptionPlansRelations = relations(subscriptionPlans, ({ many }) => ({
+  subscriptions: many(tenantSubscriptions),
+}));
+
+export const tenantSubscriptionsRelations = relations(tenantSubscriptions, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [tenantSubscriptions.tenantId],
+    references: [tenants.id],
+  }),
+  plan: one(subscriptionPlans, {
+    fields: [tenantSubscriptions.planId],
+    references: [subscriptionPlans.id],
+  }),
+  invoices: many(invoices),
+}));
+
+export const auditEventsRelations = relations(auditEvents, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [auditEvents.tenantId],
+    references: [tenants.id],
+  }),
+  user: one(users, {
+    fields: [auditEvents.userId],
+    references: [users.id],
+  }),
+}));
+
+export const approvalWorkflowsRelations = relations(approvalWorkflows, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [approvalWorkflows.tenantId],
+    references: [tenants.id],
+  }),
+  requester: one(users, {
+    fields: [approvalWorkflows.requestedBy],
+    references: [users.id],
+  }),
+  approvals: many(approvals),
+}));
+
+export const approvalsRelations = relations(approvals, ({ one }) => ({
+  workflow: one(approvalWorkflows, {
+    fields: [approvals.workflowId],
+    references: [approvalWorkflows.id],
+  }),
+  approver: one(users, {
+    fields: [approvals.approverId],
+    references: [users.id],
+  }),
+}));
+
+// ============================================================================
+// ENTERPRISE SAAS TYPES & SCHEMAS
+// ============================================================================
+
+// TypeScript types for enterprise entities
+export type TenantUser = typeof tenantUsers.$inferSelect;
+export type InsertTenantUser = typeof tenantUsers.$inferInsert;
+
+export type SubscriptionPlan = typeof subscriptionPlans.$inferSelect;
+export type InsertSubscriptionPlan = typeof subscriptionPlans.$inferInsert;
+
+export type TenantSubscription = typeof tenantSubscriptions.$inferSelect;
+export type InsertTenantSubscription = typeof tenantSubscriptions.$inferInsert;
+
+export type Invoice = typeof invoices.$inferSelect;
+export type InsertInvoice = typeof invoices.$inferInsert;
+
+export type AuditEvent = typeof auditEvents.$inferSelect;
+export type InsertAuditEvent = typeof auditEvents.$inferInsert;
+
+export type ApprovalWorkflow = typeof approvalWorkflows.$inferSelect;
+export type InsertApprovalWorkflow = typeof approvalWorkflows.$inferInsert;
+
+export type Approval = typeof approvals.$inferSelect;
+export type InsertApproval = typeof approvals.$inferInsert;
+
+export type AccessPolicy = typeof accessPolicies.$inferSelect;
+export type InsertAccessPolicy = typeof accessPolicies.$inferInsert;
+
+// Zod schemas for enterprise entities
+export const insertTenantUserSchema = createInsertSchema(tenantUsers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSubscriptionPlanSchema = createInsertSchema(subscriptionPlans).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertTenantSubscriptionSchema = createInsertSchema(tenantSubscriptions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAuditEventSchema = createInsertSchema(auditEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertApprovalWorkflowSchema = createInsertSchema(approvalWorkflows).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertApprovalSchema = createInsertSchema(approvals).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAccessPolicySchema = createInsertSchema(accessPolicies).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
