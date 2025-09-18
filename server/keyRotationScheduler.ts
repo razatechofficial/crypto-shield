@@ -190,11 +190,9 @@ export class KeyRotationScheduler {
       // For now, use well-known tenant IDs
       // In production, this would query a tenant registry or derive from active keys
       const knownTenants = [
-        { id: 'dev-tenant-001' },
+        { id: 'fd50344f-19dd-4677-8955-505cbac08668' }, // dev's Organization - working tenant
         { id: 'default-tenant' },
-        { id: 'enterprise-tenant-001' },
-        { id: 'healthcare-tenant-001' },
-        { id: 'finance-tenant-001' }
+        { id: 'test-tenant' }
       ];
 
       // Filter to tenants that actually have encryption keys
@@ -212,11 +210,11 @@ export class KeyRotationScheduler {
         }
       }
 
-      return activeTenants.length > 0 ? activeTenants : [{ id: 'dev-tenant-001' }];
+      return activeTenants.length > 0 ? activeTenants : [{ id: 'fd50344f-19dd-4677-8955-505cbac08668' }];
       
     } catch (error) {
       console.error('Error getting active tenants, using fallback:', error);
-      return [{ id: 'dev-tenant-001' }];
+      return [{ id: 'fd50344f-19dd-4677-8955-505cbac08668' }];
     }
   }
 

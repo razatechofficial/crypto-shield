@@ -673,7 +673,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/keys", isAuthenticated, async (req, res) => {
     try {
       const user = req.user as any;
-      const tenantId = user.tenantId || 'dev-tenant-001';
+      const tenantId = user.tenantId || 'fd50344f-19dd-4677-8955-505cbac08668';
       const keys = await storage.getEncryptionKeys(tenantId);
       res.json(keys);
     } catch (error) {
@@ -768,7 +768,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { keyId } = req.params;
       const user = req.user as any;
-      const tenantId = user.tenantId || 'dev-tenant-001';
+      const tenantId = user.tenantId || 'fd50344f-19dd-4677-8955-505cbac08668';
       
       const keys = await storage.getEncryptionKeys(tenantId);
       const key = keys.find(k => k.id === keyId);
@@ -993,7 +993,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/rotation-policies", isAuthenticated, async (req, res) => {
     try {
       const user = req.user as any;
-      const tenantId = user.tenantId || 'dev-tenant-001';
+      const tenantId = user.tenantId || 'fd50344f-19dd-4677-8955-505cbac08668';
       
       const policies = await storage.getKeyRotationPolicies(tenantId);
       res.json(policies);
@@ -1007,7 +1007,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/rotation-policies", isAuthenticated, async (req, res) => {
     try {
       const user = req.user as any;
-      const tenantId = user.tenantId || 'dev-tenant-001';
+      const tenantId = user.tenantId || 'fd50344f-19dd-4677-8955-505cbac08668';
       
       const policyData = {
         ...req.body,
@@ -1029,7 +1029,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/keys/requiring-rotation", isAuthenticated, async (req, res) => {
     try {
       const user = req.user as any;
-      const tenantId = user.tenantId || 'dev-tenant-001';
+      const tenantId = user.tenantId || 'fd50344f-19dd-4677-8955-505cbac08668';
       
       const keysRequiringRotation = await storage.getKeysRequiringRotation(tenantId);
       res.json(keysRequiringRotation);
@@ -1043,7 +1043,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/keys/process-rotations", isAuthenticated, async (req, res) => {
     try {
       const user = req.user as any;
-      const tenantId = user.tenantId || 'dev-tenant-001';
+      const tenantId = user.tenantId || 'fd50344f-19dd-4677-8955-505cbac08668';
       
       await storage.processAutomatedRotations(tenantId);
       res.json({ message: "Automated rotations processed successfully" });
@@ -1057,7 +1057,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/rotation-history", isAuthenticated, async (req, res) => {
     try {
       const user = req.user as any;
-      const tenantId = user.tenantId || 'dev-tenant-001';
+      const tenantId = user.tenantId || 'fd50344f-19dd-4677-8955-505cbac08668';
       const limit = parseInt(req.query.limit as string) || 50;
       
       const history = await storage.getTenantRotationHistory(tenantId, limit);
