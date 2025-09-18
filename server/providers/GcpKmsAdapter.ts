@@ -277,38 +277,171 @@ export class GcpKmsAdapter implements IProviderKMS {
   }
 
   // ============================================================================
-  // KEY OPERATIONS (Basic Implementation)
+  // REAL CRYPTOGRAPHIC OPERATIONS - PRODUCTION GRADE
   // ============================================================================
 
   async encrypt(keyId: string, plaintext: Buffer, context?: Record<string, string>) {
-    return {
-      ciphertext: Buffer.from('not_implemented'),
-      keyId: keyId,
-      algorithm: 'GOOGLE_SYMMETRIC_ENCRYPTION'
-    };
+    try {
+      // Build the full key path for the crypto key
+      const keyPath = this.client.cryptoKeyPath(
+        this.config.projectId,
+        this.config.location || 'global',
+        this.config.keyRingId,
+        keyId
+      );
+
+      // Build encryption request with optional Additional Authenticated Data (AAD)
+      const request: any = {
+        name: keyPath,
+        plaintext: plaintext,
+      };
+
+      // Add AAD context if provided (for authenticated encryption)
+      // Exclude keyId from AAD to ensure consistency with decrypt
+      if (context && Object.keys(context).length > 0) {
+        const aadContext = { ...context };
+        delete aadContext.keyId; // Remove keyId from AAD
+        
+        if (Object.keys(aadContext).length > 0) {
+          // Canonicalize JSON to prevent field order mismatches
+          const sortedKeys = Object.keys(aadContext).sort();
+          const canonicalContext: Record<string, string> = {};
+          sortedKeys.forEach(key => {
+            canonicalContext[key] = aadContext[key];
+          });
+          const aadString = JSON.stringify(canonicalContext);
+          request.additionalAuthenticatedData = Buffer.from(aadString, 'utf8');
+        }
+      }
+
+      // Perform encryption using GCP KMS
+      const [encryptResponse] = await this.client.encrypt(request);
+      
+      if (!encryptResponse.ciphertext) {
+        throw new Error('GCP KMS encryption returned empty ciphertext');
+      }
+
+      return {
+        ciphertext: Buffer.from(encryptResponse.ciphertext),
+        keyId: keyId,
+        algorithm: 'GOOGLE_SYMMETRIC_ENCRYPTION'
+      };
+    } catch (error: any) {
+      throw new Error(`GCP KMS encryption failed: ${error.message}`);
+    }
   }
 
   async decrypt(ciphertext: Buffer, context?: Record<string, string>) {
-    return {
-      plaintext: Buffer.from('not_implemented'),
-      keyId: 'unknown',
-      algorithm: 'GOOGLE_SYMMETRIC_ENCRYPTION'
-    };
+    try {
+      // For GCP KMS, we need the keyId to decrypt
+      const keyId = context?.keyId;
+      if (!keyId) {
+        throw new Error('keyId must be provided in context for GCP KMS decryption');
+      }
+
+      // Build the full key path for the crypto key
+      const keyPath = this.client.cryptoKeyPath(
+        this.config.projectId,
+        this.config.location || 'global',
+        this.config.keyRingId,
+        keyId
+      );
+
+      // Build decryption request with optional AAD
+      const request: any = {
+        name: keyPath,
+        ciphertext: ciphertext,
+      };
+
+      // Add AAD context if provided (must match what was used during encryption)
+      // Exclude keyId from AAD to ensure consistency with encrypt
+      if (context && Object.keys(context).length > 0) {
+        const aadContext = { ...context };
+        delete aadContext.keyId; // Remove keyId from AAD (matches encrypt behavior)
+        
+        if (Object.keys(aadContext).length > 0) {
+          // Canonicalize JSON to prevent field order mismatches (matches encrypt)
+          const sortedKeys = Object.keys(aadContext).sort();
+          const canonicalContext: Record<string, string> = {};
+          sortedKeys.forEach(key => {
+            canonicalContext[key] = aadContext[key];
+          });
+          const aadString = JSON.stringify(canonicalContext);
+          request.additionalAuthenticatedData = Buffer.from(aadString, 'utf8');
+        }
+      }
+
+      // Perform decryption using GCP KMS
+      const [decryptResponse] = await this.client.decrypt(request);
+      
+      if (!decryptResponse.plaintext) {
+        throw new Error('GCP KMS decryption returned empty plaintext');
+      }
+
+      return {
+        plaintext: Buffer.from(decryptResponse.plaintext),
+        keyId: keyId,
+        algorithm: 'GOOGLE_SYMMETRIC_ENCRYPTION'
+      };
+    } catch (error: any) {
+      throw new Error(`GCP KMS decryption failed: ${error.message}`);
+    }
   }
 
   async generateDataKey(keyId: string, keySpec: string, context?: Record<string, string>) {
-    return {
-      keyId: keyId,
-      plaintext: Buffer.from('not_implemented'),
-      ciphertext: Buffer.from('not_implemented')
-    };
+    try {
+      // GCP KMS doesn't have direct data key generation like AWS KMS
+      // We implement this by:
+      // 1. Generating a random symmetric key locally
+      // 2. Encrypting that key with the specified KMS key
+      
+      const keySize = this.parseKeySpec(keySpec);
+      
+      // Generate random data key
+      const plaintext = Buffer.allocUnsafe(keySize);
+      require('crypto').randomFillSync(plaintext);
+      
+      // Encrypt the data key using the specified master key
+      const encryptedResult = await this.encrypt(keyId, plaintext, context);
+      
+      return {
+        keyId: keyId,
+        plaintext: plaintext,
+        ciphertext: encryptedResult.ciphertext
+      };
+    } catch (error: any) {
+      throw new Error(`GCP KMS data key generation failed: ${error.message}`);
+    }
   }
 
   async generateDataKeyWithoutPlaintext(keyId: string, keySpec: string, context?: Record<string, string>) {
-    return {
-      keyId: keyId,
-      ciphertext: Buffer.from('not_implemented')
-    };
+    try {
+      // Generate data key but don't return plaintext
+      const result = await this.generateDataKey(keyId, keySpec, context);
+      
+      return {
+        keyId: result.keyId,
+        ciphertext: result.ciphertext
+      };
+    } catch (error: any) {
+      throw new Error(`GCP KMS data key generation failed: ${error.message}`);
+    }
+  }
+
+  // ============================================================================
+  // HELPER METHODS FOR CRYPTO OPERATIONS
+  // ============================================================================
+
+  private parseKeySpec(keySpec: string): number {
+    // Parse AWS-style key specs for data key generation
+    switch (keySpec.toUpperCase()) {
+      case 'AES_256':
+        return 32; // 256 bits = 32 bytes
+      case 'AES_128':
+        return 16; // 128 bits = 16 bytes
+      default:
+        return 32; // Default to AES-256
+    }
   }
 
   // ============================================================================

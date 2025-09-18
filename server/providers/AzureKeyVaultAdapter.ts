@@ -18,9 +18,11 @@ import {
   GetKeyOptions,
   UpdateKeyPropertiesOptions,
   RestoreKeyBackupOptions,
-  KnownKeyTypes,
+  KeyType,
   KeyVaultKey,
-  JsonWebKey
+  JsonWebKey,
+  CryptographyClient,
+  KnownEncryptionAlgorithms
 } from '@azure/keyvault-keys';
 
 import { 
@@ -46,6 +48,7 @@ export class AzureKeyVaultAdapter implements IProviderKMS {
   private readonly client: KeyClient;
   private readonly config: AzureKeyVaultConfig;
   private readonly vaultUrl: string;
+  private readonly cryptoClients: Map<string, CryptographyClient> = new Map();
 
   constructor(config: AzureKeyVaultConfig, providerId: string) {
     this.config = config;
@@ -65,7 +68,9 @@ export class AzureKeyVaultAdapter implements IProviderKMS {
   private getCredentialProvider(config: AzureKeyVaultConfig) {
     // 1. Managed Identity (Preferred for Azure workloads)
     if (config.useManagedIdentity) {
-      return new ManagedIdentityCredential(config.managedIdentityClientId);
+      return new ManagedIdentityCredential({
+        clientId: config.managedIdentityClientId
+      });
     }
     
     // 2. Service Principal with Client Secret
@@ -276,41 +281,192 @@ export class AzureKeyVaultAdapter implements IProviderKMS {
   }
 
   // ============================================================================
-  // KEY OPERATIONS (Basic Implementation)
+  // REAL CRYPTOGRAPHIC OPERATIONS - PRODUCTION GRADE
   // ============================================================================
 
   async encrypt(keyId: string, plaintext: Buffer, context?: Record<string, string>) {
-    // Azure Key Vault encrypt operation
-    return {
-      ciphertext: Buffer.from('not_implemented'),
-      keyId: keyId,
-      algorithm: 'RSA-OAEP'
-    };
+    try {
+      // Get the key to ensure it exists and is accessible
+      const key = await this.client.getKey(keyId);
+      if (!key || !key.id) {
+        throw new Error(`Key ${keyId} not found or inaccessible`);
+      }
+
+      // Create CryptographyClient for the specific key
+      const cryptoClient = new CryptographyClient(key.id, this.getCredentialProvider(this.config));
+      
+      // Determine the best encryption algorithm based on key type
+      const algorithm = this.selectEncryptionAlgorithm(key.keyType);
+      
+      // Build encrypt parameters
+      const encryptParams: any = {
+        algorithm: algorithm as any,
+        plaintext
+      };
+      
+      // Add AAD (Additional Authenticated Data) if provided
+      if (context && Object.keys(context).length > 0) {
+        const aadString = JSON.stringify(context);
+        encryptParams.additionalAuthenticatedData = Buffer.from(aadString, 'utf8');
+      }
+      
+      // Encrypt using Azure Key Vault's CryptographyClient
+      const encryptResult = await cryptoClient.encrypt(encryptParams);
+      
+      // For AES-GCM, we need to capture IV and authentication tag
+      const result: any = {
+        ciphertext: Buffer.from(encryptResult.result),
+        keyId: keyId,
+        algorithm: algorithm.toString()
+      };
+      
+      // Add IV and authentication tag for AES-GCM operations (required for decrypt)
+      if (encryptResult.iv) {
+        result.iv = encryptResult.iv.toString('base64');
+      }
+      if (encryptResult.authenticationTag) {
+        result.authenticationTag = encryptResult.authenticationTag.toString('base64');
+      }
+      // Add AAD context if it was used
+      if (context && Object.keys(context).length > 0) {
+        result.aad = JSON.stringify(context);
+      }
+      
+      return result;
+    } catch (error: any) {
+      throw new Error(`Azure Key Vault encryption failed: ${error.message}`);
+    }
   }
 
   async decrypt(ciphertext: Buffer, context?: Record<string, string>) {
-    // Azure Key Vault decrypt operation  
-    return {
-      plaintext: Buffer.from('not_implemented'),
-      keyId: 'unknown',
-      algorithm: 'RSA-OAEP'
-    };
+    try {
+      // For Azure Key Vault, we need the keyId to decrypt
+      // This should be stored with the ciphertext in practice
+      const keyId = context?.keyId;
+      if (!keyId) {
+        throw new Error('keyId must be provided in context for Azure Key Vault decryption');
+      }
+
+      const key = await this.client.getKey(keyId);
+      if (!key || !key.id) {
+        throw new Error(`Key ${keyId} not found or inaccessible`);
+      }
+
+      // Create CryptographyClient for the specific key
+      const cryptoClient = new CryptographyClient(key.id, this.getCredentialProvider(this.config));
+      
+      // Determine the algorithm (should match what was used for encryption)
+      const algorithm = this.selectEncryptionAlgorithm(key.keyType);
+      
+      // Build decrypt parameters
+      const decryptParams: any = {
+        algorithm: algorithm as any,
+        ciphertext
+      };
+      
+      // For AES-GCM, we need IV and authentication tag from the encryption context
+      if (context?.iv) {
+        decryptParams.iv = Buffer.from(context.iv, 'base64');
+      }
+      if (context?.authenticationTag) {
+        decryptParams.authenticationTag = Buffer.from(context.authenticationTag, 'base64');
+      }
+      
+      // Add AAD (Additional Authenticated Data) if provided
+      if (context?.aad) {
+        decryptParams.additionalAuthenticatedData = Buffer.from(context.aad, 'utf8');
+      }
+      
+      // Decrypt using Azure Key Vault's CryptographyClient with all required parameters
+      const decryptResult = await cryptoClient.decrypt(decryptParams);
+      
+      return {
+        plaintext: Buffer.from(decryptResult.result),
+        keyId: keyId,
+        algorithm: algorithm.toString()
+      };
+    } catch (error: any) {
+      throw new Error(`Azure Key Vault decryption failed: ${error.message}`);
+    }
   }
 
   async generateDataKey(keyId: string, keySpec: string, context?: Record<string, string>) {
-    // Azure Key Vault doesn't have direct data key generation like AWS
-    return {
-      keyId: keyId,
-      plaintext: Buffer.from('not_implemented'),
-      ciphertext: Buffer.from('not_implemented')
-    };
+    try {
+      // Azure Key Vault doesn't have direct data key generation like AWS KMS
+      // We implement this by:
+      // 1. Generating a random symmetric key locally
+      // 2. Encrypting that key with the specified Key Vault key
+      
+      const keySize = this.parseKeySpec(keySpec);
+      
+      // Generate random data key
+      const plaintext = Buffer.allocUnsafe(keySize);
+      require('crypto').randomFillSync(plaintext);
+      
+      // Encrypt the data key using the specified master key
+      const encryptedResult = await this.encrypt(keyId, plaintext, context);
+      
+      return {
+        keyId: keyId,
+        plaintext: plaintext,
+        ciphertext: encryptedResult.ciphertext,
+        // Include any additional parameters needed for decryption
+        ...(encryptedResult.iv && { iv: encryptedResult.iv.toString('base64') }),
+        ...(encryptedResult.authenticationTag && { authenticationTag: encryptedResult.authenticationTag.toString('base64') })
+      };
+    } catch (error: any) {
+      throw new Error(`Azure Key Vault data key generation failed: ${error.message}`);
+    }
   }
 
   async generateDataKeyWithoutPlaintext(keyId: string, keySpec: string, context?: Record<string, string>) {
-    return {
-      keyId: keyId,
-      ciphertext: Buffer.from('not_implemented')
-    };
+    try {
+      // Generate data key but don't return plaintext
+      const result = await this.generateDataKey(keyId, keySpec, context);
+      
+      return {
+        keyId: result.keyId,
+        ciphertext: result.ciphertext,
+        // Include any additional parameters needed for decryption
+        ...(result.iv && { iv: result.iv }),
+        ...(result.authenticationTag && { authenticationTag: result.authenticationTag })
+      };
+    } catch (error: any) {
+      throw new Error(`Azure Key Vault data key generation failed: ${error.message}`);
+    }
+  }
+
+  // ============================================================================
+  // HELPER METHODS FOR CRYPTO OPERATIONS
+  // ============================================================================
+
+  private selectEncryptionAlgorithm(keyType?: string): KnownEncryptionAlgorithms {
+    switch (keyType) {
+      case 'RSA':
+      case 'RSA-HSM':
+        return KnownEncryptionAlgorithms.RSAOaep256; // OAEP with SHA-256 for better security
+      case 'EC':
+      case 'EC-HSM':
+        // EC keys in Key Vault are primarily for signing, not encryption
+        throw new Error('EC keys do not support encryption operations in Azure Key Vault');
+      case 'oct':
+      case 'oct-HSM':
+        return KnownEncryptionAlgorithms.A256GCM; // AES-256-GCM for symmetric keys
+      default:
+        return KnownEncryptionAlgorithms.RSAOaep256; // Default to secure RSA
+    }
+  }
+
+  private parseKeySpec(keySpec: string): number {
+    // Parse AWS-style key specs for data key generation
+    switch (keySpec.toUpperCase()) {
+      case 'AES_256':
+        return 32; // 256 bits = 32 bytes
+      case 'AES_128':
+        return 16; // 128 bits = 16 bytes
+      default:
+        return 32; // Default to AES-256
+    }
   }
 
   // ============================================================================
@@ -558,21 +714,21 @@ export class AzureKeyVaultAdapter implements IProviderKMS {
   // PRIVATE HELPER METHODS
   // ============================================================================
 
-  private mapKeyType(keyType: string, algorithm?: string): KnownKeyTypes {
+  private mapKeyType(keyType: string, algorithm?: string): KeyType {
     if (keyType === 'symmetric') {
-      return 'oct-HSM'; // Octet sequence for symmetric keys
+      return 'oct-HSM'; // Octet sequence for symmetric keys with HSM
     }
     
     if (keyType === 'asymmetric') {
       if (algorithm?.includes('RSA')) {
-        return 'RSA';
+        return 'RSA-HSM'; // Use HSM-backed RSA for enterprise security
       }
       if (algorithm?.includes('EC') || algorithm?.includes('ECC')) {
-        return 'EC';
+        return 'EC-HSM'; // Use HSM-backed EC for enterprise security
       }
-      return 'RSA'; // Default
+      return 'RSA-HSM'; // Default to HSM-backed
     }
     
-    return 'RSA';
+    return 'RSA-HSM';
   }
 }
