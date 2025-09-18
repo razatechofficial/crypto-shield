@@ -400,7 +400,7 @@ export default function BYOKImportPage() {
                               <Textarea
                                 placeholder="Enter your key material (base64 encoded, PEM, or JWK)"
                                 className={`font-mono text-sm ${!showKeyMaterial ? "text-security-disc" : ""}`}
-                                style={!showKeyMaterial ? { WebkitTextSecurity: "disc", textSecurity: "disc" } : {}}
+                                style={!showKeyMaterial ? { WebkitTextSecurity: "disc" } as any : {}}
                                 rows={6}
                                 {...field}
                                 data-testid="input-key-material"
