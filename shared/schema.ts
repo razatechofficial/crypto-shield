@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   index,
+  uniqueIndex,
   jsonb,
   pgTable,
   timestamp,
@@ -39,6 +40,9 @@ export const keyStatusEnum = pgEnum('key_status', ['active', 'rotating', 'revoke
 
 // Key rotation trigger enum
 export const rotationTriggerEnum = pgEnum('rotation_trigger', ['time_based', 'usage_based', 'manual', 'compromise_detected', 'policy_change']);
+
+// Key rotation status enum  
+export const rotationStatusEnum = pgEnum('rotation_status', ['in_progress', 'completed', 'failed', 'rolled_back', 'cancelled']);
 
 // Key version status enum
 export const keyVersionStatusEnum = pgEnum('key_version_status', ['current', 'previous', 'deprecated', 'compromised']);
@@ -168,8 +172,8 @@ export const encryptionKeys = pgTable("encryption_keys", {
   // Key Versioning & Lifecycle Management
   version: integer("version").default(1).notNull(),
   versionStatus: keyVersionStatusEnum("version_status").default('current'),
-  parentKeyId: varchar("parent_key_id"), // References the master key for versions
-  previousVersionId: varchar("previous_version_id"), // References previous version
+  parentKeyId: varchar("parent_key_id").references(() => encryptionKeys.id), // Self-reference to master key
+  previousVersionId: varchar("previous_version_id").references(() => encryptionKeys.id), // Reference to previous version
   
   // Expiration & Rotation
   expiresAt: timestamp("expires_at"),
@@ -189,6 +193,25 @@ export const encryptionKeys = pgTable("encryption_keys", {
   metadata: jsonb("metadata").default({}),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    // Ensure only one current version per parent key
+    uniqueCurrentVersion: uniqueIndex("unique_current_version_per_parent")
+      .on(table.parentKeyId)
+      .where(sql`version_status = 'current'`),
+    
+    // Index for efficient key rotation queries
+    rotationScheduleIdx: index("idx_keys_rotation_schedule")
+      .on(table.tenantId, table.nextRotationAt, table.status),
+    
+    // Index for version queries
+    versioningIdx: index("idx_keys_versioning")
+      .on(table.parentKeyId, table.version, table.versionStatus),
+      
+    // Index for usage-based rotation queries  
+    usageTrackingIdx: index("idx_keys_usage_tracking")
+      .on(table.tenantId, table.usageCount, table.maxUsageCount),
+  };
 });
 
 // Key Rotation Policies table
@@ -236,7 +259,7 @@ export const keyRotationHistory = pgTable("key_rotation_history", {
   // Rotation Details
   rotationStarted: timestamp("rotation_started").notNull(),
   rotationCompleted: timestamp("rotation_completed"),
-  rotationStatus: varchar("rotation_status").notNull().default('in_progress'), // in_progress, completed, failed, rolled_back
+  rotationStatus: varchar("rotation_status").notNull().default('in_progress'), // TODO: Convert to enum after fixing transactions
   
   // Rollback capability
   canRollback: boolean("can_rollback").default(true),

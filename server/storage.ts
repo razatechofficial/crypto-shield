@@ -2362,60 +2362,114 @@ export class DatabaseStorage implements IStorage {
   }
 
   async rotateKey(keyId: string, trigger: string, triggeredBy: string): Promise<EncryptionKey> {
-    const [existingKey] = await db
-      .select()
-      .from(encryptionKeys)
-      .where(eq(encryptionKeys.id, keyId))
-      .limit(1);
+    // Use transaction to ensure atomic rotation and prevent race conditions
+    return await db.transaction(async (tx) => {
+      // Get existing key with row lock to prevent concurrent rotations
+      const [existingKey] = await tx
+        .select()
+        .from(encryptionKeys)
+        .where(eq(encryptionKeys.id, keyId))
+        .for('update') // Row lock
+        .limit(1);
 
-    if (!existingKey) {
-      throw new Error(`Key not found: ${keyId}`);
-    }
+      if (!existingKey) {
+        throw new Error(`Key not found: ${keyId}`);
+      }
 
-    // Mark current key as previous
-    await db
-      .update(encryptionKeys)
-      .set({ versionStatus: 'previous', updatedAt: new Date() })
-      .where(eq(encryptionKeys.id, keyId));
+      if (existingKey.versionStatus !== 'current') {
+        throw new Error(`Cannot rotate non-current key version: ${keyId}`);
+      }
 
-    // Create new version
-    const newVersion = (existingKey.version || 1) + 1;
-    const parentKeyId = existingKey.parentKeyId || existingKey.id;
+      const parentKeyId = existingKey.parentKeyId || existingKey.id;
+      const newVersion = (existingKey.version || 1) + 1;
+      const rotationDate = new Date();
 
-    const [newKey] = await db
-      .insert(encryptionKeys)
-      .values({
-        tenantId: existingKey.tenantId,
-        keyId: `${existingKey.keyId}_v${newVersion}`,
-        keyType: existingKey.keyType,
-        algorithmId: existingKey.algorithmId,
-        status: 'active',
-        version: newVersion,
-        versionStatus: 'current',
-        parentKeyId: parentKeyId,
-        previousVersionId: keyId,
-        rotationTrigger: trigger as any,
-        lastRotatedAt: new Date(),
-        activatedAt: new Date(),
-        usageCount: 0,
-        metadata: existingKey.metadata || {},
-      })
-      .returning();
+      // Apply rotation policy if exists
+      const policy = await this.getApplicableRotationPolicy(keyId);
+      
+      // Calculate next rotation date
+      const nextRotationDate = policy?.timeBasedRotation 
+        ? new Date(rotationDate.getTime() + (policy.rotationIntervalDays || 30) * 24 * 60 * 60 * 1000)
+        : null;
 
-    // Record rotation history
-    await this.recordKeyRotation({
-      tenantId: existingKey.tenantId,
-      keyId: newKey.id,
-      fromVersion: existingKey.version || 1,
-      toVersion: newVersion,
-      rotationTrigger: trigger as any,
-      triggeredBy,
-      rotationStarted: new Date(),
-      rotationCompleted: new Date(),
-      rotationStatus: 'completed',
+      // Mark current key as previous within transaction
+      await tx
+        .update(encryptionKeys)
+        .set({ 
+          versionStatus: 'previous',
+          deactivatedAt: rotationDate,
+          updatedAt: rotationDate 
+        })
+        .where(eq(encryptionKeys.id, keyId));
+
+      // Create new version within transaction
+      const [newKey] = await tx
+        .insert(encryptionKeys)
+        .values({
+          tenantId: existingKey.tenantId,
+          keyId: `${existingKey.keyId}_v${newVersion}`,
+          keyType: existingKey.keyType,
+          algorithmId: existingKey.algorithmId,
+          status: 'active',
+          version: newVersion,
+          versionStatus: 'current',
+          parentKeyId: parentKeyId,
+          previousVersionId: keyId,
+          rotationTrigger: trigger as any,
+          lastRotatedAt: rotationDate,
+          nextRotationAt: nextRotationDate,
+          activatedAt: rotationDate,
+          usageCount: 0,
+          maxUsageCount: policy?.maxOperations || existingKey.maxUsageCount,
+          rotationInterval: policy?.rotationIntervalDays || existingKey.rotationInterval,
+          metadata: existingKey.metadata || {},
+        })
+        .returning();
+
+      // Record rotation history within transaction
+      await tx
+        .insert(keyRotationHistory)
+        .values({
+          tenantId: existingKey.tenantId,
+          keyId: newKey.id,
+          fromVersion: existingKey.version || 1,
+          toVersion: newVersion,
+          rotationTrigger: trigger as any,
+          triggeredBy,
+          policyId: policy?.id,
+          rotationStarted: rotationDate,
+          rotationCompleted: rotationDate,
+          rotationStatus: 'completed',
+          metadata: {
+            oldKeyId: keyId,
+            newKeyId: newKey.id,
+            trigger,
+            policy: policy?.policyName
+          }
+        });
+
+      // Clean up old versions if retention policy exists
+      if (policy?.retainPreviousVersions) {
+        const versionsToDelete = await tx
+          .select({ id: encryptionKeys.id })
+          .from(encryptionKeys)
+          .where(and(
+            eq(encryptionKeys.parentKeyId, parentKeyId),
+            eq(encryptionKeys.versionStatus, 'previous')
+          ))
+          .orderBy(desc(encryptionKeys.version))
+          .offset(policy.retainPreviousVersions);
+
+        if (versionsToDelete.length > 0) {
+          await tx
+            .update(encryptionKeys)
+            .set({ versionStatus: 'archived', updatedAt: rotationDate })
+            .where(inArray(encryptionKeys.id, versionsToDelete.map(v => v.id)));
+        }
+      }
+
+      return newKey;
     });
-
-    return newKey;
   }
 
   async rollbackKeyVersion(keyId: string, toVersion: number, rollbackBy: string): Promise<EncryptionKey> {
@@ -2585,7 +2639,11 @@ export class DatabaseStorage implements IStorage {
       .where(and(
         eq(encryptionKeys.tenantId, tenantId),
         eq(encryptionKeys.status, 'active'),
-        gte(encryptionKeys.nextRotationAt, now)
+        eq(encryptionKeys.versionStatus, 'current'),
+        sql`(
+          ${encryptionKeys.nextRotationAt} <= ${now} OR
+          (${encryptionKeys.maxUsageCount} IS NOT NULL AND ${encryptionKeys.usageCount} >= ${encryptionKeys.maxUsageCount})
+        )`
       ));
   }
 
