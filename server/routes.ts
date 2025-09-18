@@ -32,15 +32,20 @@ const createCloudProviderSchema = z.object({
     accessKeyId: z.string().optional(),
     secretAccessKey: z.string().optional(),
     roleArn: z.string().optional(),
+    externalId: z.string().optional(),
     // Azure Key Vault config  
+    vaultUrl: z.string().url().optional(),
     clientId: z.string().optional(),
     clientSecret: z.string().optional(),
     tenantId: z.string().optional(),
-    vaultUrl: z.string().url().optional(),
+    useManagedIdentity: z.boolean().optional(),
+    managedIdentityClientId: z.string().optional(),
     // GCP KMS config
     projectId: z.string().optional(),
     keyRingId: z.string().optional(),
-    locationId: z.string().optional(),
+    location: z.string().optional(),
+    useWorkloadIdentity: z.boolean().optional(),
+    serviceAccountKeyPath: z.string().optional(),
     serviceAccountKey: z.string().optional(),
   }, { required_error: "Provider configuration is required" })
 });
@@ -50,16 +55,24 @@ const updateCloudProviderSchema = z.object({
   description: z.string().max(500).optional(),
   isActive: z.boolean().optional(),
   config: z.object({
+    // AWS KMS config
     accessKeyId: z.string().optional(),
     secretAccessKey: z.string().optional(),
     roleArn: z.string().optional(),
+    externalId: z.string().optional(),
+    // Azure Key Vault config
+    vaultUrl: z.string().url().optional(),
     clientId: z.string().optional(),
     clientSecret: z.string().optional(),
     tenantId: z.string().optional(),
-    vaultUrl: z.string().url().optional(),
+    useManagedIdentity: z.boolean().optional(),
+    managedIdentityClientId: z.string().optional(),
+    // GCP KMS config
     projectId: z.string().optional(),
     keyRingId: z.string().optional(),
-    locationId: z.string().optional(),
+    location: z.string().optional(),
+    useWorkloadIdentity: z.boolean().optional(),
+    serviceAccountKeyPath: z.string().optional(),
     serviceAccountKey: z.string().optional(),
   }).optional()
 });

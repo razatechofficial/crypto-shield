@@ -1298,17 +1298,22 @@ export interface AwsKmsConfig {
 }
 
 export interface AzureKeyVaultConfig {
-  clientId: string;
-  clientSecret: string;
-  tenantId: string;
   vaultUrl: string;
+  region?: string;
+  clientId?: string;
+  clientSecret?: string;
+  tenantId?: string;
+  useManagedIdentity?: boolean;
+  managedIdentityClientId?: string;
 }
 
 export interface GcpKmsConfig {
   projectId: string;
   keyRingId: string;
-  locationId: string;
-  serviceAccountKey: string;
+  location?: string;
+  useWorkloadIdentity?: boolean;
+  serviceAccountKeyPath?: string;
+  serviceAccountKey?: string;
 }
 
 // Provider operation result types

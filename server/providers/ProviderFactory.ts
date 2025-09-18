@@ -9,6 +9,7 @@
 import { IProviderKMS, IProviderFactory } from './IProviderKMS';
 import { AwsKmsAdapter } from './AwsKmsAdapter';
 import { AzureKeyVaultAdapter } from './AzureKeyVaultAdapter';
+import { GcpKmsAdapter } from './GcpKmsAdapter';
 import { AwsKmsConfig, AzureKeyVaultConfig, GcpKmsConfig } from '@shared/schema';
 
 export class ProviderFactory implements IProviderFactory {
@@ -138,8 +139,16 @@ export class ProviderFactory implements IProviderFactory {
   }
 
   private async createGcpKmsProvider(config: GcpKmsConfig, providerId: string): Promise<IProviderKMS> {
-    // TODO: Implement GCP KMS adapter
-    throw new Error('GCP KMS provider not yet implemented');
+    const provider = new GcpKmsAdapter(config, providerId);
+    
+    // Test the connection
+    const healthCheck = await provider.healthCheck();
+    if (!healthCheck.healthy) {
+      throw new Error(`GCP KMS provider health check failed: ${healthCheck.error}`);
+    }
+    
+    this.cacheProvider(providerId, provider);
+    return provider;
   }
 
   private async createHashiCorpVaultProvider(config: any, providerId: string): Promise<IProviderKMS> {
