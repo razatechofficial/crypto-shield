@@ -51,7 +51,7 @@ export default function Sidebar() {
           <img 
             src="/averox-logo.png" 
             alt="Averox Logo" 
-            className="w-40 h-40 object-contain -mb-2"
+            className="w-40 h-40 object-contain -mb-6"
           />
           <p className="text-base font-semibold text-foreground">CryptoShield KMS</p>
         </div>
