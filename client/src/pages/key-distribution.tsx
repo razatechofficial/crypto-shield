@@ -107,10 +107,11 @@ export default function KeyDistribution() {
         description: "All key distributions are being synchronized.",
       });
     },
-    onError: (error: Error) => {
+    onError: (error: any) => {
+      console.error("Sync error:", error);
       toast({
-        title: "Global Sync Failed",
-        description: error.message,
+        title: "Global Sync Failed", 
+        description: error?.message || "Failed to sync all distributions. Please try again.",
         variant: "destructive",
       });
     },

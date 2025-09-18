@@ -44,21 +44,21 @@ export default function Sidebar() {
   const { user } = useAuth();
 
   return (
-    <div className="w-64 bg-background border-r border-border flex flex-col">
+    <div className="w-64 bg-background border-r border-border flex flex-col h-screen">
       {/* Logo */}
       <div className="px-4 pt-2 pb-4 border-b border-border">
         <div className="flex flex-col items-center text-center">
           <img 
             src="/averox-logo.png" 
             alt="Averox Logo" 
-            className="w-32 h-32 object-contain"
+            className="w-40 h-40 object-contain"
           />
-          <p className="text-base font-semibold text-foreground">Enterprise Encryption</p>
+          <p className="text-base font-semibold text-foreground">CryptoShield KMS</p>
         </div>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-4 py-4 space-y-2">
+      <nav className="flex-1 px-4 py-4 space-y-2 overflow-y-auto">
         {navigation.map((item) => {
           const Icon = item.icon;
           const isActive = location === item.href;
