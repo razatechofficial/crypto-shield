@@ -2084,7 +2084,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         tenantId,
         eventType: 'key_distribution_created',
         severity: 'medium',
-        description: `Key ${key.alias || key.id} distribution to ${provider.name} initiated`,
+        description: `Key ${key.keyId || key.id} distribution to ${provider.name} initiated`,
         metadata: {
           keyId,
           providerId,

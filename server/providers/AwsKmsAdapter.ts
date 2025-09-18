@@ -49,7 +49,7 @@ import {
   type OriginType
 } from '@aws-sdk/client-kms';
 
-import { fromEnv, fromIni } from '@aws-sdk/credential-providers';
+import { fromEnv, fromIni, fromTemporaryCredentials } from '@aws-sdk/credential-providers';
 import { 
   IProviderKMS, 
   KeyCreateOptions, 
@@ -71,16 +71,53 @@ export class AwsKmsAdapter implements IProviderKMS {
     this.providerId = providerId;
     this.region = config.region;
 
-    // Initialize AWS KMS client with credentials
+    // Initialize AWS KMS client with secure credential strategy
     this.client = new KMSClient({
       region: config.region,
-      credentials: config.roleArn 
-        ? undefined // Will use STS to assume role
-        : {
-            accessKeyId: config.accessKeyId,
-            secretAccessKey: config.secretAccessKey,
-          }
+      credentials: this.getCredentialProvider(config)
     });
+  }
+
+  /**
+   * Get appropriate credential provider based on configuration
+   * Prioritizes role-based authentication over static credentials
+   */
+  private getCredentialProvider(config: AwsKmsConfig) {
+    // 1. STS AssumeRole (Preferred for cross-account access)
+    if (config.roleArn) {
+      return fromTemporaryCredentials({
+        params: {
+          RoleArn: config.roleArn,
+          RoleSessionName: `averox-kms-${this.providerId}`,
+          ExternalId: config.externalId, // For enhanced security
+          DurationSeconds: 3600, // 1 hour session
+          ...(config.sessionPolicy && { Policy: JSON.stringify(config.sessionPolicy) })
+        },
+        // Use the base credentials to assume the role
+        masterCredentials: config.accessKeyId && config.secretAccessKey 
+          ? {
+              accessKeyId: config.accessKeyId,
+              secretAccessKey: config.secretAccessKey,
+            }
+          : fromEnv() // Use environment/IAM role if no static creds
+      });
+    }
+    
+    // 2. Environment/IAM Instance Profile (Preferred for same-account)
+    if (!config.accessKeyId || !config.secretAccessKey) {
+      // Use default credential chain: IAM roles, environment, etc.
+      return fromEnv();
+    }
+    
+    // 3. Static credentials (Fallback - should be avoided in production)
+    if (process.env.NODE_ENV === 'production') {
+      console.warn(`⚠️  Using static AWS credentials in production for provider ${this.providerId}. Consider using IAM roles or STS AssumeRole instead.`);
+    }
+    
+    return {
+      accessKeyId: config.accessKeyId,
+      secretAccessKey: config.secretAccessKey,
+    };
   }
 
   // ============================================================================

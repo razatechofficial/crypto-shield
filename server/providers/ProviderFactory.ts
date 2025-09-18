@@ -8,6 +8,7 @@
 
 import { IProviderKMS, IProviderFactory } from './IProviderKMS';
 import { AwsKmsAdapter } from './AwsKmsAdapter';
+import { AzureKeyVaultAdapter } from './AzureKeyVaultAdapter';
 import { AwsKmsConfig, AzureKeyVaultConfig, GcpKmsConfig } from '@shared/schema';
 
 export class ProviderFactory implements IProviderFactory {
@@ -124,8 +125,16 @@ export class ProviderFactory implements IProviderFactory {
   }
 
   private async createAzureKeyVaultProvider(config: AzureKeyVaultConfig, providerId: string): Promise<IProviderKMS> {
-    // TODO: Implement Azure Key Vault adapter
-    throw new Error('Azure Key Vault provider not yet implemented');
+    const provider = new AzureKeyVaultAdapter(config, providerId);
+    
+    // Test the connection
+    const healthCheck = await provider.healthCheck();
+    if (!healthCheck.healthy) {
+      throw new Error(`Azure Key Vault provider health check failed: ${healthCheck.error}`);
+    }
+    
+    this.cacheProvider(providerId, provider);
+    return provider;
   }
 
   private async createGcpKmsProvider(config: GcpKmsConfig, providerId: string): Promise<IProviderKMS> {
