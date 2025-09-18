@@ -47,13 +47,13 @@ export default function Sidebar() {
     <div className="w-64 bg-background border-r border-border flex flex-col h-screen">
       {/* Logo */}
       <div className="px-4 pt-0 pb-2 border-b border-border -mt-16">
-        <div className="flex flex-col items-center text-center -space-y-4">
+        <div className="flex flex-col items-center text-center">
           <img 
             src="/averox-logo.png" 
             alt="Averox Logo" 
-            className="w-48 h-48 object-contain -mb-8"
+            className="w-48 h-48 object-contain mb-0"
           />
-          <p className="text-base font-semibold text-foreground -mt-4">CryptoShield KMS</p>
+          <p className="text-base font-semibold text-foreground -mt-8">CryptoShield KMS</p>
         </div>
       </div>
 
