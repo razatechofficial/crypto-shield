@@ -55,6 +55,7 @@ import {
   type TenantUser,
   type InsertTenantUser,
   tenantUsers,
+  auditEvents,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, count, sum, gte, inArray, sql } from "drizzle-orm";
@@ -69,6 +70,31 @@ export interface IStorage {
   // Enterprise RBAC operations
   getTenantUser(tenantId: string, userId: string): Promise<TenantUser | undefined>;
   getRolePermissions(role: string): Promise<string[]>;
+  
+  // Comprehensive User Management operations
+  getUsersByTenant(tenantId: string): Promise<User[]>;
+  inviteUserToTenant(tenantId: string, email: string, role: string, invitedBy: string): Promise<{user: User, invitation: any}>;
+  updateUserRole(userId: string, role: string): Promise<User>;
+  updateUserProfile(userId: string, updates: Omit<Partial<User>, 'id' | 'role' | 'tenantId' | 'createdAt'>, updatedBy: string): Promise<User>;
+  deactivateUser(userId: string, deactivatedBy: string): Promise<User>;
+  reactivateUser(userId: string, reactivatedBy: string): Promise<User>;
+  deleteUser(userId: string, deletedBy: string): Promise<void>;
+  
+  // Organization/Tenant Management operations
+  createOrganization(name: string, createdBy: string, subscriptionTier?: string): Promise<Tenant>;
+  updateOrganization(tenantId: string, updates: Partial<Tenant>, updatedBy: string): Promise<Tenant>;
+  getUserStats(tenantId: string): Promise<{totalUsers: number, activeUsers: number, adminUsers: number, developerUsers: number, viewerUsers: number}>;
+  
+  // Audit operations
+  logAuditEvent(event: {
+    tenantId: string,
+    userId: string,
+    action: string,
+    resourceType: string,
+    resourceId?: string,
+    details?: any,
+    metadata?: any
+  }): Promise<void>;
   
   // Tenant operations
   getTenant(id: string): Promise<Tenant | undefined>;
@@ -126,14 +152,6 @@ export interface IStorage {
   // Security monitoring operations
   getSecurityEvents(tenantId: string, limit?: number): Promise<SecurityEvent[]>;
   createSecurityEvent(event: InsertSecurityEvent): Promise<SecurityEvent>;
-  
-  // User management operations
-  getUsersByTenant(tenantId: string): Promise<User[]>;
-  getUserByEmail(email: string): Promise<User | undefined>;
-  createUser(userData: Partial<User>): Promise<User>;
-  updateUserRole(userId: string, role: string): Promise<User>;
-  updateUserStatus(userId: string, status: string): Promise<User>;
-  deleteUser(userId: string): Promise<void>;
   
   // API usage operations
   getApiUsage(tenantId: string, days?: number): Promise<ApiUsage[]>;
@@ -2801,11 +2819,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUsersByTenant(tenantId: string): Promise<User[]> {
-    return await db
-      .select()
+    // Join with tenantUsers to get all users associated with tenant (not just primary tenant)
+    const usersWithTenantAssociation = await db
+      .select({
+        id: users.id,
+        email: users.email,
+        username: users.username,
+        role: tenantUsers.role, // Use role from tenant association
+        tenantId: users.tenantId,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt
+      })
       .from(users)
-      .where(eq(users.tenantId, tenantId))
+      .innerJoin(tenantUsers, eq(users.id, tenantUsers.userId))
+      .where(eq(tenantUsers.tenantId, tenantId))
       .orderBy(desc(users.createdAt));
+
+    return usersWithTenantAssociation as User[];
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
@@ -2843,6 +2873,315 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
+  // ====== COMPREHENSIVE USER MANAGEMENT OPERATIONS ======
+
+  async inviteUserToTenant(tenantId: string, email: string, role: string, invitedBy: string): Promise<{user: User, invitation: any}> {
+    // CRITICAL: Validate role against schema
+    if (!['admin', 'developer', 'viewer'].includes(role)) {
+      throw new Error(`Invalid role: ${role}. Must be 'admin', 'developer', or 'viewer'`);
+    }
+
+    // Check if user already exists
+    const existingUser = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    
+    if (existingUser.length > 0) {
+      const user = existingUser[0];
+      
+      // Check if user already associated with this tenant
+      const existingAssociation = await db.select().from(tenantUsers)
+        .where(and(eq(tenantUsers.tenantId, tenantId), eq(tenantUsers.userId, user.id)))
+        .limit(1);
+
+      if (existingAssociation.length > 0) {
+        throw new Error('User is already associated with this tenant');
+      }
+      
+      // Add user to tenant via TenantUser relationship
+      await db.insert(tenantUsers).values({
+        id: randomUUID(),
+        tenantId,
+        userId: user.id,
+        role: role as any,
+        joinedAt: new Date(),
+        invitedBy
+      });
+      
+      // Log audit event
+      await this.logAuditEvent({
+        tenantId,
+        userId: invitedBy,
+        action: 'invite_existing_user',
+        resourceType: 'user',
+        resourceId: user.id,
+        details: { email, role, targetUserId: user.id }
+      });
+
+      return { user, invitation: { type: 'existing_user', tenantId, role } };
+    } 
+
+    // Create new user - transaction for safety
+    const newUserId = randomUUID();
+    const [newUser] = await db.insert(users).values({
+      id: newUserId,
+      email,
+      role: role as any,
+      tenantId,
+      username: email.split('@')[0], // Generate username from email
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }).returning();
+
+    // Create tenant user association
+    await db.insert(tenantUsers).values({
+      id: randomUUID(),
+      tenantId,
+      userId: newUserId,
+      role: role as any,
+      joinedAt: new Date(),
+      invitedBy
+    });
+
+    // Log audit event
+    await this.logAuditEvent({
+      tenantId,
+      userId: invitedBy,
+      action: 'invite_new_user',
+      resourceType: 'user', 
+      resourceId: newUserId,
+      details: { email, role }
+    });
+
+    return { user: newUser, invitation: { type: 'new_user', tenantId, role } };
+  }
+
+  async deactivateUser(userId: string, deactivatedBy: string): Promise<User> {
+    // Get user first to capture tenant info
+    const existingUser = await this.getUser(userId);
+    if (!existingUser) {
+      throw new Error('User not found');
+    }
+
+    const [user] = await db
+      .update(users)
+      .set({ 
+        // Add deactivated status to user
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+
+    // Log audit event
+    await this.logAuditEvent({
+      tenantId: existingUser.tenantId,
+      userId: deactivatedBy,
+      action: 'deactivate_user',
+      resourceType: 'user',
+      resourceId: userId,
+      details: { targetUserId: userId, email: existingUser.email }
+    });
+
+    return user;
+  }
+
+  async reactivateUser(userId: string, reactivatedBy: string): Promise<User> {
+    // Get user first to capture tenant info
+    const existingUser = await this.getUser(userId);
+    if (!existingUser) {
+      throw new Error('User not found');
+    }
+
+    const [user] = await db
+      .update(users)
+      .set({ 
+        // Reactivate user
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+
+    // Log audit event
+    await this.logAuditEvent({
+      tenantId: existingUser.tenantId,
+      userId: reactivatedBy,
+      action: 'reactivate_user',
+      resourceType: 'user',
+      resourceId: userId,
+      details: { targetUserId: userId, email: existingUser.email }
+    });
+
+    return user;
+  }
+
+  async updateUserProfile(userId: string, updates: Partial<User>, updatedBy: string): Promise<User> {
+    // Get user first to capture tenant info
+    const existingUser = await this.getUser(userId);
+    if (!existingUser) {
+      throw new Error('User not found');
+    }
+
+    // Remove sensitive fields that shouldn't be updated via profile
+    const { id, createdAt, tenantId, ...safeUpdates } = updates;
+    
+    const [user] = await db
+      .update(users)
+      .set({ 
+        ...safeUpdates,
+        updatedAt: new Date()
+      })
+      .where(eq(users.id, userId))
+      .returning();
+
+    // Log audit event
+    await this.logAuditEvent({
+      tenantId: existingUser.tenantId,
+      userId: updatedBy,
+      action: 'update_user_profile',
+      resourceType: 'user',
+      resourceId: userId,
+      details: { 
+        targetUserId: userId, 
+        updatedFields: Object.keys(safeUpdates),
+        changes: safeUpdates 
+      }
+    });
+
+    return user;
+  }
+
+  async deleteUser(userId: string, deletedBy: string): Promise<void> {
+    // Get user first to capture tenant info for audit
+    const existingUser = await this.getUser(userId);
+    if (!existingUser) {
+      throw new Error('User not found');
+    }
+
+    // Remove from tenant associations first
+    await db.delete(tenantUsers).where(eq(tenantUsers.userId, userId));
+    
+    // Delete user record
+    await db.delete(users).where(eq(users.id, userId));
+
+    // Log audit event
+    await this.logAuditEvent({
+      tenantId: existingUser.tenantId,
+      userId: deletedBy,
+      action: 'delete_user',
+      resourceType: 'user',
+      resourceId: userId,
+      details: { 
+        targetUserId: userId, 
+        email: existingUser.email,
+        role: existingUser.role 
+      }
+    });
+  }
+
+  // ====== ORGANIZATION/TENANT MANAGEMENT OPERATIONS ======
+
+  async createOrganization(name: string, createdBy: string, subscriptionTier: string = 'starter'): Promise<Tenant> {
+    const tenantId = randomUUID();
+    const [tenant] = await db.insert(tenants).values({
+      id: tenantId,
+      name,
+      subscriptionTier,
+      apiKey: `ak_${randomUUID().replace(/-/g, '')}`,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }).returning();
+
+    // Get creating user to determine their tenant for audit
+    const creator = await this.getUser(createdBy);
+    const auditTenantId = creator?.tenantId || tenantId;
+
+    // Log audit event
+    await this.logAuditEvent({
+      tenantId: auditTenantId,
+      userId: createdBy,
+      action: 'create_organization',
+      resourceType: 'tenant',
+      resourceId: tenantId,
+      details: { name, subscriptionTier }
+    });
+
+    return tenant;
+  }
+
+  async updateOrganization(tenantId: string, updates: Partial<Tenant>, updatedBy: string): Promise<Tenant> {
+    // Remove sensitive fields
+    const { id, createdAt, apiKey, ...safeUpdates } = updates;
+    
+    const [tenant] = await db
+      .update(tenants)
+      .set({
+        ...safeUpdates,
+        updatedAt: new Date()
+      })
+      .where(eq(tenants.id, tenantId))
+      .returning();
+
+    // Log audit event
+    await this.logAuditEvent({
+      tenantId,
+      userId: updatedBy,
+      action: 'update_organization',
+      resourceType: 'tenant',
+      resourceId: tenantId,
+      details: { 
+        updatedFields: Object.keys(safeUpdates),
+        changes: safeUpdates 
+      }
+    });
+
+    return tenant;
+  }
+
+  async getUserStats(tenantId: string): Promise<{
+    totalUsers: number,
+    activeUsers: number,
+    adminUsers: number,
+    developerUsers: number,
+    viewerUsers: number
+  }> {
+    const tenantUsers = await this.getUsersByTenant(tenantId);
+    
+    return {
+      totalUsers: tenantUsers.length,
+      activeUsers: tenantUsers.length, // All users considered active for now
+      adminUsers: tenantUsers.filter(u => u.role === 'admin').length,
+      developerUsers: tenantUsers.filter(u => u.role === 'developer').length,
+      viewerUsers: tenantUsers.filter(u => u.role === 'viewer').length
+    };
+  }
+
+  // ====== AUDIT OPERATIONS ======
+
+  async logAuditEvent(event: {
+    tenantId: string,
+    userId: string,
+    action: string,
+    resourceType: string,
+    resourceId?: string,
+    details?: any,
+    metadata?: any
+  }): Promise<void> {
+    try {
+      await db.insert(auditEvents).values({
+        id: randomUUID(),
+        tenantId: event.tenantId,
+        userId: event.userId,
+        action: event.action,
+        resourceType: event.resourceType,
+        resourceId: event.resourceId || null,
+        details: event.details ? JSON.stringify(event.details) : null,
+        metadata: event.metadata ? JSON.stringify(event.metadata) : null,
+        timestamp: new Date()
+      });
+    } catch (error) {
+      console.error('Failed to log audit event:', error);
+      // Don't throw - audit logging failures shouldn't break operations
+    }
+  }
+
   async updateUserStatus(userId: string, status: string): Promise<User> {
     const [user] = await db
       .update(users)
@@ -2855,11 +3194,6 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async deleteUser(userId: string): Promise<void> {
-    await db
-      .delete(users)
-      .where(eq(users.id, userId));
-  }
 
   // REAL MONITORING OPERATIONS - Track actual SDK usage
   
