@@ -10,6 +10,13 @@ import {
   performanceMetrics,
   securityIncidents,
   sdkDeployments,
+  keyRotationPolicies,
+  keyRotationHistory,
+  cloudProviderConfigs,
+  keyDistributions,
+  keyReplications,
+  byokImports,
+  compliancePolicies,
   type User,
   type UpsertUser,
   type Tenant,
@@ -31,12 +38,20 @@ import {
   type InsertSecurityIncident,
   type SdkDeployment,
   type InsertSdkDeployment,
-  keyRotationPolicies,
-  keyRotationHistory,
   type KeyRotationPolicy,
   type InsertKeyRotationPolicy,
   type KeyRotationHistory,
   type InsertKeyRotationHistory,
+  type CloudProviderConfig,
+  type InsertCloudProviderConfig,
+  type KeyDistribution,
+  type InsertKeyDistribution,
+  type KeyReplication,
+  type InsertKeyReplication,
+  type ByokImport,
+  type InsertByokImport,
+  type CompliancePolicy,
+  type InsertCompliancePolicy,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, count, sum, gte, inArray, sql } from "drizzle-orm";
@@ -3253,6 +3268,345 @@ export class DatabaseStorage implements IStorage {
       .values(metric)
       .returning();
     return result;
+  }
+
+  // ============================================================================
+  // MULTI-CLOUD PROVIDER MANAGEMENT - Enterprise KMS Integration
+  // ============================================================================
+
+  // Cloud Provider Configuration CRUD
+  async getCloudProviderConfigs(tenantId: string): Promise<CloudProviderConfig[]> {
+    return await db
+      .select()
+      .from(cloudProviderConfigs)
+      .where(eq(cloudProviderConfigs.tenantId, tenantId))
+      .orderBy(desc(cloudProviderConfigs.createdAt));
+  }
+
+  async getCloudProviderConfig(id: string): Promise<CloudProviderConfig | undefined> {
+    const [config] = await db
+      .select()
+      .from(cloudProviderConfigs)
+      .where(eq(cloudProviderConfigs.id, id));
+    return config;
+  }
+
+  async createCloudProviderConfig(configData: InsertCloudProviderConfig): Promise<CloudProviderConfig> {
+    const [config] = await db
+      .insert(cloudProviderConfigs)
+      .values(configData)
+      .returning();
+    return config;
+  }
+
+  async updateCloudProviderConfig(id: string, updates: Partial<InsertCloudProviderConfig>): Promise<CloudProviderConfig> {
+    const [config] = await db
+      .update(cloudProviderConfigs)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(cloudProviderConfigs.id, id))
+      .returning();
+    return config;
+  }
+
+  async deleteCloudProviderConfig(id: string): Promise<void> {
+    await db.delete(cloudProviderConfigs).where(eq(cloudProviderConfigs.id, id));
+  }
+
+  async updateProviderHealth(id: string, healthStatus: string, lastHealthCheck: Date): Promise<void> {
+    await db
+      .update(cloudProviderConfigs)
+      .set({ healthStatus, lastHealthCheck, updatedAt: new Date() })
+      .where(eq(cloudProviderConfigs.id, id));
+  }
+
+  // Key Distribution CRUD
+  async getKeyDistributions(tenantId: string): Promise<KeyDistribution[]> {
+    return await db
+      .select()
+      .from(keyDistributions)
+      .where(eq(keyDistributions.tenantId, tenantId))
+      .orderBy(desc(keyDistributions.createdAt));
+  }
+
+  async getKeyDistributionsForKey(keyId: string): Promise<KeyDistribution[]> {
+    return await db
+      .select()
+      .from(keyDistributions)
+      .where(eq(keyDistributions.keyId, keyId));
+  }
+
+  async getKeyDistribution(id: string): Promise<KeyDistribution | undefined> {
+    const [distribution] = await db
+      .select()
+      .from(keyDistributions)
+      .where(eq(keyDistributions.id, id));
+    return distribution;
+  }
+
+  async createKeyDistribution(distributionData: InsertKeyDistribution): Promise<KeyDistribution> {
+    const [distribution] = await db
+      .insert(keyDistributions)
+      .values(distributionData)
+      .returning();
+    return distribution;
+  }
+
+  async updateKeyDistribution(id: string, updates: Partial<InsertKeyDistribution>): Promise<KeyDistribution> {
+    const [distribution] = await db
+      .update(keyDistributions)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(keyDistributions.id, id))
+      .returning();
+    return distribution;
+  }
+
+  async updateDistributionStatus(id: string, status: string, syncError?: string): Promise<void> {
+    const updateData: any = {
+      distributionStatus: status,
+      lastSyncAt: new Date(),
+      lastSyncStatus: status,
+      updatedAt: new Date()
+    };
+
+    if (syncError) {
+      updateData.syncError = syncError;
+    }
+
+    await db
+      .update(keyDistributions)
+      .set(updateData)
+      .where(eq(keyDistributions.id, id));
+  }
+
+  async markDriftDetected(id: string): Promise<void> {
+    await db
+      .update(keyDistributions)
+      .set({ 
+        distributionStatus: 'drift_detected',
+        driftDetectedAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(keyDistributions.id, id));
+  }
+
+  async deleteKeyDistribution(id: string): Promise<void> {
+    await db.delete(keyDistributions).where(eq(keyDistributions.id, id));
+  }
+
+  // Key Replication CRUD
+  async getKeyReplications(tenantId: string): Promise<KeyReplication[]> {
+    return await db
+      .select()
+      .from(keyReplications)
+      .where(eq(keyReplications.tenantId, tenantId))
+      .orderBy(desc(keyReplications.createdAt));
+  }
+
+  async getKeyReplication(id: string): Promise<KeyReplication | undefined> {
+    const [replication] = await db
+      .select()
+      .from(keyReplications)
+      .where(eq(keyReplications.id, id));
+    return replication;
+  }
+
+  async createKeyReplication(replicationData: InsertKeyReplication): Promise<KeyReplication> {
+    const [replication] = await db
+      .insert(keyReplications)
+      .values(replicationData)
+      .returning();
+    return replication;
+  }
+
+  async updateKeyReplication(id: string, updates: Partial<InsertKeyReplication>): Promise<KeyReplication> {
+    const [replication] = await db
+      .update(keyReplications)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(keyReplications.id, id))
+      .returning();
+    return replication;
+  }
+
+  async updateReplicationStatus(id: string, status: string, error?: string): Promise<void> {
+    const updateData: any = {
+      replicationStatus: status,
+      updatedAt: new Date()
+    };
+
+    if (status === 'completed') {
+      updateData.completedAt = new Date();
+    }
+    if (error) {
+      updateData.lastError = error;
+      updateData.retryCount = sql`${keyReplications.retryCount} + 1`;
+    }
+
+    await db
+      .update(keyReplications)
+      .set(updateData)
+      .where(eq(keyReplications.id, id));
+  }
+
+  async deleteKeyReplication(id: string): Promise<void> {
+    await db.delete(keyReplications).where(eq(keyReplications.id, id));
+  }
+
+  // BYOK Import CRUD
+  async getByokImports(tenantId: string): Promise<ByokImport[]> {
+    return await db
+      .select()
+      .from(byokImports)
+      .where(eq(byokImports.tenantId, tenantId))
+      .orderBy(desc(byokImports.createdAt));
+  }
+
+  async getByokImport(id: string): Promise<ByokImport | undefined> {
+    const [byokImport] = await db
+      .select()
+      .from(byokImports)
+      .where(eq(byokImports.id, id));
+    return byokImport;
+  }
+
+  async createByokImport(importData: InsertByokImport): Promise<ByokImport> {
+    const [byokImport] = await db
+      .insert(byokImports)
+      .values(importData)
+      .returning();
+    return byokImport;
+  }
+
+  async updateByokImport(id: string, updates: Partial<InsertByokImport>): Promise<ByokImport> {
+    const [byokImport] = await db
+      .update(byokImports)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(byokImports.id, id))
+      .returning();
+    return byokImport;
+  }
+
+  async updateByokImportStatus(id: string, status: string): Promise<void> {
+    const updateData: any = {
+      importStatus: status,
+      updatedAt: new Date()
+    };
+
+    if (status === 'imported') {
+      updateData.importedAt = new Date();
+    } else if (status === 'revoked') {
+      updateData.revokedAt = new Date();
+    }
+
+    await db
+      .update(byokImports)
+      .set(updateData)
+      .where(eq(byokImports.id, id));
+  }
+
+  async deleteByokImport(id: string): Promise<void> {
+    await db.delete(byokImports).where(eq(byokImports.id, id));
+  }
+
+  // Compliance Policy CRUD
+  async getCompliancePolicies(tenantId: string): Promise<CompliancePolicy[]> {
+    return await db
+      .select()
+      .from(compliancePolicies)
+      .where(eq(compliancePolicies.tenantId, tenantId))
+      .orderBy(desc(compliancePolicies.createdAt));
+  }
+
+  async getCompliancePolicy(id: string): Promise<CompliancePolicy | undefined> {
+    const [policy] = await db
+      .select()
+      .from(compliancePolicies)
+      .where(eq(compliancePolicies.id, id));
+    return policy;
+  }
+
+  async createCompliancePolicy(policyData: InsertCompliancePolicy): Promise<CompliancePolicy> {
+    const [policy] = await db
+      .insert(compliancePolicies)
+      .values(policyData)
+      .returning();
+    return policy;
+  }
+
+  async updateCompliancePolicy(id: string, updates: Partial<InsertCompliancePolicy>): Promise<CompliancePolicy> {
+    const [policy] = await db
+      .update(compliancePolicies)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(compliancePolicies.id, id))
+      .returning();
+    return policy;
+  }
+
+  async updateComplianceReporting(id: string, lastReportGenerated: Date, nextReportDue?: Date): Promise<void> {
+    const updateData: any = {
+      lastReportGenerated,
+      updatedAt: new Date()
+    };
+
+    if (nextReportDue) {
+      updateData.nextReportDue = nextReportDue;
+    }
+
+    await db
+      .update(compliancePolicies)
+      .set(updateData)
+      .where(eq(compliancePolicies.id, id));
+  }
+
+  async deleteCompliancePolicy(id: string): Promise<void> {
+    await db.delete(compliancePolicies).where(eq(compliancePolicies.id, id));
+  }
+
+  // Multi-Cloud Analytics and Reporting
+  async getProviderDistributionStats(tenantId: string): Promise<any> {
+    // Get provider config counts
+    const providerStats = await db
+      .select({
+        provider: cloudProviderConfigs.provider,
+        count: sql<number>`count(*)`,
+        activeCount: sql<number>`sum(case when ${cloudProviderConfigs.isActive} then 1 else 0 end)`,
+        healthyCount: sql<number>`sum(case when ${cloudProviderConfigs.healthStatus} = 'healthy' then 1 else 0 end)`
+      })
+      .from(cloudProviderConfigs)
+      .where(eq(cloudProviderConfigs.tenantId, tenantId))
+      .groupBy(cloudProviderConfigs.provider);
+
+    // Get distribution stats
+    const distributionStats = await db
+      .select({
+        status: keyDistributions.distributionStatus,
+        count: sql<number>`count(*)`
+      })
+      .from(keyDistributions)
+      .where(eq(keyDistributions.tenantId, tenantId))
+      .groupBy(keyDistributions.distributionStatus);
+
+    return {
+      providers: providerStats,
+      distributions: distributionStats,
+      totalProviders: providerStats.reduce((sum, p) => sum + p.count, 0),
+      activeProviders: providerStats.reduce((sum, p) => sum + p.activeCount, 0),
+      healthyProviders: providerStats.reduce((sum, p) => sum + p.healthyCount, 0),
+    };
+  }
+
+  async getKeysEligibleForDistribution(tenantId: string): Promise<EncryptionKey[]> {
+    // Get keys that could be distributed to cloud providers
+    return await db
+      .select()
+      .from(encryptionKeys)
+      .where(
+        and(
+          eq(encryptionKeys.tenantId, tenantId),
+          eq(encryptionKeys.status, 'active'),
+          eq(encryptionKeys.versionStatus, 'current')
+        )
+      )
+      .orderBy(desc(encryptionKeys.createdAt));
   }
 }
 

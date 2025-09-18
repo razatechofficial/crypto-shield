@@ -996,3 +996,334 @@ export const certificateAuthorityRelations = relations(certificateAuthorities, (
     references: [hsmKeys.id],
   }),
 }));
+
+// ============================================================================
+// MULTI-CLOUD KEY DISTRIBUTION SCHEMA - Enterprise KMS Integration
+// ============================================================================
+
+// Cloud provider types enum
+export const cloudProviderEnum = pgEnum('cloud_provider', ['aws_kms', 'azure_key_vault', 'gcp_kms', 'hashicorp_vault', 'ibm_key_protect']);
+
+// Key distribution status enum
+export const distributionStatusEnum = pgEnum('distribution_status', ['pending', 'synced', 'drift_detected', 'sync_failed', 'disabled']);
+
+// Replication status enum  
+export const replicationStatusEnum = pgEnum('replication_status', ['in_progress', 'completed', 'failed', 'paused']);
+
+// BYOK import status enum
+export const byokImportStatusEnum = pgEnum('byok_import_status', ['pending_validation', 'imported', 'validation_failed', 'expired', 'revoked']);
+
+// Cloud provider configurations
+export const cloudProviderConfigs = pgTable("cloud_provider_configs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  provider: cloudProviderEnum("provider").notNull(),
+  name: varchar("name").notNull(), // User-friendly name
+  description: text("description"),
+  
+  // Provider-specific configuration (encrypted)
+  region: varchar("region").notNull(),
+  credentialsEncrypted: text("credentials_encrypted").notNull(), // Encrypted JSON
+  
+  // Connection settings
+  endpoint: varchar("endpoint"), // Custom endpoint if needed
+  isActive: boolean("is_active").default(true),
+  healthStatus: varchar("health_status").default('unknown'), // healthy, unhealthy, unknown
+  lastHealthCheck: timestamp("last_health_check"),
+  
+  // Metadata
+  tags: jsonb("tags").default({}),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Key distribution mappings - tracks which keys are distributed to which providers
+export const keyDistributions = pgTable("key_distributions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  keyId: varchar("key_id").references(() => encryptionKeys.id).notNull(),
+  providerConfigId: varchar("provider_config_id").references(() => cloudProviderConfigs.id).notNull(),
+  
+  // Provider-specific key identifiers
+  providerKeyId: varchar("provider_key_id").notNull(), // ARN, ID, etc.
+  providerKeyArn: varchar("provider_key_arn"), // Full ARN for AWS
+  providerAlias: varchar("provider_alias"), // Key alias if supported
+  
+  // Distribution settings
+  distributionStatus: distributionStatusEnum("distribution_status").default('pending'),
+  autoSync: boolean("auto_sync").default(true),
+  autoRotate: boolean("auto_rotate").default(true),
+  
+  // Sync tracking
+  lastSyncAt: timestamp("last_sync_at"),
+  lastSyncStatus: varchar("last_sync_status"),
+  syncError: text("sync_error"),
+  driftDetectedAt: timestamp("drift_detected_at"),
+  
+  // Metadata
+  metadata: jsonb("metadata").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("unique_key_provider_distribution").on(table.keyId, table.providerConfigId),
+]);
+
+// Cross-region replication configurations
+export const keyReplications = pgTable("key_replications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  sourceDistributionId: varchar("source_distribution_id").references(() => keyDistributions.id).notNull(),
+  targetProviderConfigId: varchar("target_provider_config_id").references(() => cloudProviderConfigs.id).notNull(),
+  
+  // Replication settings
+  replicationStatus: replicationStatusEnum("replication_status").default('in_progress'),
+  targetKeyId: varchar("target_key_id"), // Key ID in target region/provider
+  targetKeyArn: varchar("target_key_arn"),
+  
+  // Replication policy
+  isAutomatic: boolean("is_automatic").default(true),
+  replicationPolicy: jsonb("replication_policy").default({}),
+  
+  // Status tracking
+  startedAt: timestamp("started_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  lastError: text("last_error"),
+  retryCount: integer("retry_count").default(0),
+  
+  // Metadata
+  metadata: jsonb("metadata").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// BYOK (Bring Your Own Key) import tracking
+export const byokImports = pgTable("byok_imports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  keyId: varchar("key_id").references(() => encryptionKeys.id).notNull(),
+  
+  // Import details
+  importStatus: byokImportStatusEnum("import_status").default('pending_validation'),
+  customerKeyId: varchar("customer_key_id").notNull(), // Customer's original key identifier
+  wrappingMethod: varchar("wrapping_method").notNull(), // RSA-OAEP, AES-KW, etc.
+  
+  // Custody and compliance
+  custodyPolicy: jsonb("custody_policy").default({}), // Escrow, exportability rules
+  attestationData: jsonb("attestation_data").default({}), // Trust path validation
+  
+  // Import lifecycle
+  importedAt: timestamp("imported_at"),
+  expiresAt: timestamp("expires_at"),
+  revokedAt: timestamp("revoked_at"),
+  revocationReason: text("revocation_reason"),
+  
+  // Audit trail
+  importedBy: varchar("imported_by").references(() => users.id).notNull(),
+  validatedBy: varchar("validated_by").references(() => users.id),
+  
+  // Metadata
+  metadata: jsonb("metadata").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Compliance policies and automated reporting
+export const compliancePolicies = pgTable("compliance_policies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  
+  // Policy identification
+  name: varchar("name").notNull(),
+  framework: complianceFrameworkEnum("framework").notNull(),
+  version: varchar("version").notNull(),
+  description: text("description"),
+  
+  // Policy rules (NIST controls, PCI requirements, etc.)
+  controls: jsonb("controls").notNull(), // Mapped controls and requirements
+  keyRequirements: jsonb("key_requirements").default({}), // Key-specific requirements
+  auditRequirements: jsonb("audit_requirements").default({}), // Audit log requirements
+  
+  // Enforcement settings
+  isEnforcing: boolean("is_enforcing").default(false),
+  enforcementLevel: varchar("enforcement_level").default('warn'), // warn, block, audit
+  
+  // Reporting
+  reportingSchedule: varchar("reporting_schedule"), // daily, weekly, monthly, quarterly
+  nextReportDue: timestamp("next_report_due"),
+  lastReportGenerated: timestamp("last_report_generated"),
+  
+  // Metadata
+  tags: jsonb("tags").default({}),
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// ============================================================================
+// MULTI-CLOUD RELATIONS
+// ============================================================================
+
+export const cloudProviderConfigRelations = relations(cloudProviderConfigs, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [cloudProviderConfigs.tenantId],
+    references: [tenants.id],
+  }),
+  creator: one(users, {
+    fields: [cloudProviderConfigs.createdBy],
+    references: [users.id],
+  }),
+  distributions: many(keyDistributions),
+  replications: many(keyReplications),
+}));
+
+export const keyDistributionRelations = relations(keyDistributions, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [keyDistributions.tenantId],
+    references: [tenants.id],
+  }),
+  key: one(encryptionKeys, {
+    fields: [keyDistributions.keyId],
+    references: [encryptionKeys.id],
+  }),
+  providerConfig: one(cloudProviderConfigs, {
+    fields: [keyDistributions.providerConfigId],
+    references: [cloudProviderConfigs.id],
+  }),
+  sourceReplications: many(keyReplications),
+}));
+
+export const keyReplicationRelations = relations(keyReplications, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [keyReplications.tenantId],
+    references: [tenants.id],
+  }),
+  sourceDistribution: one(keyDistributions, {
+    fields: [keyReplications.sourceDistributionId],
+    references: [keyDistributions.id],
+  }),
+  targetProviderConfig: one(cloudProviderConfigs, {
+    fields: [keyReplications.targetProviderConfigId],
+    references: [cloudProviderConfigs.id],
+  }),
+}));
+
+export const byokImportRelations = relations(byokImports, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [byokImports.tenantId],
+    references: [tenants.id],
+  }),
+  key: one(encryptionKeys, {
+    fields: [byokImports.keyId],
+    references: [encryptionKeys.id],
+  }),
+  importer: one(users, {
+    fields: [byokImports.importedBy],
+    references: [users.id],
+  }),
+  validator: one(users, {
+    fields: [byokImports.validatedBy],
+    references: [users.id],
+  }),
+}));
+
+export const compliancePolicyRelations = relations(compliancePolicies, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [compliancePolicies.tenantId],
+    references: [tenants.id],
+  }),
+  creator: one(users, {
+    fields: [compliancePolicies.createdBy],
+    references: [users.id],
+  }),
+}));
+
+// ============================================================================
+// MULTI-CLOUD TYPES & SCHEMAS
+// ============================================================================
+
+// TypeScript types for multi-cloud entities
+export type CloudProviderConfig = typeof cloudProviderConfigs.$inferSelect;
+export type InsertCloudProviderConfig = typeof cloudProviderConfigs.$inferInsert;
+
+export type KeyDistribution = typeof keyDistributions.$inferSelect;
+export type InsertKeyDistribution = typeof keyDistributions.$inferInsert;
+
+export type KeyReplication = typeof keyReplications.$inferSelect;
+export type InsertKeyReplication = typeof keyReplications.$inferInsert;
+
+export type ByokImport = typeof byokImports.$inferSelect;
+export type InsertByokImport = typeof byokImports.$inferInsert;
+
+export type CompliancePolicy = typeof compliancePolicies.$inferSelect;
+export type InsertCompliancePolicy = typeof compliancePolicies.$inferInsert;
+
+// Zod schemas for validation
+export const insertCloudProviderConfigSchema = createInsertSchema(cloudProviderConfigs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertKeyDistributionSchema = createInsertSchema(keyDistributions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertKeyReplicationSchema = createInsertSchema(keyReplications).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertByokImportSchema = createInsertSchema(byokImports).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCompliancePolicySchema = createInsertSchema(compliancePolicies).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Provider-specific configuration types
+export interface AwsKmsConfig {
+  accessKeyId: string;
+  secretAccessKey: string;
+  region: string;
+  roleArn?: string;
+}
+
+export interface AzureKeyVaultConfig {
+  clientId: string;
+  clientSecret: string;
+  tenantId: string;
+  vaultUrl: string;
+}
+
+export interface GcpKmsConfig {
+  projectId: string;
+  keyRingId: string;
+  locationId: string;
+  serviceAccountKey: string;
+}
+
+// Provider operation result types
+export interface ProviderKeyResult {
+  success: boolean;
+  keyId?: string;
+  keyArn?: string;
+  alias?: string;
+  error?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface ProviderHealthResult {
+  healthy: boolean;
+  responseTime?: number;
+  error?: string;
+  lastChecked: Date;
+}
