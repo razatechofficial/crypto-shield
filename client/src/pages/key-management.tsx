@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Plus, RotateCcw, Pause, Trash2, Copy, Eye, AlertTriangle, Clock } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useState } from "react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export default function KeyManagement() {
   const { toast } = useToast();
@@ -27,6 +28,8 @@ export default function KeyManagement() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [selectedKeyDetails, setSelectedKeyDetails] = useState<any>(null);
+  const [isKeyDetailsOpen, setIsKeyDetailsOpen] = useState(false);
 
   const { data: keys = [], isLoading } = useQuery({
     queryKey: ["/api/keys"],
@@ -323,6 +326,11 @@ export default function KeyManagement() {
     } else {
       setSelectedKeys(selectedKeys.filter(id => id !== keyId));
     }
+  };
+
+  const handleKeyClick = (key: any) => {
+    setSelectedKeyDetails(key);
+    setIsKeyDetailsOpen(true);
   };
 
   const getKeyTypeDescription = (keyType: string) => {
@@ -665,8 +673,13 @@ export default function KeyManagement() {
                 </TableHeader>
                 <TableBody>
                   {filteredKeys.map((key: any) => (
-                    <TableRow key={key.id} className="border-border">
-                      <TableCell className="text-foreground w-12">
+                    <TableRow 
+                      key={key.id} 
+                      className="border-border cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800"
+                      onClick={() => handleKeyClick(key)}
+                      data-testid={`row-key-${key.id}`}
+                    >
+                      <TableCell className="text-foreground w-12" onClick={(e) => e.stopPropagation()}>
                         <input 
                           type="checkbox" 
                           checked={selectedKeys.includes(key.id)}
@@ -695,111 +708,133 @@ export default function KeyManagement() {
                           {key.status.toUpperCase()}
                         </Badge>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex space-x-1">
-                          <div className="inline-block">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-green-500 hover:text-green-400 hover:bg-slate-700"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                e.nativeEvent.stopImmediatePropagation();
-                                if (activeDownload !== key.id && !activeDownload) {
-                                  downloadKeyMutation.mutate(key.id);
-                                }
-                              }}
-                              disabled={activeDownload === key.id}
-                              data-testid={`button-download-${key.id}`}
-                              title="Download Key"
-                            >
-                              {activeDownload === key.id ? "..." : "⬇"}
-                            </Button>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <TooltipProvider>
+                          <div className="flex space-x-1">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="text-green-500 hover:text-green-400 hover:bg-slate-700"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    e.nativeEvent.stopImmediatePropagation();
+                                    if (activeDownload !== key.id && !activeDownload) {
+                                      downloadKeyMutation.mutate(key.id);
+                                    }
+                                  }}
+                                  disabled={activeDownload === key.id}
+                                  data-testid={`button-download-${key.id}`}
+                                >
+                                  {activeDownload === key.id ? "..." : "⬇"}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Download encryption key</p>
+                              </TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="text-blue-500 hover:text-blue-400 hover:bg-slate-700"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    e.nativeEvent.stopImmediatePropagation();
+                                    setTimeout(() => {
+                                      copyToClipboard(key.keyId, 'Key ID');
+                                    }, 0);
+                                  }}
+                                  data-testid={`button-copy-${key.id}`}
+                                >
+                                  <Copy className="w-4 h-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Copy key ID to clipboard</p>
+                              </TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="text-green-500 hover:text-green-400 hover:bg-slate-700"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    e.nativeEvent.stopImmediatePropagation();
+                                    if (activeRotate !== key.id && !activeRotate && key.status !== 'rotating') {
+                                      setActiveRotate(key.id);
+                                      updateKeyStatusMutation.mutate({ keyId: key.id, status: 'rotating' });
+                                    }
+                                  }}
+                                  disabled={activeRotate === key.id || key.status === 'rotating'}
+                                  data-testid={`button-rotate-${key.id}`}
+                                >
+                                  <RotateCcw className="w-4 h-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Rotate key to new version</p>
+                              </TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="text-yellow-500 hover:text-yellow-400 hover:bg-slate-700"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    e.nativeEvent.stopImmediatePropagation();
+                                    if (activeToggle !== key.id && !activeToggle) {
+                                      setActiveToggle(key.id);
+                                      updateKeyStatusMutation.mutate({ keyId: key.id, status: key.status === 'active' ? 'expired' : 'active' });
+                                    }
+                                  }}
+                                  disabled={activeToggle === key.id}
+                                  data-testid={`button-toggle-${key.id}`}
+                                >
+                                  <Pause className="w-4 h-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>{key.status === 'active' ? 'Disable key' : 'Activate key'}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="text-red-500 hover:text-red-400 hover:bg-slate-700"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    e.nativeEvent.stopImmediatePropagation();
+                                    if (activeRevoke !== key.id && !activeRevoke && key.status !== 'revoked') {
+                                      setActiveRevoke(key.id);
+                                      revokeKeyMutation.mutate(key.id);
+                                    }
+                                  }}
+                                  disabled={activeRevoke === key.id || key.status === 'revoked'}
+                                  data-testid={`button-revoke-${key.id}`}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Permanently revoke key</p>
+                              </TooltipContent>
+                            </Tooltip>
                           </div>
-                          <div className="inline-block">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-blue-500 hover:text-blue-400 hover:bg-slate-700"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                e.nativeEvent.stopImmediatePropagation();
-                                setTimeout(() => {
-                                  copyToClipboard(key.keyId, 'Key ID');
-                                }, 0);
-                              }}
-                              data-testid={`button-copy-${key.id}`}
-                              title="Copy Key ID"
-                            >
-                              <Copy className="w-4 h-4" />
-                            </Button>
-                          </div>
-                          <div className="inline-block">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-green-500 hover:text-green-400 hover:bg-slate-700"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                e.nativeEvent.stopImmediatePropagation();
-                                if (activeRotate !== key.id && !activeRotate && key.status !== 'rotating') {
-                                  setActiveRotate(key.id);
-                                  updateKeyStatusMutation.mutate({ keyId: key.id, status: 'rotating' });
-                                }
-                              }}
-                              disabled={activeRotate === key.id || key.status === 'rotating'}
-                              data-testid={`button-rotate-${key.id}`}
-                              title="Rotate Key"
-                            >
-                              <RotateCcw className="w-4 h-4" />
-                            </Button>
-                          </div>
-                          <div className="inline-block">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-yellow-500 hover:text-yellow-400 hover:bg-slate-700"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                e.nativeEvent.stopImmediatePropagation();
-                                if (activeToggle !== key.id && !activeToggle) {
-                                  setActiveToggle(key.id);
-                                  updateKeyStatusMutation.mutate({ keyId: key.id, status: key.status === 'active' ? 'expired' : 'active' });
-                                }
-                              }}
-                              disabled={activeToggle === key.id}
-                              data-testid={`button-toggle-${key.id}`}
-                              title={key.status === 'active' ? 'Disable Key' : 'Activate Key'}
-                            >
-                              <Pause className="w-4 h-4" />
-                            </Button>
-                          </div>
-                          <div className="inline-block">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-red-500 hover:text-red-400 hover:bg-slate-700"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                e.nativeEvent.stopImmediatePropagation();
-                                if (activeRevoke !== key.id && !activeRevoke && key.status !== 'revoked') {
-                                  setActiveRevoke(key.id);
-                                  revokeKeyMutation.mutate(key.id);
-                                }
-                              }}
-                              disabled={activeRevoke === key.id || key.status === 'revoked'}
-                              data-testid={`button-revoke-${key.id}`}
-                              title="Revoke Key"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </div>
+                        </TooltipProvider>
                         {getExpirationWarning(key) && (
                           <div className="flex items-center mt-1 text-yellow-500 text-xs">
                             <AlertTriangle className="w-3 h-3 mr-1" />
@@ -830,6 +865,198 @@ export default function KeyManagement() {
           )}
         </CardContent>
       </Card>
+
+      {/* Key Details Modal */}
+      <Dialog open={isKeyDetailsOpen} onOpenChange={setIsKeyDetailsOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="w-5 h-5" />
+              Key Details
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedKeyDetails && (
+            <div className="space-y-6">
+              {/* Basic Information */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Basic Information</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Key ID</Label>
+                      <div className="flex items-center gap-2">
+                        <p className="font-mono text-sm bg-slate-100 dark:bg-slate-800 p-2 rounded">{selectedKeyDetails.keyId}</p>
+                        <Button 
+                          size="sm" 
+                          variant="ghost"
+                          onClick={() => copyToClipboard(selectedKeyDetails.keyId, 'Key ID')}
+                        >
+                          <Copy className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Status</Label>
+                      <div className="mt-1">
+                        <Badge className={`${getStatusColor(selectedKeyDetails.status)} text-white`}>
+                          {selectedKeyDetails.status.toUpperCase()}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Type</Label>
+                      <p className="text-sm">{selectedKeyDetails.keyType}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Algorithm</Label>
+                      <p className="text-sm">{selectedKeyDetails.algorithm?.displayName || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Key Size</Label>
+                      <p className="text-sm">{selectedKeyDetails.metadata?.keySize || selectedKeyDetails.metadata?.customKeySize || 'N/A'} bits</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Created</Label>
+                      <p className="text-sm">{formatDistanceToNow(new Date(selectedKeyDetails.createdAt), { addSuffix: true })}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Security Features */}
+              {selectedKeyDetails.metadata?.securityFeatures && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Security Features</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 gap-2">
+                      {selectedKeyDetails.metadata.securityFeatures.map((feature: string, index: number) => (
+                        <div key={index} className="flex items-center gap-2">
+                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          <span className="text-sm">{feature.replace(/_/g, ' ')}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Algorithm Details */}
+              {selectedKeyDetails.algorithm && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Algorithm Details</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Name</Label>
+                      <p className="text-sm">{selectedKeyDetails.algorithm.displayName}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Type</Label>
+                      <p className="text-sm capitalize">{selectedKeyDetails.algorithm.type}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Description</Label>
+                      <p className="text-sm">{selectedKeyDetails.algorithm.description}</p>
+                    </div>
+                    <div className="flex gap-4">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-3 h-3 rounded-full ${selectedKeyDetails.algorithm.isQuantumSafe ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                        <span className="text-sm">Quantum Safe: {selectedKeyDetails.algorithm.isQuantumSafe ? 'Yes' : 'No'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className={`w-3 h-3 rounded-full ${selectedKeyDetails.algorithm.isPostQuantum ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+                        <span className="text-sm">Post-Quantum: {selectedKeyDetails.algorithm.isPostQuantum ? 'Yes' : 'No'}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Rotation Information */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Rotation Information</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Current Version</Label>
+                      <p className="text-sm">{selectedKeyDetails.currentVersion || '1'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Version Status</Label>
+                      <p className="text-sm capitalize">{selectedKeyDetails.versionStatus || 'current'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Rotation Interval</Label>
+                      <p className="text-sm">{selectedKeyDetails.rotationInterval || 'N/A'} days</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Next Rotation</Label>
+                      <p className="text-sm">
+                        {selectedKeyDetails.nextRotationAt 
+                          ? formatDistanceToNow(new Date(selectedKeyDetails.nextRotationAt), { addSuffix: true })
+                          : 'Not scheduled'
+                        }
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Advanced Metadata */}
+              {selectedKeyDetails.metadata && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Technical Metadata</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <pre className="text-xs bg-slate-100 dark:bg-slate-800 p-4 rounded overflow-x-auto">
+                      {JSON.stringify(selectedKeyDetails.metadata, null, 2)}
+                    </pre>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-2 pt-4 border-t">
+                <Button 
+                  onClick={() => downloadKeyMutation.mutate(selectedKeyDetails.id)}
+                  disabled={activeDownload === selectedKeyDetails.id}
+                  className="flex items-center gap-2"
+                >
+                  {activeDownload === selectedKeyDetails.id ? "..." : "⬇"} Download Key
+                </Button>
+                <Button 
+                  variant="outline"
+                  onClick={() => copyToClipboard(selectedKeyDetails.keyId, 'Key ID')}
+                  className="flex items-center gap-2"
+                >
+                  <Copy className="w-4 h-4" /> Copy Key ID
+                </Button>
+                <Button 
+                  variant="outline"
+                  onClick={() => {
+                    if (selectedKeyDetails.status !== 'rotating') {
+                      updateKeyStatusMutation.mutate({ keyId: selectedKeyDetails.id, status: 'rotating' });
+                    }
+                  }}
+                  disabled={selectedKeyDetails.status === 'rotating'}
+                  className="flex items-center gap-2"
+                >
+                  <RotateCcw className="w-4 h-4" /> Rotate Key
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
