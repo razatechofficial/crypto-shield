@@ -31,6 +31,12 @@ import {
   type InsertSecurityIncident,
   type SdkDeployment,
   type InsertSdkDeployment,
+  keyRotationPolicies,
+  keyRotationHistory,
+  type KeyRotationPolicy,
+  type InsertKeyRotationPolicy,
+  type KeyRotationHistory,
+  type InsertKeyRotationHistory,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, count, sum, gte, inArray, sql } from "drizzle-orm";
@@ -69,6 +75,31 @@ export interface IStorage {
   getEncryptionKeys(tenantId: string): Promise<EncryptionKey[]>;
   createEncryptionKey(key: InsertEncryptionKey): Promise<EncryptionKey>;
   updateEncryptionKeyStatus(keyId: string, status: string): Promise<void>;
+  
+  // Key Lifecycle Management & Versioning
+  getKeyVersions(parentKeyId: string): Promise<EncryptionKey[]>;
+  getCurrentKeyVersion(parentKeyId: string): Promise<EncryptionKey | undefined>;
+  rotateKey(keyId: string, trigger: string, triggeredBy: string): Promise<EncryptionKey>;
+  rollbackKeyVersion(keyId: string, toVersion: number, rollbackBy: string): Promise<EncryptionKey>;
+  scheduleKeyRotation(keyId: string, rotationDate: Date): Promise<void>;
+  
+  // Key Rotation Policies
+  createKeyRotationPolicy(policy: InsertKeyRotationPolicy): Promise<KeyRotationPolicy>;
+  getKeyRotationPolicies(tenantId: string): Promise<KeyRotationPolicy[]>;
+  updateKeyRotationPolicy(policyId: string, updates: Partial<KeyRotationPolicy>): Promise<KeyRotationPolicy>;
+  deleteKeyRotationPolicy(policyId: string): Promise<void>;
+  getApplicableRotationPolicy(keyId: string): Promise<KeyRotationPolicy | undefined>;
+  
+  // Key Rotation History & Audit
+  getKeyRotationHistory(keyId: string): Promise<KeyRotationHistory[]>;
+  getTenantRotationHistory(tenantId: string, limit?: number): Promise<KeyRotationHistory[]>;
+  recordKeyRotation(rotation: InsertKeyRotationHistory): Promise<KeyRotationHistory>;
+  
+  // Automated Key Lifecycle
+  getKeysRequiringRotation(tenantId: string): Promise<EncryptionKey[]>;
+  processAutomatedRotations(tenantId: string): Promise<void>;
+  incrementKeyUsage(keyId: string): Promise<void>;
+  getKeyUsageStats(keyId: string): Promise<{ usageCount: number; maxUsage: number | null }>;
   
   // Security monitoring operations
   getSecurityEvents(tenantId: string, limit?: number): Promise<SecurityEvent[]>;
@@ -2307,6 +2338,311 @@ export class DatabaseStorage implements IStorage {
       .update(encryptionKeys)
       .set({ status: status as any, updatedAt: new Date() })
       .where(eq(encryptionKeys.id, keyId));
+  }
+
+  // Key Lifecycle Management & Versioning
+  async getKeyVersions(parentKeyId: string): Promise<EncryptionKey[]> {
+    return await db
+      .select()
+      .from(encryptionKeys)
+      .where(eq(encryptionKeys.parentKeyId, parentKeyId))
+      .orderBy(desc(encryptionKeys.version));
+  }
+
+  async getCurrentKeyVersion(parentKeyId: string): Promise<EncryptionKey | undefined> {
+    const [currentKey] = await db
+      .select()
+      .from(encryptionKeys)
+      .where(and(
+        eq(encryptionKeys.parentKeyId, parentKeyId),
+        eq(encryptionKeys.versionStatus, 'current')
+      ))
+      .limit(1);
+    return currentKey;
+  }
+
+  async rotateKey(keyId: string, trigger: string, triggeredBy: string): Promise<EncryptionKey> {
+    const [existingKey] = await db
+      .select()
+      .from(encryptionKeys)
+      .where(eq(encryptionKeys.id, keyId))
+      .limit(1);
+
+    if (!existingKey) {
+      throw new Error(`Key not found: ${keyId}`);
+    }
+
+    // Mark current key as previous
+    await db
+      .update(encryptionKeys)
+      .set({ versionStatus: 'previous', updatedAt: new Date() })
+      .where(eq(encryptionKeys.id, keyId));
+
+    // Create new version
+    const newVersion = (existingKey.version || 1) + 1;
+    const parentKeyId = existingKey.parentKeyId || existingKey.id;
+
+    const [newKey] = await db
+      .insert(encryptionKeys)
+      .values({
+        tenantId: existingKey.tenantId,
+        keyId: `${existingKey.keyId}_v${newVersion}`,
+        keyType: existingKey.keyType,
+        algorithmId: existingKey.algorithmId,
+        status: 'active',
+        version: newVersion,
+        versionStatus: 'current',
+        parentKeyId: parentKeyId,
+        previousVersionId: keyId,
+        rotationTrigger: trigger as any,
+        lastRotatedAt: new Date(),
+        activatedAt: new Date(),
+        usageCount: 0,
+        metadata: existingKey.metadata || {},
+      })
+      .returning();
+
+    // Record rotation history
+    await this.recordKeyRotation({
+      tenantId: existingKey.tenantId,
+      keyId: newKey.id,
+      fromVersion: existingKey.version || 1,
+      toVersion: newVersion,
+      rotationTrigger: trigger as any,
+      triggeredBy,
+      rotationStarted: new Date(),
+      rotationCompleted: new Date(),
+      rotationStatus: 'completed',
+    });
+
+    return newKey;
+  }
+
+  async rollbackKeyVersion(keyId: string, toVersion: number, rollbackBy: string): Promise<EncryptionKey> {
+    const [currentKey] = await db
+      .select()
+      .from(encryptionKeys)
+      .where(eq(encryptionKeys.id, keyId))
+      .limit(1);
+
+    if (!currentKey) {
+      throw new Error(`Key not found: ${keyId}`);
+    }
+
+    const parentKeyId = currentKey.parentKeyId || currentKey.id;
+
+    // Find the target version
+    const [targetKey] = await db
+      .select()
+      .from(encryptionKeys)
+      .where(and(
+        eq(encryptionKeys.parentKeyId, parentKeyId),
+        eq(encryptionKeys.version, toVersion)
+      ))
+      .limit(1);
+
+    if (!targetKey) {
+      throw new Error(`Version ${toVersion} not found for key`);
+    }
+
+    // Mark current version as deprecated
+    await db
+      .update(encryptionKeys)
+      .set({ versionStatus: 'deprecated', deactivatedAt: new Date() })
+      .where(eq(encryptionKeys.id, keyId));
+
+    // Activate target version
+    await db
+      .update(encryptionKeys)
+      .set({ 
+        versionStatus: 'current', 
+        status: 'active',
+        activatedAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(encryptionKeys.id, targetKey.id));
+
+    // Record rollback in history
+    await this.recordKeyRotation({
+      tenantId: currentKey.tenantId,
+      keyId: targetKey.id,
+      fromVersion: currentKey.version || 1,
+      toVersion: toVersion,
+      rotationTrigger: 'manual',
+      triggeredBy: rollbackBy,
+      rotationStarted: new Date(),
+      rotationCompleted: new Date(),
+      rotationStatus: 'rolled_back',
+    });
+
+    return targetKey;
+  }
+
+  async scheduleKeyRotation(keyId: string, rotationDate: Date): Promise<void> {
+    await db
+      .update(encryptionKeys)
+      .set({ 
+        nextRotationAt: rotationDate,
+        status: 'scheduled_rotation',
+        updatedAt: new Date()
+      })
+      .where(eq(encryptionKeys.id, keyId));
+  }
+
+  // Key Rotation Policies
+  async createKeyRotationPolicy(policy: InsertKeyRotationPolicy): Promise<KeyRotationPolicy> {
+    const [newPolicy] = await db
+      .insert(keyRotationPolicies)
+      .values(policy)
+      .returning();
+    return newPolicy;
+  }
+
+  async getKeyRotationPolicies(tenantId: string): Promise<KeyRotationPolicy[]> {
+    return await db
+      .select()
+      .from(keyRotationPolicies)
+      .where(eq(keyRotationPolicies.tenantId, tenantId))
+      .orderBy(desc(keyRotationPolicies.createdAt));
+  }
+
+  async updateKeyRotationPolicy(policyId: string, updates: Partial<KeyRotationPolicy>): Promise<KeyRotationPolicy> {
+    const [updatedPolicy] = await db
+      .update(keyRotationPolicies)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(keyRotationPolicies.id, policyId))
+      .returning();
+    
+    if (!updatedPolicy) {
+      throw new Error(`Policy not found: ${policyId}`);
+    }
+    
+    return updatedPolicy;
+  }
+
+  async deleteKeyRotationPolicy(policyId: string): Promise<void> {
+    await db
+      .delete(keyRotationPolicies)
+      .where(eq(keyRotationPolicies.id, policyId));
+  }
+
+  async getApplicableRotationPolicy(keyId: string): Promise<KeyRotationPolicy | undefined> {
+    const [key] = await db
+      .select()
+      .from(encryptionKeys)
+      .where(eq(encryptionKeys.id, keyId))
+      .limit(1);
+
+    if (!key) return undefined;
+
+    // Find policy for this key type and algorithm
+    const [policy] = await db
+      .select()
+      .from(keyRotationPolicies)
+      .where(and(
+        eq(keyRotationPolicies.tenantId, key.tenantId),
+        eq(keyRotationPolicies.keyType, key.keyType),
+        eq(keyRotationPolicies.isActive, true)
+      ))
+      .limit(1);
+
+    return policy;
+  }
+
+  // Key Rotation History & Audit
+  async getKeyRotationHistory(keyId: string): Promise<KeyRotationHistory[]> {
+    return await db
+      .select()
+      .from(keyRotationHistory)
+      .where(eq(keyRotationHistory.keyId, keyId))
+      .orderBy(desc(keyRotationHistory.createdAt));
+  }
+
+  async getTenantRotationHistory(tenantId: string, limit = 50): Promise<KeyRotationHistory[]> {
+    return await db
+      .select()
+      .from(keyRotationHistory)
+      .where(eq(keyRotationHistory.tenantId, tenantId))
+      .orderBy(desc(keyRotationHistory.createdAt))
+      .limit(limit);
+  }
+
+  async recordKeyRotation(rotation: InsertKeyRotationHistory): Promise<KeyRotationHistory> {
+    const [record] = await db
+      .insert(keyRotationHistory)
+      .values(rotation)
+      .returning();
+    return record;
+  }
+
+  // Automated Key Lifecycle
+  async getKeysRequiringRotation(tenantId: string): Promise<EncryptionKey[]> {
+    const now = new Date();
+    
+    return await db
+      .select()
+      .from(encryptionKeys)
+      .where(and(
+        eq(encryptionKeys.tenantId, tenantId),
+        eq(encryptionKeys.status, 'active'),
+        gte(encryptionKeys.nextRotationAt, now)
+      ));
+  }
+
+  async processAutomatedRotations(tenantId: string): Promise<void> {
+    const keysRequiringRotation = await this.getKeysRequiringRotation(tenantId);
+    
+    for (const key of keysRequiringRotation) {
+      try {
+        const policy = await this.getApplicableRotationPolicy(key.id);
+        
+        if (policy?.autoRotationEnabled) {
+          await this.rotateKey(key.id, 'time_based', 'system');
+          console.log(`✅ Auto-rotated key ${key.keyId} for tenant ${tenantId}`);
+        }
+      } catch (error) {
+        console.error(`❌ Failed to auto-rotate key ${key.keyId}:`, error);
+        
+        // Record failed rotation
+        await this.recordKeyRotation({
+          tenantId: key.tenantId,
+          keyId: key.id,
+          fromVersion: key.version || 1,
+          toVersion: (key.version || 1) + 1,
+          rotationTrigger: 'time_based',
+          triggeredBy: 'system',
+          rotationStarted: new Date(),
+          rotationStatus: 'failed',
+          errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
+    }
+  }
+
+  async incrementKeyUsage(keyId: string): Promise<void> {
+    await db
+      .update(encryptionKeys)
+      .set({ 
+        usageCount: sql`${encryptionKeys.usageCount} + 1`,
+        updatedAt: new Date()
+      })
+      .where(eq(encryptionKeys.id, keyId));
+  }
+
+  async getKeyUsageStats(keyId: string): Promise<{ usageCount: number; maxUsage: number | null }> {
+    const [key] = await db
+      .select({
+        usageCount: encryptionKeys.usageCount,
+        maxUsage: encryptionKeys.maxUsageCount
+      })
+      .from(encryptionKeys)
+      .where(eq(encryptionKeys.id, keyId))
+      .limit(1);
+
+    return {
+      usageCount: key?.usageCount || 0,
+      maxUsage: key?.maxUsage || null
+    };
   }
 
   // Security monitoring operations

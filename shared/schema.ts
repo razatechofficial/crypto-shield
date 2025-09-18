@@ -35,7 +35,13 @@ export const subscriptionTierEnum = pgEnum('subscription_tier', ['starter', 'pro
 export const algorithmTypeEnum = pgEnum('algorithm_type', ['symmetric', 'asymmetric', 'hash', 'post_quantum', 'tee', 'homomorphic', 'mpc', 'zero_knowledge']);
 
 // Key status enum
-export const keyStatusEnum = pgEnum('key_status', ['active', 'rotating', 'revoked', 'expired']);
+export const keyStatusEnum = pgEnum('key_status', ['active', 'rotating', 'revoked', 'expired', 'pending_activation', 'scheduled_rotation', 'archived']);
+
+// Key rotation trigger enum
+export const rotationTriggerEnum = pgEnum('rotation_trigger', ['time_based', 'usage_based', 'manual', 'compromise_detected', 'policy_change']);
+
+// Key version status enum
+export const keyVersionStatusEnum = pgEnum('key_version_status', ['current', 'previous', 'deprecated', 'compromised']);
 
 // SDK language enum
 export const sdkLanguageEnum = pgEnum('sdk_language', ['javascript', 'python', 'java', 'csharp', 'go', 'rust', 'dart', 'swift', 'kotlin', 'php', 'ruby', 'cpp']);
@@ -150,7 +156,7 @@ export const sdks = pgTable("sdks", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Encryption keys table
+// Encryption keys table with versioning support
 export const encryptionKeys = pgTable("encryption_keys", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
@@ -158,11 +164,88 @@ export const encryptionKeys = pgTable("encryption_keys", {
   keyType: varchar("key_type").notNull(), // 'primary', 'session', 'backup'
   algorithmId: varchar("algorithm_id").references(() => encryptionAlgorithms.id).notNull(),
   status: keyStatusEnum("status").default('active'),
+  
+  // Key Versioning & Lifecycle Management
+  version: integer("version").default(1).notNull(),
+  versionStatus: keyVersionStatusEnum("version_status").default('current'),
+  parentKeyId: varchar("parent_key_id"), // References the master key for versions
+  previousVersionId: varchar("previous_version_id"), // References previous version
+  
+  // Expiration & Rotation
   expiresAt: timestamp("expires_at"),
   rotationInterval: integer("rotation_interval").default(30), // days
+  lastRotatedAt: timestamp("last_rotated_at"),
+  nextRotationAt: timestamp("next_rotation_at"),
+  rotationTrigger: rotationTriggerEnum("rotation_trigger"),
+  
+  // Usage Tracking for Rotation
+  usageCount: integer("usage_count").default(0),
+  maxUsageCount: integer("max_usage_count"), // Max operations before rotation
+  
+  // Key Lifecycle
+  activatedAt: timestamp("activated_at"),
+  deactivatedAt: timestamp("deactivated_at"),
+  
   metadata: jsonb("metadata").default({}),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Key Rotation Policies table
+export const keyRotationPolicies = pgTable("key_rotation_policies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  policyName: varchar("policy_name").notNull(),
+  keyType: varchar("key_type").notNull(), // Apply to specific key types
+  algorithmId: varchar("algorithm_id").references(() => encryptionAlgorithms.id),
+  
+  // Rotation Triggers
+  timeBasedRotation: boolean("time_based_rotation").default(false),
+  rotationIntervalDays: integer("rotation_interval_days").default(30),
+  
+  usageBasedRotation: boolean("usage_based_rotation").default(false),
+  maxOperations: integer("max_operations").default(100000),
+  
+  // Policy Settings
+  autoRotationEnabled: boolean("auto_rotation_enabled").default(true),
+  notifyBeforeRotation: boolean("notify_before_rotation").default(true),
+  notificationDays: integer("notification_days").default(7),
+  
+  // Compliance & Governance
+  retainPreviousVersions: integer("retain_previous_versions").default(3),
+  emergencyRotationEnabled: boolean("emergency_rotation_enabled").default(true),
+  approvalRequired: boolean("approval_required").default(false),
+  
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Key Rotation History table for audit trails
+export const keyRotationHistory = pgTable("key_rotation_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  keyId: varchar("key_id").references(() => encryptionKeys.id).notNull(),
+  fromVersion: integer("from_version"),
+  toVersion: integer("to_version").notNull(),
+  
+  rotationTrigger: rotationTriggerEnum("rotation_trigger").notNull(),
+  triggeredBy: varchar("triggered_by"), // user_id or 'system'
+  policyId: varchar("policy_id").references(() => keyRotationPolicies.id),
+  
+  // Rotation Details
+  rotationStarted: timestamp("rotation_started").notNull(),
+  rotationCompleted: timestamp("rotation_completed"),
+  rotationStatus: varchar("rotation_status").notNull().default('in_progress'), // in_progress, completed, failed, rolled_back
+  
+  // Rollback capability
+  canRollback: boolean("can_rollback").default(true),
+  rolledBackAt: timestamp("rolled_back_at"),
+  rolledBackBy: varchar("rolled_back_by"),
+  
+  errorMessage: text("error_message"),
+  metadata: jsonb("metadata").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Security events table for monitoring
@@ -428,7 +511,7 @@ export const sdkRelations = relations(sdks, ({ one }) => ({
   }),
 }));
 
-export const encryptionKeyRelations = relations(encryptionKeys, ({ one }) => ({
+export const encryptionKeyRelations = relations(encryptionKeys, ({ one, many }) => ({
   tenant: one(tenants, {
     fields: [encryptionKeys.tenantId],
     references: [tenants.id],
@@ -436,6 +519,44 @@ export const encryptionKeyRelations = relations(encryptionKeys, ({ one }) => ({
   algorithm: one(encryptionAlgorithms, {
     fields: [encryptionKeys.algorithmId],
     references: [encryptionAlgorithms.id],
+  }),
+  parentKey: one(encryptionKeys, {
+    fields: [encryptionKeys.parentKeyId],
+    references: [encryptionKeys.id],
+    relationName: "keyVersions"
+  }),
+  previousVersion: one(encryptionKeys, {
+    fields: [encryptionKeys.previousVersionId],
+    references: [encryptionKeys.id],
+    relationName: "versionChain"
+  }),
+  rotationHistory: many(keyRotationHistory),
+}));
+
+export const keyRotationPolicyRelations = relations(keyRotationPolicies, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [keyRotationPolicies.tenantId],
+    references: [tenants.id],
+  }),
+  algorithm: one(encryptionAlgorithms, {
+    fields: [keyRotationPolicies.algorithmId],
+    references: [encryptionAlgorithms.id],
+  }),
+  rotationHistory: many(keyRotationHistory),
+}));
+
+export const keyRotationHistoryRelations = relations(keyRotationHistory, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [keyRotationHistory.tenantId],
+    references: [tenants.id],
+  }),
+  key: one(encryptionKeys, {
+    fields: [keyRotationHistory.keyId],
+    references: [encryptionKeys.id],
+  }),
+  policy: one(keyRotationPolicies, {
+    fields: [keyRotationHistory.policyId],
+    references: [keyRotationPolicies.id],
   }),
 }));
 
@@ -485,6 +606,17 @@ export const insertEncryptionKeySchema = createInsertSchema(encryptionKeys).omit
   updatedAt: true,
 });
 
+export const insertKeyRotationPolicySchema = createInsertSchema(keyRotationPolicies).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertKeyRotationHistorySchema = createInsertSchema(keyRotationHistory).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertSecurityEventSchema = createInsertSchema(securityEvents).omit({
   id: true,
   createdAt: true,
@@ -505,6 +637,10 @@ export type InsertSdk = z.infer<typeof insertSdkSchema>;
 export type EncryptionAlgorithm = typeof encryptionAlgorithms.$inferSelect;
 export type EncryptionKey = typeof encryptionKeys.$inferSelect;
 export type InsertEncryptionKey = z.infer<typeof insertEncryptionKeySchema>;
+export type KeyRotationPolicy = typeof keyRotationPolicies.$inferSelect;
+export type InsertKeyRotationPolicy = z.infer<typeof insertKeyRotationPolicySchema>;
+export type KeyRotationHistory = typeof keyRotationHistory.$inferSelect;
+export type InsertKeyRotationHistory = z.infer<typeof insertKeyRotationHistorySchema>;
 export type SecurityEvent = typeof securityEvents.$inferSelect;
 export type InsertSecurityEvent = z.infer<typeof insertSecurityEventSchema>;
 export type ApiUsage = typeof apiUsage.$inferSelect;
