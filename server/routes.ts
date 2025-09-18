@@ -566,8 +566,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalOperations,
           averageLatency: stats.averageLatency,
           successRate,
-          growthRate: 0.15, // Mock growth rate
-          latencyImprovement: 0.08, // Mock improvement
+          // Real metrics only - no fake growth or improvement data
           algorithmStats
         }
       });

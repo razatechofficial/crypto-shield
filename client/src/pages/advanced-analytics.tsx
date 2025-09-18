@@ -38,9 +38,10 @@ export default function AdvancedAnalytics() {
     queryFn: () => fetch('/api/algorithms').then(res => res.json())
   });
 
+  // Use real security incidents instead of fake security events
   const { data: securityEvents, isLoading: eventsLoading } = useQuery({
-    queryKey: ['/api/security-events'],
-    queryFn: () => fetch('/api/security-events').then(res => res.json())
+    queryKey: ['/api/monitoring/incidents'],
+    queryFn: () => fetch('/api/monitoring/incidents').then(res => res.json())
   });
 
   // Process real data for analytics
@@ -113,11 +114,11 @@ export default function AdvancedAnalytics() {
       }).sort((a, b) => b.operations - a.operations) // Sort by operations count, most active first
     : [];
 
-  // Process real security incidents
-  const processedSecurityEvents = Array.isArray(securityIncidents) 
-    ? securityIncidents.slice(0, 10).map((incident: any) => ({
+  // Process real security incidents from the correct source
+  const processedSecurityEvents = Array.isArray(securityEvents) 
+    ? securityEvents.slice(0, 10).map((incident: any) => ({
         type: incident.incidentType || 'Security Event',
-        count: incident.count || 1,
+        count: 1,
         severity: incident.severity || 'medium',
         timestamp: incident.createdAt ? new Date(incident.createdAt).toLocaleString() : 'Recently'
       }))
@@ -172,8 +173,8 @@ export default function AdvancedAnalytics() {
     },
     { 
       standard: 'Enterprise Security', 
-      status: (Array.isArray(securityIncidents) ? securityIncidents.filter((i: any) => i.severity === 'high').length : 0) < 5 ? 'Compliant' : 'At Risk',
-      tests: Math.max(0, 10 - (Array.isArray(securityIncidents) ? securityIncidents.filter((i: any) => i.severity === 'high').length : 0)) + '/10',
+      status: (Array.isArray(securityEvents) ? securityEvents.filter((i: any) => i.severity === 'high').length : 0) < 5 ? 'Compliant' : 'At Risk',
+      tests: Math.max(0, 10 - (Array.isArray(securityEvents) ? securityEvents.filter((i: any) => i.severity === 'high').length : 0)) + '/10',
       lastCheck: '3 hours ago' 
     },
   ];
@@ -218,7 +219,7 @@ export default function AdvancedAnalytics() {
                 totalOperations: operationsData?.stats?.totalOperations || 0,
                 averageLatency: operationsData?.stats?.averageLatency || 0,
                 successRate: operationsData?.stats?.successRate || 0,
-                securityIncidents: securityIncidents?.length || 0,
+                securityIncidents: securityEvents?.length || 0,
                 algorithms: algorithmUsage,
                 compliance: compliance.map(c => ({ standard: c.standard, status: c.status }))
               };
@@ -247,9 +248,9 @@ export default function AdvancedAnalytics() {
                 <p className="text-2xl font-bold text-gray-900">
                   {operationsData?.stats?.totalOperations?.toLocaleString() || '0'}
                 </p>
-                <p className="text-sm text-green-600 flex items-center">
-                  <TrendingUp className="w-3 h-3 mr-1" />
-                  +{((operationsData?.stats?.growthRate || 0) * 100).toFixed(1)}% from last period
+                <p className="text-sm text-blue-600 flex items-center">
+                  <Activity className="w-3 h-3 mr-1" />
+                  Last {timeRange} hours
                 </p>
               </div>
               <Activity className="w-8 h-8 text-blue-600" />
@@ -265,9 +266,9 @@ export default function AdvancedAnalytics() {
                 <p className="text-2xl font-bold text-gray-900">
                   {(operationsData?.stats?.averageLatency || 0).toFixed(1)}ms
                 </p>
-                <p className="text-sm text-green-600 flex items-center">
-                  <TrendingUp className="w-3 h-3 mr-1 rotate-180" />
-                  {((operationsData?.stats?.latencyImprovement || 0) * 100).toFixed(1)}% improvement
+                <p className="text-sm text-blue-600 flex items-center">
+                  <Zap className="w-3 h-3 mr-1" />
+                  Real-time monitoring
                 </p>
               </div>
               <Zap className="w-8 h-8 text-yellow-600" />
@@ -299,11 +300,11 @@ export default function AdvancedAnalytics() {
               <div>
                 <p className="text-sm text-gray-600">Security Events</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {securityIncidents?.length || 0}
+                  {securityEvents?.length || 0}
                 </p>
                 <p className="text-sm text-orange-600 flex items-center">
                   <AlertTriangle className="w-3 h-3 mr-1" />
-                  {securityIncidents?.filter((i: any) => i.severity === 'high').length || 0} high priority
+                  {securityEvents?.filter((i: any) => i.severity === 'high').length || 0} high priority
                 </p>
               </div>
               <AlertTriangle className="w-8 h-8 text-orange-600" />
