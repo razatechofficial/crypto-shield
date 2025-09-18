@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./averoxAuth";
 import { insertSdkSchema, insertEncryptionKeySchema, insertKeyRotationPolicySchema } from "@shared/schema";
 import { z } from "zod";
+import { keyRotationScheduler } from "./keyRotationScheduler";
 
 // KMS operation validation schemas
 const rotateKeySchema = z.object({
@@ -1597,6 +1598,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Quantum threats assessment error:", error);
       res.status(500).json({ message: "Failed to assess quantum threats", error: error.message });
+    }
+  });
+
+  // ============================================================================
+  // AUTOMATED ROTATION SCHEDULER ENDPOINTS - Admin Only  
+  // ============================================================================
+
+  // Get scheduler status
+  app.get("/api/admin/rotation-scheduler/status", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const userId = user.id || user.claims?.sub;
+      
+      // Verify admin permissions
+      const userRecord = await storage.getUser(userId);
+      if (!userRecord || userRecord.role !== 'admin') {
+        return res.status(403).json({ message: "Admin permissions required" });
+      }
+
+      const status = keyRotationScheduler.getStatus();
+      res.json({
+        success: true,
+        scheduler: status,
+        message: `Rotation scheduler is ${status.isRunning ? 'running' : 'stopped'}`
+      });
+    } catch (error: any) {
+      console.error("Error getting scheduler status:", error);
+      res.status(500).json({ message: "Failed to get scheduler status" });
+    }
+  });
+
+  // Manually trigger rotation check
+  app.post("/api/admin/rotation-scheduler/trigger", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const userId = user.id || user.claims?.sub;
+      
+      // Verify admin permissions
+      const userRecord = await storage.getUser(userId);
+      if (!userRecord || userRecord.role !== 'admin') {
+        return res.status(403).json({ message: "Admin permissions required" });
+      }
+
+      // Get tenant for audit trail
+      const tenantId = await storage.getOrCreateTenantForUser(userId, userRecord.email || 'unknown@averox.com');
+
+      // Trigger manual rotation check
+      await keyRotationScheduler.triggerManualCheck();
+
+      // Create security event
+      await storage.createSecurityEvent({
+        tenantId,
+        eventType: 'manual_rotation_check',
+        severity: 'medium',
+        description: 'Manual key rotation check triggered by admin',
+        metadata: {
+          triggeredBy: userId,
+          timestamp: new Date().toISOString()
+        }
+      });
+
+      res.json({
+        success: true,
+        message: "Manual rotation check completed successfully"
+      });
+    } catch (error: any) {
+      console.error("Error triggering manual rotation check:", error);
+      res.status(500).json({ message: "Failed to trigger rotation check" });
     }
   });
 
