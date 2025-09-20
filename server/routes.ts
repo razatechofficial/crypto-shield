@@ -137,7 +137,7 @@ async function verifyKeyOwnership(keyId: string, userId: string, requiredRole?: 
   const key = keys.find(k => k.id === keyId);
   
   if (!key) {
-    throw new Error('Key not found or access denied');
+    throw new Error('Key not found in organization');
   }
   
   return { key, tenantId, user };
@@ -961,7 +961,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error rotating key:", error);
       
-      if (error.message.includes('not found') || error.message.includes('access denied')) {
+      if (error.message.includes('not found') || error.message.includes('Key not found')) {
         return res.status(404).json({ message: "Key not found" });
       }
       if (error.message.includes('permissions')) {
@@ -1025,7 +1025,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error scheduling key rotation:", error);
       
-      if (error.message.includes('not found') || error.message.includes('access denied')) {
+      if (error.message.includes('not found') || error.message.includes('Key not found')) {
         return res.status(404).json({ message: "Key not found" });
       }
       if (error.message.includes('permissions')) {
@@ -1080,7 +1080,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error rolling back key:", error);
       
-      if (error.message.includes('not found') || error.message.includes('access denied')) {
+      if (error.message.includes('not found') || error.message.includes('Key not found')) {
         return res.status(404).json({ message: "Key not found" });
       }
       if (error.message.includes('permissions')) {

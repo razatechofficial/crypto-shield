@@ -59,7 +59,7 @@ export const tenantResolver = async (req: Request, res: Response, next: NextFunc
         req.user.role = 'admin';
         req.user.permissions = await storage.getRolePermissions('admin');
       } else {
-        return res.status(403).json({ error: 'Access denied to tenant' });
+        return res.status(403).json({ error: 'Invalid tenant access' });
       }
     } else {
       // Load role-based permissions

@@ -55,7 +55,7 @@ export function setupEnterpriseRoutes(app: Express) {
       // CRITICAL: Validate user belongs to same tenant (multi-tenant check)
       const tenantUser = await storage.getTenantUser(req.user!.tenantId, userId);
       if (!tenantUser) {
-        return res.status(403).json({ error: "Access denied - user not in your tenant" });
+        return res.status(403).json({ error: "User not found in organization" });
       }
 
       const updatedUser = await storage.updateUserProfile(userId, updates, updatedBy);
@@ -75,7 +75,7 @@ export function setupEnterpriseRoutes(app: Express) {
       // CRITICAL: Validate user belongs to same tenant (multi-tenant check)
       const tenantUser = await storage.getTenantUser(req.user!.tenantId, userId);
       if (!tenantUser) {
-        return res.status(403).json({ error: "Access denied - user not in your tenant" });
+        return res.status(403).json({ error: "User not found in organization" });
       }
 
       // Prevent self-deactivation
@@ -100,7 +100,7 @@ export function setupEnterpriseRoutes(app: Express) {
       // CRITICAL: Validate user belongs to same tenant (multi-tenant check)
       const tenantUser = await storage.getTenantUser(req.user!.tenantId, userId);
       if (!tenantUser) {
-        return res.status(403).json({ error: "Access denied - user not in your tenant" });
+        return res.status(403).json({ error: "User not found in organization" });
       }
 
       const user = await storage.reactivateUser(userId, reactivatedBy);
@@ -120,7 +120,7 @@ export function setupEnterpriseRoutes(app: Express) {
       // CRITICAL: Validate user belongs to same tenant (multi-tenant check)
       const tenantUser = await storage.getTenantUser(req.user!.tenantId, userId);
       if (!tenantUser) {
-        return res.status(403).json({ error: "Access denied - user not in your tenant" });
+        return res.status(403).json({ error: "User not found in organization" });
       }
 
       // Prevent self-deletion
@@ -165,7 +165,7 @@ export function setupEnterpriseRoutes(app: Express) {
 
       // CRITICAL: Validate user can modify this tenant
       if (tenantId !== req.user!.tenantId) {
-        return res.status(403).json({ error: "Access denied - not your organization" });
+        return res.status(403).json({ error: "Organization not found" });
       }
 
       const organization = await storage.updateOrganization(tenantId, updates, updatedBy);
@@ -204,7 +204,7 @@ export function setupEnterpriseRoutes(app: Express) {
       // CRITICAL: Validate user belongs to same tenant (multi-tenant check)
       const tenantUser = await storage.getTenantUser(req.user!.tenantId, userId);
       if (!tenantUser) {
-        return res.status(403).json({ error: "Access denied - user not in your tenant" });
+        return res.status(403).json({ error: "User not found in organization" });
       }
 
       const updatedUser = await storage.updateUserRole(userId, role);

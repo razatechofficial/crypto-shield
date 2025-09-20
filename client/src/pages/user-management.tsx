@@ -134,10 +134,9 @@ export default function UserManagement() {
     return (
       <div className="min-h-screen bg-white p-6">
         <div className="text-center py-12">
-          <ShieldCheck className="w-16 h-16 mx-auto text-red-500 mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Access Denied</h3>
-          <p className="text-gray-600">You don't have permission to access user management.</p>
-          <p className="text-sm text-gray-500 mt-2">Please contact an administrator for access.</p>
+          <ShieldCheck className="w-16 h-16 mx-auto text-orange-500 mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Unable to Load Page</h3>
+          <p className="text-gray-600">This page is currently unavailable. Please contact your administrator or try again later.</p>
         </div>
       </div>
     );

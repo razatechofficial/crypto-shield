@@ -18,11 +18,12 @@ console.log('🔗 Configured domains for Averox authentication:', AVEROX_DOMAINS
 
 const getOidcConfig = memoize(
   async () => {
-    const issuerUrl = process.env.ISSUER_URL || "https://replit.com/oidc";
-    const clientId = process.env.AVEROX_CLIENT_ID || process.env.REPL_ID;
+    const issuerUrl = process.env.ISSUER_URL || "https://averox.com/oidc";
+    const clientId = process.env.AVEROX_CLIENT_ID;
     
     if (!clientId) {
-      throw new Error("AVEROX_CLIENT_ID environment variable is required for Averox authentication");
+      console.warn("AVEROX_CLIENT_ID not set, using development fallback");
+      return null; // Development mode fallback
     }
 
     console.log('🔐 Configuring Averox OIDC with issuer:', issuerUrl, 'client:', clientId);
@@ -227,7 +228,7 @@ export async function setupAuth(app: Express) {
     req.logout(() => {
       res.redirect(
         client.buildEndSessionUrl(config, {
-          client_id: process.env.AVEROX_CLIENT_ID || process.env.REPL_ID!,
+          client_id: process.env.AVEROX_CLIENT_ID!,
           post_logout_redirect_uri: `${req.protocol}://${req.hostname}`,
         }).href
       );
@@ -239,7 +240,7 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
   const user = req.user as any;
 
   // Development mode with mock user
-  if (process.env.NODE_ENV === 'development' && !process.env.REPL_ID) {
+  if (process.env.NODE_ENV === 'development' && !process.env.AVEROX_CLIENT_ID) {
     console.log('🔍 Development mode - checking authentication:', !!req.isAuthenticated());
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Unauthorized" });
