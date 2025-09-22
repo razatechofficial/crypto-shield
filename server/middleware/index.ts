@@ -10,7 +10,7 @@ export {
 } from './permissionGuard';
 
 // Combined middleware for enterprise endpoints
-import { isAuthenticated } from '../averoxAuth';
+import { isAuthenticated } from '../replitAuth';
 import { tenantResolver } from './tenantResolver';
 
 /**
