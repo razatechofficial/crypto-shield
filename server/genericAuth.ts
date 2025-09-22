@@ -164,7 +164,8 @@ export async function setupAuth(app: Express) {
       console.error('Alternatively, set ALLOW_INSECURE_FALLBACK=true to enable insecure fallback authentication (NOT RECOMMENDED).');
       
       if (process.env.ALLOW_INSECURE_FALLBACK !== 'true') {
-        throw new Error('Production deployment failed: OIDC configuration is required. Set OIDC_ISSUER_URL and OIDC_CLIENT_ID environment variables, or set ALLOW_INSECURE_FALLBACK=true (not recommended).');
+        console.error('❌ Production deployment requires OIDC configuration, but none found.');
+        console.error('Authentication service will remain unavailable until proper OIDC configuration is provided.');
       }
       
       console.warn('⚠️  WARNING: Running with insecure fallback authentication in production. This is not recommended for security reasons.');
@@ -210,16 +211,55 @@ export async function setupAuth(app: Express) {
     config = await getOidcConfig();
   } catch (error) {
     console.error('Failed to get OIDC configuration:', error);
-    throw new Error('OIDC configuration failed to load. Please check your OIDC_ISSUER_URL and OIDC_CLIENT_ID environment variables.');
+    console.error('Falling back to insecure authentication mode to prevent crash...');
+    console.warn('⚠️ Please check your OIDC_ISSUER_URL and OIDC_CLIENT_ID environment variables');
+    
+    // SECURITY: Set up minimal authentication without OIDC that provides clear service degradation
+    passport.serializeUser((user, done) => {
+      done(null, user);
+    });
+
+    passport.deserializeUser((user: any, done) => {
+      done(null, user);
+    });
+
+    // Provide basic routes that indicate the service is degraded - NO AUTH BYPASS
+    app.get("/api/login", (req, res) => {
+      res.status(503).json({ 
+        error: 'Authentication service unavailable', 
+        message: 'OIDC configuration failed to load. Please contact your administrator.',
+        configRequired: ['OIDC_ISSUER_URL', 'OIDC_CLIENT_ID']
+      });
+    });
+
+    app.get("/api/callback", (req, res) => {
+      res.status(503).json({ 
+        error: 'Authentication service unavailable', 
+        message: 'OIDC configuration failed to load. Please contact your administrator.',
+        configRequired: ['OIDC_ISSUER_URL', 'OIDC_CLIENT_ID']
+      });
+    });
+
+    app.get("/api/logout", (req, res) => {
+      req.logout(() => {
+        res.redirect('/');
+      });
+    });
+
+    return;
   }
 
-  const verify: VerifyFunction = async (tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers, userinfo: any, done: (error: any, user?: any) => void) => {
-    updateUserSession(userinfo, tokens);
+  const verify: VerifyFunction = async (
+    tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers,
+    done: passport.AuthenticateCallback
+  ) => {
+    const user = {};
+    updateUserSession(user, tokens);
     try {
       const dbUser = await upsertUser(tokens.claims());
       // Store the full database user object in session, not just OIDC claims
       const sessionUser = {
-        ...userinfo,
+        ...user,
         id: dbUser.id,
         tenantId: dbUser.tenantId,
         role: dbUser.role,

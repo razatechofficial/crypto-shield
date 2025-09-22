@@ -108,7 +108,8 @@ export class PayPalService {
   ): Promise<{ url: string }> {
     // Check if PayPal is properly configured
     if (!process.env.PAYPAL_CLIENT_ID || !process.env.PAYPAL_CLIENT_SECRET) {
-      throw new Error('PayPal is not configured for production use. Please set PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET environment variables.');
+      console.warn('⚠️ PayPal not configured for production, returning service unavailable');
+      throw new Error('Billing service unavailable - PayPal configuration required for payment processing');
     }
 
     // Validate success/cancel URLs to prevent open redirect attacks (same as Stripe)

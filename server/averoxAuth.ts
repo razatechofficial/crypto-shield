@@ -41,14 +41,15 @@ import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
 
 // Set default environment variables to fix deployment issues
+// SECURITY: Default to secure mode - only enable fallback explicitly
 if (!process.env.ALLOW_INSECURE_FALLBACK) {
-  process.env.ALLOW_INSECURE_FALLBACK = "true";
+  process.env.ALLOW_INSECURE_FALLBACK = "false";
 }
 if (!process.env.AVEROX_CLIENT_ID) {
   process.env.AVEROX_CLIENT_ID = "averox-default-client-id";
 }
 if (!process.env.ISSUER_URL) {
-  process.env.ISSUER_URL = "https://averox.com/oidc";
+  process.env.ISSUER_URL = "https://averox.com";
 }
 
 console.log('🔧 Environment variables configured for deployment:');
@@ -65,7 +66,7 @@ console.log('🔗 Configured domains for Averox authentication:', AVEROX_DOMAINS
 
 const getOidcConfig = memoize(
   async () => {
-    const issuerUrl = process.env.ISSUER_URL || "https://averox.com/oidc";
+    const issuerUrl = process.env.ISSUER_URL || "https://averox.com";
     const clientId = process.env.AVEROX_CLIENT_ID;
     
     if (!clientId) {
@@ -289,7 +290,36 @@ export async function setupAuth(app: Express) {
       console.warn('⚠️ OIDC configuration unavailable. Using insecure fallback mode (not recommended for production).');
       return setupFallbackAuth(app);
     } else {
-      throw new Error('Averox authentication configuration failed to load. Please set AVEROX_CLIENT_ID, ISSUER_URL, and SESSION_SECRET environment variables, or set ALLOW_INSECURE_FALLBACK=true for development.');
+      console.error('❌ Averox authentication configuration failed to load.');
+      console.error('Missing environment variables: AVEROX_CLIENT_ID, ISSUER_URL, or SESSION_SECRET');
+      console.error('Authentication service will be unavailable until OIDC is configured.');
+      
+      // SECURITY: Never enable fallback auth automatically in production
+      // Instead, provide degraded service endpoints that clearly indicate configuration is required
+      passport.serializeUser((user, done) => done(null, user));
+      passport.deserializeUser((user: any, done) => done(null, user));
+
+      app.get("/api/login", (req, res) => {
+        res.status(503).json({ 
+          error: 'Authentication service unavailable', 
+          message: 'OIDC configuration is required. Please contact your administrator.',
+          configRequired: ['AVEROX_CLIENT_ID', 'ISSUER_URL', 'SESSION_SECRET']
+        });
+      });
+
+      app.get("/api/callback", (req, res) => {
+        res.status(503).json({ 
+          error: 'Authentication service unavailable', 
+          message: 'OIDC configuration is required. Please contact your administrator.',
+          configRequired: ['AVEROX_CLIENT_ID', 'ISSUER_URL', 'SESSION_SECRET']
+        });
+      });
+
+      app.get("/api/logout", (req, res) => {
+        res.redirect('/');
+      });
+
+      return;
     }
   }
 

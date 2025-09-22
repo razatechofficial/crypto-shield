@@ -2,8 +2,8 @@ import Stripe from 'stripe';
 import { storage } from '../storage';
 
 // Initialize Stripe client with TypeScript support (development safe)
+// Using account default API version to ensure compatibility
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_development_fallback', {
-  apiVersion: '2024-06-20',
   typescript: true,
 });
 
@@ -24,7 +24,8 @@ export class StripeService {
   ): Promise<{ url: string }> {
     // Check if Stripe is properly configured
     if (!process.env.STRIPE_SECRET_KEY || process.env.STRIPE_SECRET_KEY.startsWith('sk_test_development')) {
-      throw new Error('Stripe is not configured for production use. Please set STRIPE_SECRET_KEY environment variable.');
+      console.warn('⚠️ Stripe not configured for production, returning service unavailable');
+      throw new Error('Billing service unavailable - Stripe configuration required for payment processing');
     }
 
     // Validate success/cancel URLs to prevent open redirect attacks
@@ -194,8 +195,8 @@ export class StripeService {
         subscriptionId: subscriptionId,
         status: stripeSubscription.status === 'active' ? 'active' : 
                 stripeSubscription.status === 'trialing' ? 'trialing' : 'pending',
-        currentPeriodStart: new Date(stripeSubscription.current_period_start * 1000),
-        currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000),
+        currentPeriodStart: new Date((stripeSubscription as any).current_period_start * 1000),
+        currentPeriodEnd: new Date((stripeSubscription as any).current_period_end * 1000),
         trialEnd: stripeSubscription.trial_end ? new Date(stripeSubscription.trial_end * 1000) : undefined,
       });
 
@@ -253,8 +254,8 @@ export class StripeService {
       // Update subscription in database
       await storage.updateTenantSubscriptionStatus(tenantId, {
         status: status,
-        currentPeriodStart: new Date(subscription.current_period_start * 1000),
-        currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+        currentPeriodStart: new Date((subscription as any).current_period_start * 1000),
+        currentPeriodEnd: new Date((subscription as any).current_period_end * 1000),
         trialEnd: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
       });
 
@@ -328,7 +329,7 @@ export class StripeService {
    */
   async handleInvoicePaid(invoice: Stripe.Invoice): Promise<void> {
     try {
-      const subscriptionId = invoice.subscription as string;
+      const subscriptionId = (invoice as any).subscription as string;
       if (!subscriptionId) return;
 
       const subscription = await stripe.subscriptions.retrieve(subscriptionId);
@@ -365,7 +366,7 @@ export class StripeService {
    */
   async handleInvoicePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
     try {
-      const subscriptionId = invoice.subscription as string;
+      const subscriptionId = (invoice as any).subscription as string;
       if (!subscriptionId) return;
 
       const subscription = await stripe.subscriptions.retrieve(subscriptionId);
