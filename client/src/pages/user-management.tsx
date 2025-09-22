@@ -35,12 +35,17 @@ export default function UserManagement() {
   const queryClient = useQueryClient();
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
 
-  const { data: users = [], isLoading, error } = useQuery({
+  const { data: users = [], isLoading, error } = useQuery<any[]>({
     queryKey: ["/api/users"],
     retry: false,
   });
 
-  const { data: userStats } = useQuery({
+  const { data: userStats } = useQuery<{
+    totalUsers: number;
+    activeUsers: number;
+    adminUsers: number;
+    recentlyJoined: number;
+  }>({
     queryKey: ["/api/users/stats"],
     retry: false,
   });
