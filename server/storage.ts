@@ -64,6 +64,7 @@ import { randomUUID } from "crypto";
 export interface IStorage {
   // User operations (required for Authentication)
   getUser(id: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   updateUser(id: string, updates: Partial<User>): Promise<User>;
   

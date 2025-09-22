@@ -34,13 +34,6 @@ export const getQueryFn: <T>(options: {
     });
 
     if (res.status === 401) {
-      // In development mode, automatically redirect to login
-      if (import.meta.env.DEV) {
-        console.log('🔄 Development mode: Auto-redirecting to login...');
-        window.location.href = '/api/login';
-        return null;
-      }
-      
       if (unauthorizedBehavior === "returnNull") {
         return null;
       }

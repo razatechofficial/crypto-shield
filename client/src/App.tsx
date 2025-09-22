@@ -5,6 +5,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import Landing from "@/pages/landing";
+import Login from "@/pages/Login";
+import Register from "@/pages/Register";
 import Layout from "@/components/Layout";
 import Dashboard from "@/pages/dashboard";
 import SdkWizard from "@/pages/sdk-wizard";
@@ -37,7 +39,11 @@ function Router() {
   return (
     <Switch>
       {!isAuthenticated ? (
-        <Route path="/" component={Landing} />
+        <>
+          <Route path="/login" component={Login} />
+          <Route path="/register" component={Register} />
+          <Route path="/" component={Landing} />
+        </>
       ) : (
         <Layout>
           <Route path="/" component={Dashboard} />

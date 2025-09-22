@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Shield, Lock, Key, Eye, Users, CreditCard, Settings, Zap } from "lucide-react";
+import { Link } from "wouter";
 
 export default function Landing() {
   return (
@@ -32,14 +33,15 @@ export default function Landing() {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button 
-                size="lg" 
-                className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-3"
-                onClick={() => window.location.href = '/api/login'}
-                data-testid="button-login"
-              >
-                Get Started
-              </Button>
+              <Link href="/login">
+                <Button 
+                  size="lg" 
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-3 w-full"
+                  data-testid="button-login"
+                >
+                  Get Started
+                </Button>
+              </Link>
               <Button 
                 size="lg" 
                 variant="outline" 
@@ -65,11 +67,11 @@ export default function Landing() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card 
-            className="bg-slate-800 border-slate-700 cursor-pointer hover:bg-slate-700 transition-colors"
-            onClick={() => window.location.href = '/api/login'}
-            data-testid="card-sdk-wizard"
-          >
+          <Link href="/login">
+            <Card 
+              className="bg-slate-800 border-slate-700 cursor-pointer hover:bg-slate-700 transition-colors"
+              data-testid="card-sdk-wizard"
+            >
             <CardHeader>
               <Zap className="w-8 h-8 text-blue-500 mb-2" />
               <CardTitle className="text-white">SDK Wizard</CardTitle>
@@ -78,6 +80,7 @@ export default function Landing() {
               </CardDescription>
             </CardHeader>
           </Card>
+          </Link>
 
           <Card className="bg-slate-800 border-slate-700">
             <CardHeader>
@@ -166,14 +169,15 @@ export default function Landing() {
           <p className="text-slate-400 text-lg mb-8">
             Join thousands of enterprises protecting their data with Averox Crypto System
           </p>
-          <Button 
-            size="lg" 
-            className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-3"
-            onClick={() => window.location.href = '/api/login'}
-            data-testid="button-get-started"
-          >
-            Start Your Free Trial
-          </Button>
+          <Link href="/login">
+            <Button 
+              size="lg" 
+              className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-3 w-full"
+              data-testid="button-get-started"
+            >
+              Start Your Free Trial
+            </Button>
+          </Link>
         </div>
       </div>
     </div>
