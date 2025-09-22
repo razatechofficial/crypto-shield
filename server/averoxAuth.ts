@@ -1,4 +1,35 @@
 // Averox Ltd Authentication implementation - production-ready authentication system
+//
+// REQUIRED ENVIRONMENT VARIABLES FOR PRODUCTION DEPLOYMENT:
+// 
+// 1. AVEROX_CLIENT_ID - OIDC client ID for Averox authentication
+//    - Required for production OIDC authentication
+//    - Get this from your Averox authentication provider
+//
+// 2. ISSUER_URL - OIDC issuer URL (default: "https://averox.com/oidc")
+//    - Optional: defaults to Averox OIDC endpoint
+//    - Set this if using a custom OIDC issuer
+//
+// 3. SESSION_SECRET - Secret key for session encryption
+//    - Required for production session security
+//    - Must be a strong, random string (min 32 characters)
+//    - Example: openssl rand -base64 32
+//
+// 4. ALLOW_INSECURE_FALLBACK - Enable fallback mode when OIDC is unavailable
+//    - Optional: set to "true" to enable insecure fallback authentication
+//    - NOT RECOMMENDED for production - use only for development/testing
+//    - When enabled, creates basic session-based auth without OIDC
+//
+// 5. DATABASE_URL - PostgreSQL connection string for session storage
+//    - Required for session persistence
+//    - Automatically provided by Replit
+//
+// ERROR HANDLING IMPROVEMENTS:
+// - Authentication setup no longer crashes when AVEROX_CLIENT_ID is missing
+// - Provides clear error messages for missing environment variables
+// - Supports fallback mode for development/testing environments
+// - All OIDC operations include null checks to prevent TypeErrors
+//
 import * as client from "openid-client";
 import { Strategy, type VerifyFunction } from "openid-client/passport";
 
@@ -87,6 +118,70 @@ async function upsertUser(claims: any) {
   });
 }
 
+async function setupFallbackAuth(app: Express) {
+  console.warn('🚨 Setting up fallback authentication mode - NOT RECOMMENDED for production!');
+  
+  // Set up basic session-based authentication without OIDC
+  passport.serializeUser((user, done) => {
+    done(null, user);
+  });
+
+  passport.deserializeUser((user: any, done) => {
+    done(null, user);
+  });
+
+  // Simple login endpoint that creates a basic user
+  app.get("/api/login", async (req, res) => {
+    try {
+      // Create a fallback user
+      const fallbackClaims = {
+        sub: "fallback-user-001",
+        email: "fallback@averox.com", 
+        username: "fallback_user",
+        first_name: "Fallback",
+        last_name: "User",
+        exp: Math.floor(Date.now() / 1000) + 86400, // 24 hours from now
+      };
+      
+      // Create the user in the database
+      const dbUser = await upsertUser(fallbackClaims);
+      
+      const fallbackUser = {
+        claims: fallbackClaims,
+        access_token: "fallback-access-token",
+        refresh_token: "fallback-refresh-token", 
+        expires_at: Math.floor(Date.now() / 1000) + 86400,
+        // Include database user info
+        id: dbUser.id,
+        tenantId: dbUser.tenantId,
+        role: dbUser.role,
+        email: dbUser.email
+      };
+      
+      req.login(fallbackUser, (err) => {
+        if (err) {
+          console.error('Fallback login error:', err);
+          return res.redirect('/?error=login_failed');
+        }
+        res.redirect('/');
+      });
+    } catch (error) {
+      console.error('Fallback user creation error:', error);
+      res.redirect('/?error=user_creation_failed');
+    }
+  });
+
+  app.get("/api/callback", (req, res) => {
+    res.redirect('/');
+  });
+
+  app.get("/api/logout", (req, res) => {
+    req.logout(() => {
+      res.redirect('/');
+    });
+  });
+}
+
 export async function setupAuth(app: Express) {
   app.set("trust proxy", 1);
   app.use(getSession());
@@ -168,7 +263,18 @@ export async function setupAuth(app: Express) {
     config = await getOidcConfig();
   } catch (error) {
     console.error('Failed to get OIDC configuration:', error);
-    throw new Error('Averox authentication configuration failed to load. Please check your AVEROX_CLIENT_ID environment variable.');
+    config = null;
+  }
+
+  // Check if OIDC configuration is available
+  if (!config) {
+    const allowFallback = process.env.ALLOW_INSECURE_FALLBACK === 'true';
+    if (allowFallback) {
+      console.warn('⚠️ OIDC configuration unavailable. Using insecure fallback mode (not recommended for production).');
+      return setupFallbackAuth(app);
+    } else {
+      throw new Error('Averox authentication configuration failed to load. Please set AVEROX_CLIENT_ID, ISSUER_URL, and SESSION_SECRET environment variables, or set ALLOW_INSECURE_FALLBACK=true for development.');
+    }
   }
 
   const verify: VerifyFunction = async (
@@ -227,12 +333,16 @@ export async function setupAuth(app: Express) {
 
   app.get("/api/logout", (req, res) => {
     req.logout(() => {
-      res.redirect(
-        client.buildEndSessionUrl(config, {
-          client_id: process.env.AVEROX_CLIENT_ID!,
-          post_logout_redirect_uri: `${req.protocol}://${req.hostname}`,
-        }).href
-      );
+      if (config && process.env.AVEROX_CLIENT_ID) {
+        res.redirect(
+          client.buildEndSessionUrl(config, {
+            client_id: process.env.AVEROX_CLIENT_ID,
+            post_logout_redirect_uri: `${req.protocol}://${req.hostname}`,
+          }).href
+        );
+      } else {
+        res.redirect('/');
+      }
     });
   });
 }
@@ -267,6 +377,11 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
 
   try {
     const config = await getOidcConfig();
+    if (!config) {
+      // If no OIDC config is available, treat as unauthorized
+      res.status(401).json({ message: "Unauthorized" });
+      return;
+    }
     const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
     updateUserSession(user, tokenResponse);
     return next();
