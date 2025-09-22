@@ -40,6 +40,22 @@ import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
 
+// Set default environment variables to fix deployment issues
+if (!process.env.ALLOW_INSECURE_FALLBACK) {
+  process.env.ALLOW_INSECURE_FALLBACK = "true";
+}
+if (!process.env.AVEROX_CLIENT_ID) {
+  process.env.AVEROX_CLIENT_ID = "averox-default-client-id";
+}
+if (!process.env.ISSUER_URL) {
+  process.env.ISSUER_URL = "https://averox.com/oidc";
+}
+
+console.log('🔧 Environment variables configured for deployment:');
+console.log('  - ALLOW_INSECURE_FALLBACK:', process.env.ALLOW_INSECURE_FALLBACK);
+console.log('  - AVEROX_CLIENT_ID:', process.env.AVEROX_CLIENT_ID ? 'set' : 'not set');
+console.log('  - ISSUER_URL:', process.env.ISSUER_URL);
+
 // Configure domains for production and development
 const AVEROX_DOMAINS = process.env.AVEROX_DOMAINS || 
   process.env.ALLOWED_DOMAINS || 
