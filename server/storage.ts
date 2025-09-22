@@ -2832,23 +2832,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUsersByTenant(tenantId: string): Promise<User[]> {
-    // Join with tenantUsers to get all users associated with tenant (not just primary tenant)
-    const usersWithTenantAssociation = await db
+    // Get users directly from the users table - they already have tenantId
+    const tenantUsersResult = await db
       .select({
         id: users.id,
         email: users.email,
-        username: users.username,
-        role: tenantUsers.role, // Use role from tenant association
+        firstName: users.firstName,
+        lastName: users.lastName,
+        profileImageUrl: users.profileImageUrl,
+        role: users.role,
         tenantId: users.tenantId,
         createdAt: users.createdAt,
         updatedAt: users.updatedAt
       })
       .from(users)
-      .innerJoin(tenantUsers, eq(users.id, tenantUsers.userId))
-      .where(eq(tenantUsers.tenantId, tenantId))
+      .where(eq(users.tenantId, tenantId))
       .orderBy(desc(users.createdAt));
 
-    return usersWithTenantAssociation as User[];
+    return tenantUsersResult as User[];
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
