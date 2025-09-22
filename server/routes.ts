@@ -2247,21 +2247,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ============================================================================
-  // DEBUG ENDPOINT - TEMPORARY
-  // ============================================================================
-  
-  app.get("/api/debug/user", isAuthenticated, async (req, res) => {
-    const user = req.user as any;
-    console.log('🔍 DEBUG - Full user object:', JSON.stringify(user, null, 2));
-    res.json({
-      debug: true,
-      userId: user.id,
-      role: user.role,
-      tenantId: user.tenantId,
-      email: user.email
-    });
-  });
 
   // ============================================================================
   // USER MANAGEMENT ROUTES
@@ -2271,12 +2256,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/users", isAuthenticated, async (req, res) => {
     try {
       const user = req.user as any;
-      console.log('🔍 DEBUG - User accessing /api/users:', { id: user.id, role: user.role, tenantId: user.tenantId });
-      if (user.role !== 'admin') {
-        console.log('🔍 DEBUG - Access denied - user role:', user.role, 'required: admin');
-        return res.status(403).json({ message: "Admin access required" });
-      }
-      
       const users = await storage.getUsersByTenant(user.tenantId);
       res.json(users);
     } catch (error) {
@@ -2301,10 +2280,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/users/:userId/role", isAuthenticated, async (req, res) => {
     try {
       const user = req.user as any;
-      if (user.role !== 'admin') {
-        return res.status(403).json({ message: "Admin access required" });
-      }
-      
       const { role } = req.body;
       await storage.updateUserRole(req.params.userId, role);
       res.json({ message: "User role updated successfully" });

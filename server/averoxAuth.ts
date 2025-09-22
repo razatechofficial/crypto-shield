@@ -122,14 +122,6 @@ export async function setupAuth(app: Express) {
         // Create the user in the database (same as production flow)
         const dbUser = await upsertUser(mockClaims);
         
-        // For development mode, ensure user has admin role
-        console.log('🔍 DEBUG - Dev user role before check:', dbUser.role);
-        if (dbUser.role !== 'admin') {
-          console.log('🔍 DEBUG - Updating dev user role to admin');
-          await storage.updateUserRole(dbUser.id, 'admin');
-          dbUser.role = 'admin'; // Update local object too
-        }
-        console.log('🔍 DEBUG - Dev user role after check:', dbUser.role);
         
         const mockUser = {
           claims: mockClaims,
