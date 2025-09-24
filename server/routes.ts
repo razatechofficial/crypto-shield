@@ -2289,6 +2289,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Secure logout endpoint
+  app.post("/api/logout", isAuthenticated, async (req, res) => {
+    try {
+      req.logout((err) => {
+        if (err) {
+          console.error('Logout error:', err);
+          return res.status(500).json({ message: "Logout failed" });
+        }
+        
+        req.session.destroy((err) => {
+          if (err) {
+            console.error('Session destroy error:', err);
+            return res.status(500).json({ message: "Session cleanup failed" });
+          }
+          
+          res.clearCookie('connect.sid');
+          res.status(200).json({ message: "Logged out successfully" });
+        });
+      });
+    } catch (error) {
+      console.error("Error during logout:", error);
+      res.status(500).json({ message: "Logout failed" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

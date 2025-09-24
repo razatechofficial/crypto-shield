@@ -1,6 +1,12 @@
 import { useLocation } from "wouter";
-import { Bell } from "lucide-react";
+import { Bell, User, LogOut } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 const pageInfo = {
   "/": { title: "Dashboard", subtitle: "Monitor your encryption infrastructure" },
@@ -15,8 +21,29 @@ const pageInfo = {
 };
 
 export default function Header() {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const info = pageInfo[location as keyof typeof pageInfo] || pageInfo["/"];
+  const { toast } = useToast();
+  const { user } = useAuth();
+
+  const logoutMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/logout', {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({
+        title: "Logged out successfully",
+        description: "You have been logged out of your account.",
+      });
+      setLocation("/login");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Logout failed",
+        description: error.message || "Failed to logout. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
   return (
     <header className="bg-background border-b border-border px-6 py-4">
@@ -43,6 +70,32 @@ export default function Header() {
               3
             </Badge>
           </button>
+
+          {/* User Menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="flex items-center space-x-2" data-testid="button-user-menu">
+                <User className="w-4 h-4" />
+                <span className="text-sm">{user?.email}</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem disabled className="text-muted-foreground">
+                <User className="w-4 h-4 mr-2" />
+                {user?.email}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                onClick={() => logoutMutation.mutate()}
+                disabled={logoutMutation.isPending}
+                className="text-red-600 focus:text-red-600"
+                data-testid="button-logout"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                {logoutMutation.isPending ? "Logging out..." : "Logout"}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </header>
