@@ -9,6 +9,7 @@ import { emailService, generateVerificationToken, hashToken } from "./email";
 import bcrypt from "bcryptjs";
 import { EnterpriseAdapter } from "./enterpriseAdapter";
 import { performEnterpriseAudit } from "./security-audit";
+import archiver from "archiver";
 
 // KMS operation validation schemas
 const rotateKeySchema = z.object({
