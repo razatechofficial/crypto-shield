@@ -7,6 +7,8 @@ import { z } from "zod";
 import { keyRotationScheduler } from "./keyRotationScheduler";
 import { emailService, generateVerificationToken, hashToken } from "./email";
 import bcrypt from "bcryptjs";
+import { EnterpriseAdapter } from "./enterpriseAdapter";
+import { performEnterpriseAudit } from "./security-audit";
 
 // KMS operation validation schemas
 const rotateKeySchema = z.object({
