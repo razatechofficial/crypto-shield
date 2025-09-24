@@ -1,12 +1,12 @@
 import { useLocation } from "wouter";
-import { Bell, User, LogOut } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import NotificationDropdown from "./NotificationDropdown";
 
 const pageInfo = {
   "/": { title: "Dashboard", subtitle: "Monitor your encryption infrastructure" },
@@ -64,12 +64,7 @@ export default function Header() {
           </div>
           
           {/* Notifications */}
-          <button className="relative p-2 text-muted-foreground hover:text-foreground" data-testid="button-notifications">
-            <Bell className="w-5 h-5" />
-            <Badge className="absolute -top-1 -right-1 w-5 h-5 p-0 flex items-center justify-center bg-red-500 text-white text-xs">
-              3
-            </Badge>
-          </button>
+          <NotificationDropdown />
 
           {/* User Menu */}
           <DropdownMenu>
