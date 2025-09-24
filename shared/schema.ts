@@ -95,6 +95,10 @@ export const users = pgTable("users", {
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
   passwordHash: varchar("password_hash"), // For custom authentication
+  // Email verification fields
+  isEmailVerified: boolean("is_email_verified").default(false),
+  emailVerificationTokenHash: varchar("email_verification_token_hash"),
+  emailVerificationExpires: timestamp("email_verification_expires"),
   role: userRoleEnum("role").default('developer'),
   tenantId: varchar("tenant_id").references(() => tenants.id),
   createdAt: timestamp("created_at").defaultNow(),
