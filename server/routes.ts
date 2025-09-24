@@ -156,8 +156,6 @@ async function verifyKeyOwnership(keyId: string, userId: string, requiredRole?: 
   
   return { key, tenantId, user };
 }
-import archiver from "archiver";
-import { EnterpriseAdapter } from "./enterpriseAdapter";
 
 // ENTERPRISE AUDIT VERIFICATION
 // Validates generated SDKs against all 18 security gates and audit requirements
