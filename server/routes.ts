@@ -5,6 +5,8 @@ import { setupAuth, isAuthenticated } from "./customAuth";
 import { insertSdkSchema, insertEncryptionKeySchema, insertKeyRotationPolicySchema } from "@shared/schema";
 import { z } from "zod";
 import { keyRotationScheduler } from "./keyRotationScheduler";
+import { emailService, generateVerificationToken, hashToken } from "./email";
+import bcrypt from "bcryptjs";
 
 // KMS operation validation schemas
 const rotateKeySchema = z.object({
@@ -17,6 +19,16 @@ const scheduleRotationSchema = z.object({
 
 const rollbackKeySchema = z.object({
   toVersion: z.number().int().positive()
+});
+
+// Password reset validation schemas
+const forgotPasswordSchema = z.object({
+  email: z.string().email("Please enter a valid email address"),
+});
+
+const resetPasswordSchema = z.object({
+  token: z.string().min(1, "Token is required"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
 });
 
 // Multi-Cloud Provider Management Validation Schemas
@@ -2311,6 +2323,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error during logout:", error);
       res.status(500).json({ message: "Logout failed" });
+    }
+  });
+
+  // Password reset routes (no authentication required)
+  app.post("/api/password/forgot", async (req, res) => {
+    try {
+      const { email } = forgotPasswordSchema.parse(req.body);
+      
+      // Always return success to prevent email enumeration attacks
+      res.json({ message: "If an account with that email exists, we've sent you a password reset link." });
+      
+      // Find user by email
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return; // Don't send email if user doesn't exist, but still return success
+      }
+      
+      // Generate reset token
+      const resetToken = generateVerificationToken();
+      const tokenHash = hashToken(resetToken);
+      const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour expiry
+      
+      // Store token in database
+      await storage.setPasswordResetToken(email, tokenHash, expires);
+      
+      // Send reset email
+      await emailService.sendPasswordResetEmail(email, resetToken);
+      
+    } catch (error) {
+      console.error("Forgot password error:", error);
+      // Always return success to prevent information leakage
+      res.json({ message: "If an account with that email exists, we've sent you a password reset link." });
+    }
+  });
+
+  app.get("/api/password/verify", async (req, res) => {
+    try {
+      const token = req.query.token as string;
+      if (!token) {
+        return res.json({ valid: false });
+      }
+      
+      const tokenHash = hashToken(token);
+      const user = await storage.findByPasswordResetToken(tokenHash);
+      
+      res.json({ valid: !!user });
+    } catch (error) {
+      console.error("Token verification error:", error);
+      res.json({ valid: false });
+    }
+  });
+
+  app.post("/api/password/reset", async (req, res) => {
+    try {
+      const { token, password } = resetPasswordSchema.parse(req.body);
+      
+      const tokenHash = hashToken(token);
+      const user = await storage.findByPasswordResetToken(tokenHash);
+      
+      if (!user) {
+        return res.status(400).json({ message: "Invalid or expired reset token" });
+      }
+      
+      // Hash new password
+      const saltRounds = 12;
+      const newPasswordHash = await bcrypt.hash(password, saltRounds);
+      
+      // Update password and clear reset token
+      await storage.updateUserPassword(user.id, newPasswordHash);
+      await storage.clearPasswordResetToken(user.id);
+      
+      // Optionally mark email as verified during password reset
+      if (!user.isEmailVerified) {
+        await storage.verifyUser(user.id);
+      }
+      
+      res.json({ message: "Password has been reset successfully" });
+      
+    } catch (error) {
+      console.error("Password reset error:", error);
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid request data", errors: error.errors });
+      } else {
+        res.status(400).json({ message: "Failed to reset password" });
+      }
     }
   });
 

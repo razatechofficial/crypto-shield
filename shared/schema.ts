@@ -99,6 +99,9 @@ export const users = pgTable("users", {
   isEmailVerified: boolean("is_email_verified").default(false),
   emailVerificationTokenHash: varchar("email_verification_token_hash"),
   emailVerificationExpires: timestamp("email_verification_expires"),
+  // Password reset fields
+  passwordResetTokenHash: varchar("password_reset_token_hash"),
+  passwordResetExpires: timestamp("password_reset_expires"),
   role: userRoleEnum("role").default('developer'),
   tenantId: varchar("tenant_id").references(() => tenants.id),
   createdAt: timestamp("created_at").defaultNow(),
