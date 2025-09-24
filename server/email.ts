@@ -313,6 +313,12 @@ class ProductionEmailService implements EmailService {
 
 // Email service factory
 export function createEmailService(): EmailService {
+  // In development, always use console service to avoid SMTP issues
+  if (process.env.NODE_ENV === 'development') {
+    console.log('📧 Development mode: Using console email service');
+    return new ConsoleEmailService();
+  }
+  
   // Check if SMTP credentials are available
   if (process.env.SMTP_HOST && process.env.SMTP_USERNAME && process.env.SMTP_PASSWORD) {
     return new SMTPEmailService();

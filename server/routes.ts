@@ -394,13 +394,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await storage.setVerificationToken(user.id, tokenHash, expires);
 
-      // Send verification email with trial welcome
-      await emailService.sendTrialWelcomeEmail(
-        user.email, 
-        user.firstName,
-        user.companyName,
-        verificationToken
-      );
+      // Send verification email with trial welcome (skip in development if SMTP fails)
+      try {
+        await emailService.sendTrialWelcomeEmail(
+          user.email, 
+          user.firstName,
+          user.companyName,
+          verificationToken
+        );
+      } catch (emailError) {
+        console.warn("Email sending failed:", emailError.message);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`🔧 Development mode: Skipping email send. Verification token: ${verificationToken}`);
+        } else {
+          throw emailError; // Re-throw in production
+        }
+      }
 
       res.status(201).json({ 
         message: "Trial account created successfully. Please check your email to verify your account.",
