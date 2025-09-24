@@ -15,8 +15,11 @@ export default function Landing() {
               <img 
                 src="/averox-logo.png" 
                 alt="Averox Logo" 
-                className="w-8 h-8 object-contain"
+                className="w-48 h-48 object-contain"
               />
+              <div>
+                <h1 className="text-xs font-bold text-gray-900">CryptoShield KMS</h1>
+              </div>
             </div>
             <div className="flex items-center space-x-4">
               <Link href="/login">
@@ -44,15 +47,6 @@ export default function Landing() {
       {/* Hero Section */}
       <section className="bg-gradient-to-br from-blue-50 to-indigo-100 pt-20 pb-32">
         <div className="max-w-7xl mx-auto px-6">
-          {/* Large Branding Block */}
-          <div className="flex flex-col items-center mb-12">
-            <img 
-              src="/averox-logo.png" 
-              alt="Averox Logo" 
-              className="w-48 h-48 object-contain mb-2"
-            />
-            <h1 className="text-[6px] font-bold text-gray-900">CryptoShield KMS</h1>
-          </div>
           <div className="text-center">
             <Badge variant="secondary" className="mb-4 bg-blue-100 text-blue-800 border-blue-200">
               <Award className="w-4 h-4 mr-1" />
@@ -673,13 +667,15 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
-              <div className="flex flex-col items-center text-center mb-4">
+              <div className="flex items-center space-x-3 mb-4">
                 <img 
                   src="/averox-logo.png" 
                   alt="Averox Logo" 
-                  className="w-8 h-8 object-contain mb-1"
+                  className="w-32 h-32 object-contain"
                 />
-                <div className="font-bold text-gray-900 text-xs">CryptoShield KMS</div>
+                <div>
+                  <div className="font-bold text-gray-900 text-xs">CryptoShield KMS</div>
+                </div>
               </div>
               <p className="text-gray-600 text-sm">
                 Enterprise-grade encryption platform trusted by Fortune 500 companies worldwide.
