@@ -1,8 +1,126 @@
 import crypto from 'crypto';
+import nodemailer from 'nodemailer';
 
 export interface EmailService {
   sendVerificationEmail(email: string, token: string): Promise<void>;
   sendPasswordResetEmail(email: string, token: string): Promise<void>;
+}
+
+// Production SMTP email service using nodemailer
+class SMTPEmailService implements EmailService {
+  private transporter: nodemailer.Transporter;
+
+  constructor() {
+    this.transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT || '587'),
+      secure: parseInt(process.env.SMTP_PORT || '587') === 465, // true for 465, false for other ports
+      auth: {
+        user: process.env.SMTP_USERNAME,
+        pass: process.env.SMTP_PASSWORD,
+      },
+    });
+  }
+
+  async sendVerificationEmail(email: string, token: string): Promise<void> {
+    const verificationUrl = `${process.env.BASE_URL || 'http://localhost:5000'}/verify-email?token=${token}`;
+    
+    const mailOptions = {
+      from: process.env.SMTP_FROM_EMAIL,
+      to: email,
+      subject: 'Verify Your CryptoShield KMS Account',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #2563eb;">Welcome to CryptoShield KMS!</h2>
+          
+          <p>Thank you for creating your account. To complete your registration and secure your access to our enterprise-grade encryption platform, please verify your email address.</p>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${verificationUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+              Verify Email Address
+            </a>
+          </div>
+          
+          <p style="color: #666; font-size: 14px;">If the button doesn't work, copy and paste this link into your browser:</p>
+          <p style="color: #666; font-size: 14px; word-break: break-all;">${verificationUrl}</p>
+          
+          <p style="color: #666; font-size: 14px;">This verification link will expire in 24 hours for security purposes.</p>
+          
+          <p style="color: #666; font-size: 14px;">If you didn't create this account, please ignore this email.</p>
+          
+          <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+          <p style="color: #666; font-size: 12px;">
+            This email was sent from CryptoShield KMS - Enterprise Encryption Platform<br>
+            For support, please contact your system administrator.
+          </p>
+        </div>
+      `,
+      text: `Welcome to CryptoShield KMS!
+      
+Please verify your email address by clicking the link below:
+${verificationUrl}
+
+This link will expire in 24 hours for security purposes.
+
+If you didn't create this account, please ignore this email.
+
+Thank you,
+The CryptoShield KMS Team`
+    };
+
+    await this.transporter.sendMail(mailOptions);
+    console.log(`✅ Verification email sent to ${email}`);
+  }
+
+  async sendPasswordResetEmail(email: string, token: string): Promise<void> {
+    const resetUrl = `${process.env.BASE_URL || 'http://localhost:5000'}/reset-password?token=${token}`;
+    
+    const mailOptions = {
+      from: process.env.SMTP_FROM_EMAIL,
+      to: email,
+      subject: 'Reset Your CryptoShield KMS Password',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #dc2626;">Password Reset Request</h2>
+          
+          <p>You requested a password reset for your CryptoShield KMS account.</p>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${resetUrl}" style="background-color: #dc2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+              Reset Password
+            </a>
+          </div>
+          
+          <p style="color: #666; font-size: 14px;">If the button doesn't work, copy and paste this link into your browser:</p>
+          <p style="color: #666; font-size: 14px; word-break: break-all;">${resetUrl}</p>
+          
+          <p style="color: #666; font-size: 14px;">This reset link will expire in 1 hour for security purposes.</p>
+          
+          <p style="color: #666; font-size: 14px;">If you didn't request this reset, please ignore this email and your password will remain unchanged.</p>
+          
+          <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+          <p style="color: #666; font-size: 12px;">
+            This email was sent from CryptoShield KMS - Enterprise Encryption Platform<br>
+            For support, please contact your system administrator.
+          </p>
+        </div>
+      `,
+      text: `You requested a password reset for your CryptoShield KMS account.
+
+Click the link below to reset your password:
+${resetUrl}
+
+This link will expire in 1 hour for security purposes.
+
+If you didn't request this reset, please ignore this email.
+
+Thank you,
+The CryptoShield KMS Team`
+    };
+
+    await this.transporter.sendMail(mailOptions);
+    console.log(`✅ Password reset email sent to ${email}`);
+  }
 }
 
 // Simple console-based email service for development
@@ -80,11 +198,11 @@ class ProductionEmailService implements EmailService {
 
 // Email service factory
 export function createEmailService(): EmailService {
-  const env = process.env.NODE_ENV;
-  
-  if (env === 'production') {
-    return new ProductionEmailService();
+  // Check if SMTP credentials are available
+  if (process.env.SMTP_HOST && process.env.SMTP_USERNAME && process.env.SMTP_PASSWORD) {
+    return new SMTPEmailService();
   } else {
+    console.log('📧 No SMTP credentials found, using console email service for development');
     return new ConsoleEmailService();
   }
 }

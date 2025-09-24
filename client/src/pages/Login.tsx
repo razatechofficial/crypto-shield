@@ -62,7 +62,7 @@ export default function Login() {
         <img 
           src="/averox-logo.png" 
           alt="Averox Logo" 
-          className="w-16 h-16 object-contain mb-2"
+          className="w-[74px] h-[74px] object-contain mb-2"
         />
         <p className="text-sm text-muted-foreground">Enterprise Encryption Platform</p>
       </div>
