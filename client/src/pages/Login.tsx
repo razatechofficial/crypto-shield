@@ -33,13 +33,7 @@ export default function Login() {
   });
 
   const loginMutation = useMutation({
-    mutationFn: (data: LoginForm) => apiRequest('/api/login', {
-      method: 'POST',
-      body: JSON.stringify(data),
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    }),
+    mutationFn: (data: LoginForm) => apiRequest('POST', '/api/login', data),
     onSuccess: () => {
       toast({
         title: "Login successful",

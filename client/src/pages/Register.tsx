@@ -46,13 +46,7 @@ export default function Register() {
   });
 
   const registerMutation = useMutation({
-    mutationFn: (data: Omit<RegisterForm, 'confirmPassword'>) => apiRequest('/api/register', {
-      method: 'POST',
-      body: JSON.stringify(data),
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    }),
+    mutationFn: (data: Omit<RegisterForm, 'confirmPassword'>) => apiRequest('POST', '/api/register', data),
     onSuccess: () => {
       toast({
         title: "Account created successfully",
