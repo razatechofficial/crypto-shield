@@ -160,90 +160,228 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Features Section */}
+      {/* Comprehensive Features Section */}
       <section className="py-24 bg-gray-50">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-gray-900 mb-4">
-              Everything You Need to Protect Your Data
+              Complete Enterprise Encryption Platform
             </h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              From development to production, we've got every aspect of enterprise encryption covered
+              Every feature you need to secure, monitor, and manage your encryption infrastructure at enterprise scale
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <Card className="bg-white border-gray-200 hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-                  <Zap className="w-6 h-6 text-blue-600" />
-                </div>
-                <CardTitle className="text-gray-900">SDK Generator</CardTitle>
-                <CardDescription className="text-gray-600">
-                  Custom SDKs in Python, Java, Node.js, Go, Rust, and 8 more languages. Production-ready in minutes.
-                </CardDescription>
-              </CardHeader>
-            </Card>
+          <div className="space-y-16">
+            {/* Development & Integration */}
+            <div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-8 text-center">Development & Integration</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <Card className="bg-white border-gray-200 hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                      <Zap className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <CardTitle className="text-gray-900">SDK Generator</CardTitle>
+                    <CardDescription className="text-gray-600">
+                      Custom SDKs in 13 languages: Python, Java, Node.js, Go, Rust, C#, Swift, Kotlin, PHP, Ruby, C++, Dart, and JavaScript. Production-ready code with documentation, examples, and test suites generated in under 5 minutes.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
 
-            <Card className="bg-white border-gray-200 hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
-                  <Eye className="w-6 h-6 text-green-600" />
-                </div>
-                <CardTitle className="text-gray-900">Real-Time Monitoring</CardTitle>
-                <CardDescription className="text-gray-600">
-                  24/7 security monitoring with ML-powered threat detection and automated incident response.
-                </CardDescription>
-              </CardHeader>
-            </Card>
+                <Card className="bg-white border-gray-200 hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
+                      <Settings className="w-6 h-6 text-green-600" />
+                    </div>
+                    <CardTitle className="text-gray-900">Zero-Config Integration</CardTitle>
+                    <CardDescription className="text-gray-600">
+                      Drop-in libraries with intelligent defaults. No complex configuration files, no cryptographic knowledge required. Our SDKs automatically handle encryption parameters, key derivation, and secure defaults.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
 
-            <Card className="bg-white border-gray-200 hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
-                  <Key className="w-6 h-6 text-purple-600" />
-                </div>
-                <CardTitle className="text-gray-900">Auto Key Rotation</CardTitle>
-                <CardDescription className="text-gray-600">
-                  Intelligent key lifecycle management with automatic rotation, versioning, and rollback capabilities.
-                </CardDescription>
-              </CardHeader>
-            </Card>
+                <Card className="bg-white border-gray-200 hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
+                      <Database className="w-6 h-6 text-purple-600" />
+                    </div>
+                    <CardTitle className="text-gray-900">Universal Compatibility</CardTitle>
+                    <CardDescription className="text-gray-600">
+                      Works with any database, framework, or cloud platform. MySQL, PostgreSQL, MongoDB, Redis, DynamoDB, Kubernetes, Docker, AWS, Azure, GCP - if you use it, we support it.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              </div>
+            </div>
 
-            <Card className="bg-white border-gray-200 hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center mb-4">
-                  <Shield className="w-6 h-6 text-indigo-600" />
-                </div>
-                <CardTitle className="text-gray-900">Quantum-Safe Encryption</CardTitle>
-                <CardDescription className="text-gray-600">
-                  Post-quantum algorithms ready for the cryptographic transition. Future-proof your security now.
-                </CardDescription>
-              </CardHeader>
-            </Card>
+            {/* Security & Encryption */}
+            <div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-8 text-center">Enterprise Security</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <Card className="bg-white border-gray-200 hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center mb-4">
+                      <Shield className="w-6 h-6 text-indigo-600" />
+                    </div>
+                    <CardTitle className="text-gray-900">Military-Grade Encryption</CardTitle>
+                    <CardDescription className="text-gray-600">
+                      AES-256-GCM, ChaCha20-Poly1305, RSA-4096, ECDSA P-384, Ed25519. FIPS 140-3 validated cryptographic modules. NSA Suite B algorithms for classified data protection.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
 
-            <Card className="bg-white border-gray-200 hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mb-4">
-                  <Cloud className="w-6 h-6 text-orange-600" />
-                </div>
-                <CardTitle className="text-gray-900">Multi-Cloud HSM</CardTitle>
-                <CardDescription className="text-gray-600">
-                  Seamless integration with AWS KMS, Azure Key Vault, Google Cloud HSM, and on-premise solutions.
-                </CardDescription>
-              </CardHeader>
-            </Card>
+                <Card className="bg-white border-gray-200 hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mb-4">
+                      <Lock className="w-6 h-6 text-red-600" />
+                    </div>
+                    <CardTitle className="text-gray-900">Quantum-Safe Algorithms</CardTitle>
+                    <CardDescription className="text-gray-600">
+                      NIST Post-Quantum Cryptography winners: CRYSTALS-Kyber, CRYSTALS-Dilithium, FALCON, SPHINCS+. Hybrid implementations for smooth transition. Future-proof your data against quantum computers.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
 
-            <Card className="bg-white border-gray-200 hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mb-4">
-                  <Award className="w-6 h-6 text-red-600" />
-                </div>
-                <CardTitle className="text-gray-900">Compliance Ready</CardTitle>
-                <CardDescription className="text-gray-600">
-                  Pre-certified for FIPS 140-3, SOC 2, ISO 27001, HIPAA, PCI DSS, and government standards.
-                </CardDescription>
-              </CardHeader>
-            </Card>
+                <Card className="bg-white border-gray-200 hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center mb-4">
+                      <Award className="w-6 h-6 text-yellow-600" />
+                    </div>
+                    <CardTitle className="text-gray-900">Confidential Computing</CardTitle>
+                    <CardDescription className="text-gray-600">
+                      Intel SGX Trusted Execution Environments, Microsoft SEAL homomorphic encryption, SPDZ multi-party computation. Process encrypted data without decryption.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              </div>
+            </div>
+
+            {/* Key Management */}
+            <div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-8 text-center">Intelligent Key Management</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <Card className="bg-white border-gray-200 hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mb-4">
+                      <Key className="w-6 h-6 text-orange-600" />
+                    </div>
+                    <CardTitle className="text-gray-900">Auto Key Rotation</CardTitle>
+                    <CardDescription className="text-gray-600">
+                      Time-based, usage-based, or policy-driven rotation. Zero-downtime key updates with automatic versioning. Configurable rotation schedules: hourly, daily, weekly, or custom intervals based on your compliance requirements.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+
+                <Card className="bg-white border-gray-200 hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <div className="w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center mb-4">
+                      <Cloud className="w-6 h-6 text-teal-600" />
+                    </div>
+                    <CardTitle className="text-gray-900">Multi-Cloud HSM</CardTitle>
+                    <CardDescription className="text-gray-600">
+                      AWS CloudHSM, Azure Dedicated HSM, Google Cloud HSM, HashiCorp Vault, on-premise HSMs from SafeNet, Thales, nCipher. Seamless failover between providers for true vendor independence.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+
+                <Card className="bg-white border-gray-200 hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <div className="w-12 h-12 bg-pink-100 rounded-lg flex items-center justify-center mb-4">
+                      <Globe className="w-6 h-6 text-pink-600" />
+                    </div>
+                    <CardTitle className="text-gray-900">Global Key Distribution</CardTitle>
+                    <CardDescription className="text-gray-600">
+                      Automatic key synchronization across regions and clouds. Edge caching for sub-10ms key retrieval. Geographic compliance with data residency requirements in 40+ countries.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              </div>
+            </div>
+
+            {/* Monitoring & Operations */}
+            <div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-8 text-center">Monitoring & Operations</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <Card className="bg-white border-gray-200 hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                      <Eye className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <CardTitle className="text-gray-900">Real-Time Monitoring</CardTitle>
+                    <CardDescription className="text-gray-600">
+                      24/7 security monitoring with machine learning threat detection. Behavioral analysis, anomaly detection, and automatic incident response. Integration with Splunk, DataDog, New Relic, and custom SIEM solutions.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+
+                <Card className="bg-white border-gray-200 hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
+                      <TrendingUp className="w-6 h-6 text-green-600" />
+                    </div>
+                    <CardTitle className="text-gray-900">Performance Analytics</CardTitle>
+                    <CardDescription className="text-gray-600">
+                      Detailed performance metrics: encryption/decryption latency, throughput analysis, key usage patterns. Capacity planning recommendations and optimization suggestions for maximum efficiency.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+
+                <Card className="bg-white border-gray-200 hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
+                      <Server className="w-6 h-6 text-purple-600" />
+                    </div>
+                    <CardTitle className="text-gray-900">Self-Healing Infrastructure</CardTitle>
+                    <CardDescription className="text-gray-600">
+                      Automatic failover, load balancing, and disaster recovery. Self-diagnosing systems that detect and resolve issues before they impact your applications. 99.99% uptime SLA.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              </div>
+            </div>
+
+            {/* Compliance & Governance */}
+            <div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-8 text-center">Compliance & Governance</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <Card className="bg-white border-gray-200 hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mb-4">
+                      <Award className="w-6 h-6 text-red-600" />
+                    </div>
+                    <CardTitle className="text-gray-900">Pre-Certified Compliance</CardTitle>
+                    <CardDescription className="text-gray-600">
+                      FIPS 140-3 Level 4, Common Criteria EAL4+, SOC 2 Type II, ISO 27001, HIPAA, PCI DSS Level 1, FedRAMP High, FISMA, ITAR, EAR compliance. Pre-built audit reports and evidence packages.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+
+                <Card className="bg-white border-gray-200 hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center mb-4">
+                      <Users className="w-6 h-6 text-indigo-600" />
+                    </div>
+                    <CardTitle className="text-gray-900">Role-Based Access Control</CardTitle>
+                    <CardDescription className="text-gray-600">
+                      Granular permissions with principle of least privilege. Integration with Active Directory, LDAP, Okta, Auth0. Multi-factor authentication, hardware security keys, and biometric verification.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+
+                <Card className="bg-white border-gray-200 hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center mb-4">
+                      <Building className="w-6 h-6 text-yellow-600" />
+                    </div>
+                    <CardTitle className="text-gray-900">Audit & Reporting</CardTitle>
+                    <CardDescription className="text-gray-600">
+                      Comprehensive audit trails with tamper-proof logs. Real-time compliance dashboards, automated report generation, and executive summaries. Custom reporting for board presentations and regulatory submissions.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -526,7 +664,7 @@ export default function Landing() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-white py-16">
+      <footer className="bg-gray-50 border-t border-gray-200 py-16">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
@@ -537,47 +675,47 @@ export default function Landing() {
                   className="w-8 h-8 object-contain"
                 />
                 <div>
-                  <div className="font-bold">CryptoShield KMS</div>
-                  <div className="text-sm text-gray-400">by Averox</div>
+                  <div className="font-bold text-gray-900">CryptoShield KMS</div>
+                  <div className="text-sm text-blue-600">by Averox</div>
                 </div>
               </div>
-              <p className="text-gray-400 text-sm">
+              <p className="text-gray-600 text-sm">
                 Enterprise-grade encryption platform trusted by Fortune 500 companies worldwide.
               </p>
             </div>
             
             <div>
-              <h4 className="font-semibold mb-4">Product</h4>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li><a href="#" className="hover:text-white">Features</a></li>
-                <li><a href="#" className="hover:text-white">Pricing</a></li>
-                <li><a href="#" className="hover:text-white">Security</a></li>
-                <li><a href="#" className="hover:text-white">Integrations</a></li>
+              <h4 className="font-semibold mb-4 text-gray-900">Product</h4>
+              <ul className="space-y-2 text-sm text-gray-600">
+                <li><a href="#" className="hover:text-blue-600 transition-colors">Features</a></li>
+                <li><a href="#" className="hover:text-blue-600 transition-colors">Pricing</a></li>
+                <li><a href="#" className="hover:text-blue-600 transition-colors">Security</a></li>
+                <li><a href="#" className="hover:text-blue-600 transition-colors">Integrations</a></li>
               </ul>
             </div>
             
             <div>
-              <h4 className="font-semibold mb-4">Resources</h4>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li><a href="#" className="hover:text-white">Documentation</a></li>
-                <li><a href="#" className="hover:text-white">API Reference</a></li>
-                <li><a href="#" className="hover:text-white">Support</a></li>
-                <li><a href="#" className="hover:text-white">Status</a></li>
+              <h4 className="font-semibold mb-4 text-gray-900">Resources</h4>
+              <ul className="space-y-2 text-sm text-gray-600">
+                <li><a href="#" className="hover:text-blue-600 transition-colors">Documentation</a></li>
+                <li><a href="#" className="hover:text-blue-600 transition-colors">API Reference</a></li>
+                <li><a href="#" className="hover:text-blue-600 transition-colors">Support</a></li>
+                <li><a href="#" className="hover:text-blue-600 transition-colors">Status</a></li>
               </ul>
             </div>
             
             <div>
-              <h4 className="font-semibold mb-4">Company</h4>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li><a href="#" className="hover:text-white">About</a></li>
-                <li><a href="#" className="hover:text-white">Contact</a></li>
-                <li><a href="#" className="hover:text-white">Privacy</a></li>
-                <li><a href="#" className="hover:text-white">Terms</a></li>
+              <h4 className="font-semibold mb-4 text-gray-900">Company</h4>
+              <ul className="space-y-2 text-sm text-gray-600">
+                <li><a href="#" className="hover:text-blue-600 transition-colors">About</a></li>
+                <li><a href="#" className="hover:text-blue-600 transition-colors">Contact</a></li>
+                <li><a href="#" className="hover:text-blue-600 transition-colors">Privacy</a></li>
+                <li><a href="#" className="hover:text-blue-600 transition-colors">Terms</a></li>
               </ul>
             </div>
           </div>
           
-          <div className="border-t border-gray-800 mt-12 pt-8 text-center text-sm text-gray-400">
+          <div className="border-t border-gray-200 mt-12 pt-8 text-center text-sm text-gray-500">
             © 2024 Averox. All rights reserved.
           </div>
         </div>
