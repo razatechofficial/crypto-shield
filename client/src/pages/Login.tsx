@@ -57,8 +57,8 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4">
-      <div className="flex flex-col items-center justify-center mb-8 mt-8">
+    <div className="min-h-screen flex flex-col items-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4">
+      <div className="flex flex-col items-center justify-center mt-12 mb-8">
         <img 
           src="/averox-logo.png" 
           alt="Averox Logo" 
