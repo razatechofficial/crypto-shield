@@ -11,7 +11,7 @@ export default function Landing() {
       <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-2">
           <div className="flex items-center justify-between">
-            <div className="flex flex-col items-center">
+            <div className="flex flex-col items-center -mt-16">
               <img 
                 src="/averox-logo.png" 
                 alt="Averox Logo" 
