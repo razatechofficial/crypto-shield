@@ -698,9 +698,39 @@ export const insertApiUsageSchema = createInsertSchema(apiUsage).omit({
   createdAt: true,
 });
 
+// Notification types enum
+export const notificationTypeEnum = pgEnum('notification_type', [
+  'security_alert', 'key_rotation', 'system_maintenance', 'sdk_update', 
+  'compliance_reminder', 'billing_update', 'trial_expiry', 'general'
+]);
+
+// Notifications table
+export const notifications = pgTable("notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  userId: varchar("user_id").references(() => users.id), // null for system-wide notifications
+  type: notificationTypeEnum("type").notNull(),
+  title: varchar("title").notNull(),
+  message: text("message").notNull(),
+  actionUrl: varchar("action_url"), // optional link to relevant page
+  isRead: boolean("is_read").default(false),
+  priority: varchar("priority").notNull().default('medium'), // low, medium, high, urgent
+  metadata: jsonb("metadata").default({}), // additional context data
+  createdAt: timestamp("created_at").defaultNow(),
+  readAt: timestamp("read_at"),
+});
+
+// Insert schema for notifications
+export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 
 // Trial registration form schema
 export const trialRegistrationSchema = insertUserSchema
