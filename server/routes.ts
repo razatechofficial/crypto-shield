@@ -354,27 +354,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   setupEnterpriseRoutes(app);
   setupBillingRoutes(app);
 
-  // Authentication routes
-  app.get("/api/auth/user", isAuthenticated, async (req, res) => {
-    try {
-      const user = req.user as any;
-      const userId = user.id || user.claims?.sub;
-      
-      if (userId) {
-        const dbUser = await storage.getUser(userId);
-        if (dbUser) {
-          res.json(dbUser);
-        } else {
-          res.json(user); // Fallback to session user
-        }
-      } else {
-        res.json(user);
-      }
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
-    }
-  });
+  // Note: /api/auth/user route is handled by setupAuth() in customAuth.ts
 
   // Trial signup route
   app.post("/api/auth/trial-signup", async (req, res) => {
