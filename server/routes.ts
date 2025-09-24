@@ -8,7 +8,7 @@ import { keyRotationScheduler } from "./keyRotationScheduler";
 import { emailService, generateVerificationToken, hashToken } from "./email";
 import bcrypt from "bcryptjs";
 import { EnterpriseAdapter } from "./enterpriseAdapter";
-import { performEnterpriseAudit } from "./security-audit";
+// import { performEnterpriseAudit } from "./security-audit";
 import archiver from "archiver";
 
 // KMS operation validation schemas
@@ -395,15 +395,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.setVerificationToken(user.id, tokenHash, expires);
 
       // Send verification email with trial welcome (skip in development if SMTP fails)
+      // Ensure all required fields are non-null for email service
       try {
         await emailService.sendTrialWelcomeEmail(
-          user.email, 
-          user.firstName,
-          user.companyName,
+          user.email || validatedData.email, 
+          user.firstName || 'User',
+          user.companyName || 'Company',
           verificationToken
         );
-      } catch (emailError) {
-        console.warn("Email sending failed:", emailError.message);
+      } catch (emailError: any) {
+        console.warn("Email sending failed:", emailError?.message || 'Unknown error');
         if (process.env.NODE_ENV === 'development') {
           console.log(`🔧 Development mode: Skipping email send. Verification token: ${verificationToken}`);
         } else {
