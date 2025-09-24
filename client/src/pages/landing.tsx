@@ -15,11 +15,10 @@ export default function Landing() {
               <img 
                 src="/averox-logo.png" 
                 alt="Averox Logo" 
-                className="w-12 h-12 object-contain"
+                className="w-48 h-48 object-contain"
               />
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">CryptoShield KMS</h1>
-                <p className="text-sm text-blue-600">by Averox</p>
+                <h1 className="text-xs font-bold text-gray-900">CryptoShield KMS</h1>
               </div>
             </div>
             <div className="flex items-center space-x-4">
@@ -672,11 +671,10 @@ export default function Landing() {
                 <img 
                   src="/averox-logo.png" 
                   alt="Averox Logo" 
-                  className="w-8 h-8 object-contain"
+                  className="w-32 h-32 object-contain"
                 />
                 <div>
-                  <div className="font-bold text-gray-900">CryptoShield KMS</div>
-                  <div className="text-sm text-blue-600">by Averox</div>
+                  <div className="font-bold text-gray-900 text-xs">CryptoShield KMS</div>
                 </div>
               </div>
               <p className="text-gray-600 text-sm">
