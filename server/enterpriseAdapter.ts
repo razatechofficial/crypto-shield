@@ -20,11 +20,8 @@ export class EnterpriseAdapter {
    */
   static async generateSDK(sdk: SDK, languages: string[]): Promise<Record<string, SDKGeneratorResult>> {
     try {
-      // Dynamic import with proper CommonJS handling
-      const mod = await import("../enterprise-sdk-generator.cjs");
-      const EnterpriseSDKGenerator = (mod.default ?? mod) as {
-        generateJavaScriptSDK: (sdk: any, algorithms: any) => Record<string, string>;
-      };
+      // Use require for CommonJS module to avoid import path issues in production
+      const EnterpriseSDKGenerator = require("../enterprise-sdk-generator.cjs");
 
       // Parse algorithms safely
       const algorithms = Array.isArray(sdk.algorithms) 
