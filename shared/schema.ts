@@ -87,6 +87,12 @@ export const hsmOperationTypeEnum = pgEnum('hsm_operation_type', ['key_generate'
 // HSM audit event type enum
 export const hsmAuditEventTypeEnum = pgEnum('hsm_audit_event_type', ['login', 'logout', 'key_access', 'key_modification', 'configuration_change', 'security_violation', 'maintenance_access', 'backup_operation', 'recovery_operation']);
 
+// Subscription status enum
+export const subscriptionStatusEnum = pgEnum('subscription_status', [
+  'active', 'past_due', 'canceled', 'unpaid', 'incomplete', 'incomplete_expired', 'trialing'
+]);
+
+
 // User storage table for Averox authentication
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -102,6 +108,16 @@ export const users = pgTable("users", {
   // Password reset fields
   passwordResetTokenHash: varchar("password_reset_token_hash"),
   passwordResetExpires: timestamp("password_reset_expires"),
+  // Trial and subscription fields
+  companyName: varchar("company_name"),
+  website: varchar("website"),
+  phoneNumber: varchar("phone_number"),
+  stripeCustomerId: varchar("stripe_customer_id"),
+  stripeSubscriptionId: varchar("stripe_subscription_id"),
+  subscriptionStatus: subscriptionStatusEnum("subscription_status").default('trialing'),
+  subscriptionPlan: subscriptionTierEnum("subscription_plan").default('starter'),
+  trialStartDate: timestamp("trial_start_date"),
+  trialEndDate: timestamp("trial_end_date"),
   role: userRoleEnum("role").default('developer'),
   tenantId: varchar("tenant_id").references(() => tenants.id),
   createdAt: timestamp("created_at").defaultNow(),
@@ -685,6 +701,27 @@ export const insertApiUsageSchema = createInsertSchema(apiUsage).omit({
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
+
+// Trial registration form schema
+export const trialRegistrationSchema = insertUserSchema
+  .pick({
+    email: true,
+    companyName: true,
+    website: true,
+    phoneNumber: true,
+    firstName: true,
+    lastName: true,
+  })
+  .extend({
+    email: z.string().email("Please enter a valid email address"),
+    companyName: z.string().min(1, "Company name is required"),
+    firstName: z.string().min(1, "First name is required"),
+    lastName: z.string().min(1, "Last name is required"),
+    website: z.string().url("Please enter a valid website URL").optional(),
+    phoneNumber: z.string().min(1, "Phone number is required"),
+  });
+
+export type TrialRegistration = z.infer<typeof trialRegistrationSchema>;
 export type Tenant = typeof tenants.$inferSelect;
 export type InsertTenant = z.infer<typeof insertTenantSchema>;
 export type Sdk = typeof sdks.$inferSelect;
@@ -1389,11 +1426,6 @@ export const permissionEnum = pgEnum('permission', [
 
 // User status enum
 export const userStatusEnum = pgEnum('user_status', ['active', 'invited', 'disabled', 'suspended']);
-
-// Subscription status enum
-export const subscriptionStatusEnum = pgEnum('subscription_status', [
-  'active', 'past_due', 'canceled', 'unpaid', 'incomplete', 'incomplete_expired', 'trialing'
-]);
 
 // Payment provider enum
 export const paymentProviderEnum = pgEnum('payment_provider', ['stripe', 'paypal']);

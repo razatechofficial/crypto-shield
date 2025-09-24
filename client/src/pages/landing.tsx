@@ -32,7 +32,7 @@ export default function Landing() {
                   Sign In
                 </Button>
               </Link>
-              <Link href="/register">
+              <Link href="/trial-signup">
                 <Button 
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                   data-testid="button-get-started"
@@ -66,13 +66,13 @@ export default function Landing() {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-              <Link href="/register">
+              <Link href="/trial-signup">
                 <Button 
                   size="lg" 
                   className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 text-lg"
                   data-testid="button-start-trial"
                 >
-                  Start 30-Day Free Trial
+                  Start 14-Day Free Trial
                   <ArrowRight className="ml-2 w-5 h-5" />
                 </Button>
               </Link>
@@ -432,7 +432,7 @@ export default function Landing() {
                     <span className="text-gray-600">Basic monitoring</span>
                   </li>
                 </ul>
-                <Link href="/register">
+                <Link href="/trial-signup">
                   <Button className="w-full bg-gray-900 hover:bg-gray-800 text-white">
                     Start Free Trial
                   </Button>
@@ -480,7 +480,7 @@ export default function Landing() {
                     <span className="text-gray-600">Compliance reporting</span>
                   </li>
                 </ul>
-                <Link href="/register">
+                <Link href="/trial-signup">
                   <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white">
                     Start Free Trial
                   </Button>

@@ -80,6 +80,29 @@ export interface IStorage {
   clearPasswordResetToken(userId: string): Promise<void>;
   updateUserPassword(userId: string, newPasswordHash: string): Promise<void>;
   
+  // Trial and subscription operations
+  createTrialUser(userData: {
+    email: string;
+    firstName: string;
+    lastName: string;
+    companyName: string;
+    website?: string;
+    phoneNumber: string;
+    passwordHash: string;
+  }): Promise<User>;
+  updateUserSubscription(userId: string, updates: {
+    stripeCustomerId?: string;
+    stripeSubscriptionId?: string;
+    subscriptionStatus?: string;
+    subscriptionPlan?: string;
+  }): Promise<User>;
+  getUserSubscriptionStatus(userId: string): Promise<{
+    status: string;
+    plan: string;
+    trialEndDate?: Date;
+    hasValidSubscription: boolean;
+  }>;
+  
   // Enterprise RBAC operations
   getTenantUser(tenantId: string, userId: string): Promise<TenantUser | undefined>;
   getRolePermissions(role: string): Promise<string[]>;
@@ -346,6 +369,98 @@ export class DatabaseStorage implements IStorage {
         updatedAt: new Date(),
       })
       .where(eq(users.id, userId));
+  }
+
+  // Trial and subscription operations
+  async createTrialUser(userData: {
+    email: string;
+    firstName: string;
+    lastName: string;
+    companyName: string;
+    website?: string;
+    phoneNumber: string;
+    passwordHash: string;
+  }): Promise<User> {
+    // Set trial period (14 days from now)
+    const trialStartDate = new Date();
+    const trialEndDate = new Date();
+    trialEndDate.setDate(trialEndDate.getDate() + 14);
+
+    const [user] = await db
+      .insert(users)
+      .values({
+        email: userData.email,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        companyName: userData.companyName,
+        website: userData.website,
+        phoneNumber: userData.phoneNumber,
+        passwordHash: userData.passwordHash,
+        subscriptionStatus: 'trialing',
+        subscriptionPlan: 'starter',
+        trialStartDate,
+        trialEndDate,
+        role: 'developer',
+        isEmailVerified: false, // Will be verified through email
+      })
+      .returning();
+    return user;
+  }
+
+  async updateUserSubscription(userId: string, updates: {
+    stripeCustomerId?: string;
+    stripeSubscriptionId?: string;
+    subscriptionStatus?: string;
+    subscriptionPlan?: string;
+  }): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({
+        ...updates,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return user;
+  }
+
+  async getUserSubscriptionStatus(userId: string): Promise<{
+    status: string;
+    plan: string;
+    trialEndDate?: Date;
+    hasValidSubscription: boolean;
+  }> {
+    const [user] = await db
+      .select({
+        subscriptionStatus: users.subscriptionStatus,
+        subscriptionPlan: users.subscriptionPlan,
+        trialEndDate: users.trialEndDate,
+      })
+      .from(users)
+      .where(eq(users.id, userId));
+
+    if (!user) {
+      return {
+        status: 'unpaid',
+        plan: 'starter',
+        hasValidSubscription: false,
+      };
+    }
+
+    const now = new Date();
+    const isTrialActive = user.subscriptionStatus === 'trialing' 
+      && user.trialEndDate 
+      && user.trialEndDate > now;
+    
+    const hasValidSubscription = 
+      user.subscriptionStatus === 'active' || isTrialActive;
+
+    return {
+      status: user.subscriptionStatus || 'unpaid',
+      plan: user.subscriptionPlan || 'starter',
+      trialEndDate: user.trialEndDate || undefined,
+      hasValidSubscription,
+    };
   }
 
   // Tenant operations

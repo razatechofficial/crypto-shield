@@ -376,6 +376,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Trial signup route
+  app.post("/api/auth/trial-signup", async (req, res) => {
+    try {
+      const { trialRegistrationSchema } = await import("@shared/schema");
+      const validatedData = trialRegistrationSchema.parse(req.body);
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(validatedData.email);
+      if (existingUser) {
+        return res.status(409).json({ 
+          message: "An account with this email already exists. Please use a different email or try signing in." 
+        });
+      }
+
+      // Hash password (we'll use a default password that user can change later)
+      const defaultPassword = Math.random().toString(36).slice(-10); // Temp password
+      const passwordHash = await bcrypt.hash(defaultPassword, 12);
+
+      // Create trial user
+      const user = await storage.createTrialUser({
+        email: validatedData.email,
+        firstName: validatedData.firstName,
+        lastName: validatedData.lastName,
+        companyName: validatedData.companyName,
+        website: validatedData.website,
+        phoneNumber: validatedData.phoneNumber,
+        passwordHash,
+      });
+
+      // Generate email verification token
+      const verificationToken = generateVerificationToken();
+      const tokenHash = hashToken(verificationToken);
+      const expires = new Date();
+      expires.setHours(expires.getHours() + 24); // 24 hour expiry
+      
+      await storage.setVerificationToken(user.id, tokenHash, expires);
+
+      // Send verification email with trial welcome
+      await emailService.sendTrialWelcomeEmail(
+        user.email, 
+        user.firstName,
+        user.companyName,
+        verificationToken
+      );
+
+      res.status(201).json({ 
+        message: "Trial account created successfully. Please check your email to verify your account.",
+        userId: user.id 
+      });
+    } catch (error: any) {
+      console.error("Trial signup error:", error);
+      
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ 
+          message: "Please check your information and try again.",
+          errors: error.errors 
+        });
+      }
+      
+      res.status(500).json({ 
+        message: "Unable to create trial account. Please try again later." 
+      });
+    }
+  });
+
   // Algorithm routes
   app.get("/api/algorithms", async (req, res) => {
     try {
