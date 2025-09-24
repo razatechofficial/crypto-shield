@@ -17,7 +17,7 @@ export default function Landing() {
                 alt="Averox Logo" 
                 className="w-48 h-48 object-contain"
               />
-              <div>
+              <div className="-mt-8">
                 <h1 className="text-xs font-bold text-gray-900">CryptoShield KMS</h1>
               </div>
             </div>
