@@ -58,11 +58,11 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4">
-      <div className="flex flex-col items-center justify-center mb-8">
+      <div className="flex flex-col items-center justify-center mb-12">
         <img 
           src="/averox-logo.png" 
           alt="Averox Logo" 
-          className="w-[74px] h-[74px] object-contain mb-2"
+          className="w-32 h-32 object-contain mb-4"
         />
         <p className="text-sm text-muted-foreground">Enterprise Encryption Platform</p>
       </div>
