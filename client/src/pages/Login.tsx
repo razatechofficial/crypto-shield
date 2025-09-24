@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 
 const loginSchema = z.object({
@@ -35,6 +35,8 @@ export default function Login() {
   const loginMutation = useMutation({
     mutationFn: (data: LoginForm) => apiRequest('POST', '/api/login', data),
     onSuccess: () => {
+      // Invalidate and refetch the auth query to update authentication state
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       toast({
         title: "Login successful",
         description: "Welcome back!",

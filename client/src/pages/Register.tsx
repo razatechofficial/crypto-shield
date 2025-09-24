@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Eye, EyeOff, Lock, Mail, User } from "lucide-react";
 
 const registerSchema = z.object({
@@ -48,6 +48,8 @@ export default function Register() {
   const registerMutation = useMutation({
     mutationFn: (data: Omit<RegisterForm, 'confirmPassword'>) => apiRequest('POST', '/api/register', data),
     onSuccess: () => {
+      // Invalidate and refetch the auth query to update authentication state
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       toast({
         title: "Account created successfully",
         description: "Welcome! You're now logged in.",
