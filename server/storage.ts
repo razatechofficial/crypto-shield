@@ -68,6 +68,12 @@ export interface IStorage {
   upsertUser(user: UpsertUser): Promise<User>;
   updateUser(id: string, updates: Partial<User>): Promise<User>;
   
+  // Email verification operations
+  setVerificationToken(userId: string, tokenHash: string, expires: Date): Promise<void>;
+  findByVerificationToken(tokenHash: string): Promise<User | undefined>;
+  verifyUser(userId: string): Promise<void>;
+  clearVerificationToken(userId: string): Promise<void>;
+  
   // Enterprise RBAC operations
   getTenantUser(tenantId: string, userId: string): Promise<TenantUser | undefined>;
   getRolePermissions(role: string): Promise<string[]>;
@@ -231,6 +237,60 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, id))
       .returning();
     return user;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
+  }
+
+  // Email verification operations
+  async setVerificationToken(userId: string, tokenHash: string, expires: Date): Promise<void> {
+    await db
+      .update(users)
+      .set({
+        emailVerificationTokenHash: tokenHash,
+        emailVerificationExpires: expires,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId));
+  }
+
+  async findByVerificationToken(tokenHash: string): Promise<User | undefined> {
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.emailVerificationTokenHash, tokenHash));
+    
+    // Check if token is expired
+    if (user && user.emailVerificationExpires && user.emailVerificationExpires < new Date()) {
+      return undefined; // Token expired
+    }
+    
+    return user;
+  }
+
+  async verifyUser(userId: string): Promise<void> {
+    await db
+      .update(users)
+      .set({
+        isEmailVerified: true,
+        emailVerificationTokenHash: null,
+        emailVerificationExpires: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId));
+  }
+
+  async clearVerificationToken(userId: string): Promise<void> {
+    await db
+      .update(users)
+      .set({
+        emailVerificationTokenHash: null,
+        emailVerificationExpires: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId));
   }
 
   // Tenant operations
