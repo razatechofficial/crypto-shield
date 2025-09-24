@@ -1183,14 +1183,16 @@ export default function SdkWizard() {
                 <Button 
                   className="bg-blue-500 hover:bg-blue-600 text-white"
                   onClick={async () => {
-                    console.log('Downloading SDK from:', generatedSDK.downloadUrl);
+                    console.log(`Downloading SDK with ID: ${generatedSDK.id}`);
                     try {
-                      const response = await fetch(generatedSDK.downloadUrl, {
+                      const response = await fetch(`/api/sdks/${generatedSDK.id}/download`, {
                         method: 'GET',
                         credentials: 'include', // Include cookies for authentication
                       });
                       
                       if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error('Download failed:', response.status, errorText);
                         throw new Error(`Download failed: ${response.status}`);
                       }
                       
@@ -1204,7 +1206,7 @@ export default function SdkWizard() {
                       document.body.removeChild(link);
                       window.URL.revokeObjectURL(url);
                     } catch (error) {
-                      console.error('Download error:', error);
+                      console.error('SDK download error:', error);
                       toast({
                         title: "Download Failed",
                         description: "Failed to download SDK. Please try again.",

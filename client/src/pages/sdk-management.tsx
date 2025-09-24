@@ -124,25 +124,16 @@ export default function SDKManagement() {
   // Download SDK
   const handleDownload = async (sdk: Sdk) => {
     try {
-      if (!sdk.downloadUrl) {
-        toast({
-          title: "Download Not Available",
-          description: "This SDK does not have a download URL.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Extract download ID from URL (e.g., "/api/sdks/finance-secure-v2.1.0/download" -> "finance-secure-v2.1.0")
-      const urlParts = sdk.downloadUrl.split('/');
-      const downloadId = urlParts[urlParts.length - 2]; // Get the part before "/download"
-      const response = await fetch(`/api/sdks/${downloadId}/download`, {
+      console.log(`Downloading SDK with ID: ${sdk.id}`);
+      const response = await fetch(`/api/sdks/${sdk.id}/download`, {
         method: 'GET',
         credentials: 'include',
       });
 
       if (!response.ok) {
-        throw new Error('Download failed');
+        const errorText = await response.text();
+        console.error('Download failed:', response.status, errorText);
+        throw new Error(`Download failed: ${response.status}`);
       }
 
       // Create blob and download
@@ -162,6 +153,7 @@ export default function SDKManagement() {
         description: `${sdk.name} SDK download has started.`,
       });
     } catch (error) {
+      console.error('SDK download error:', error);
       toast({
         title: "Download Failed",
         description: "Failed to download SDK. Please try again.",

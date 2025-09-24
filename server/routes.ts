@@ -470,9 +470,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ENTERPRISE SDK DOWNLOAD with REAL production generation + SECURITY
-  app.get("/api/sdks/:downloadId/download", isAuthenticated, async (req, res) => {
+  app.get("/api/sdks/:id/download", isAuthenticated, async (req, res) => {
     try {
-      console.log(`📦 Download request for SDK ID: ${req.params.downloadId}`);
+      console.log(`📦 Download request for SDK ID: ${req.params.id}`);
       
       // Get user and verify authentication
       const user = req.user as any;
@@ -483,16 +483,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Invalid user session" });
       }
       
-      const sdk = await storage.getSDK(req.params.downloadId);
+      const sdk = await storage.getSDK(req.params.id);
       if (!sdk) {
-        console.error(`❌ SDK not found: ${req.params.downloadId}`);
+        console.error(`❌ SDK not found: ${req.params.id}`);
         return res.status(404).json({ message: "SDK not found" });
       }
 
       // SECURITY: Verify user owns this SDK or belongs to same tenant
       const tenantId = user.tenantId || await storage.getOrCreateTenantForUser(userId, userEmail);
       if (sdk.tenantId !== tenantId && sdk.userId !== userId) {
-        console.error(`❌ Unauthorized access attempt: User ${userId} tried to download SDK ${req.params.downloadId} owned by tenant ${sdk.tenantId}`);
+        console.error(`❌ Unauthorized access attempt: User ${userId} tried to download SDK ${req.params.id} owned by tenant ${sdk.tenantId}`);
         return res.status(403).json({ message: "Unauthorized access to SDK" });
       }
 
