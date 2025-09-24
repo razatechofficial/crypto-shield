@@ -57,20 +57,20 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4">
+      <div className="flex items-center justify-center mb-8">
+        <img 
+          src="/averox-logo.png" 
+          alt="Averox Logo" 
+          className="w-12 h-12 object-contain mr-3"
+        />
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-foreground">Averox</h1>
+          <p className="text-sm text-muted-foreground">Enterprise Encryption Platform</p>
+        </div>
+      </div>
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <div className="flex items-center justify-center mb-6">
-            <img 
-              src="/averox-logo.png" 
-              alt="Averox Logo" 
-              className="w-12 h-12 object-contain mr-3"
-            />
-            <div className="text-center">
-              <h1 className="text-2xl font-bold text-foreground">Averox</h1>
-              <p className="text-sm text-muted-foreground">Enterprise Encryption Platform</p>
-            </div>
-          </div>
           <CardTitle className="text-2xl font-bold text-center">Welcome back</CardTitle>
           <CardDescription className="text-center">
             Sign in to your account to continue
