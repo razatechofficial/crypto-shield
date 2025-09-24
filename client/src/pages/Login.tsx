@@ -6,6 +6,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
@@ -15,6 +16,7 @@ import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
+  rememberPassword: z.boolean().default(false),
 });
 
 type LoginForm = z.infer<typeof loginSchema>;
@@ -29,6 +31,7 @@ export default function Login() {
     defaultValues: {
       email: "",
       password: "",
+      rememberPassword: false,
     },
   });
 
@@ -131,6 +134,26 @@ export default function Login() {
                       </div>
                     </FormControl>
                     <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="rememberPassword"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        data-testid="checkbox-remember-password"
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel className="text-sm font-normal">
+                        Save password
+                      </FormLabel>
+                    </div>
                   </FormItem>
                 )}
               />
