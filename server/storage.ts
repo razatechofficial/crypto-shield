@@ -391,7 +391,7 @@ export class DatabaseStorage implements IStorage {
       .values({
         email: userData.email,
         firstName: userData.firstName,
-        lastName: userData.lastName,
+        lastName: userData.lastName, 
         companyName: userData.companyName,
         website: userData.website,
         phoneNumber: userData.phoneNumber,
