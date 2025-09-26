@@ -10,7 +10,7 @@ import bcrypt from "bcryptjs";
 import { EnterpriseAdapter } from "./enterpriseAdapter";
 // import { performEnterpriseAudit } from "./security-audit";
 import archiver from "archiver";
-import jsPDF from "jspdf";
+import PDFDocument from "pdfkit";
 
 // KMS operation validation schemas
 const rotateKeySchema = z.object({
@@ -1457,15 +1457,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Use jsPDF for PDF generation
       const { jsPDF } = await import('jspdf');
-      const doc = new jsPDF();
+      const doc = new PDFDocument();
+      const chunks: Buffer[] = [];
+
+      doc.on('data', (chunk) => chunks.push(chunk));
+      doc.on('end', () => {
+        const pdfBuffer = Buffer.concat(chunks);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', 'attachment; filename="' + req.path.split('/').pop() + '.pdf"');
+        res.send(pdfBuffer);
+      });
       
       // Add Averox branding and title
-      doc.setFontSize(20);
+      doc.fontSize(20);
       doc.setTextColor(26, 86, 219); // Averox blue
       doc.text('AVEROX QUANTUM SECURITY', 20, 25);
       doc.text('MIGRATION GUIDE', 20, 40);
       
-      doc.setFontSize(12);
+      doc.fontSize(12);
       doc.setTextColor(100, 116, 139);
       doc.text('Enterprise-Grade Post-Quantum Cryptography Implementation', 20, 50);
       
@@ -1475,7 +1484,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let yPos = 70;
       
       // Executive Summary
-      doc.setFontSize(16);
+      doc.fontSize(16);
       doc.setTextColor(30, 64, 175);
       doc.text('Executive Summary', 20, yPos);
       yPos += 15;
@@ -1487,7 +1496,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       yPos += execSummary.length * 5 + 10;
       
       // Current Threat Landscape
-      doc.setFontSize(16);
+      doc.fontSize(16);
       doc.setTextColor(30, 64, 175);
       doc.text('Current Quantum Threat Landscape', 20, yPos);
       yPos += 15;
@@ -1504,7 +1513,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       yPos += 20;
       
       // Migration Timeline
-      doc.setFontSize(16);
+      doc.fontSize(16);
       doc.setTextColor(30, 64, 175);
       doc.text('Recommended Migration Timeline', 20, yPos);
       yPos += 15;
@@ -1550,7 +1559,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           yPos = 30;
         }
         
-        doc.setFontSize(12);
+        doc.fontSize(12);
         doc.setTextColor(8, 145, 178);
         doc.text(phase.title, 25, yPos);
         yPos += 10;
@@ -1569,12 +1578,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       yPos = 30;
       
       // NIST Algorithms
-      doc.setFontSize(16);
+      doc.fontSize(16);
       doc.setTextColor(30, 64, 175);
       doc.text('NIST Post-Quantum Algorithms', 20, yPos);
       yPos += 20;
       
-      doc.setFontSize(12);
+      doc.fontSize(12);
       doc.setTextColor(14, 165, 233);
       doc.text('ML-KEM (FIPS 203):', 25, yPos);
       doc.setFontSize(10);
@@ -1582,7 +1591,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       doc.text('Key Encapsulation Mechanism - Secure key exchange', 25, yPos + 8);
       yPos += 20;
       
-      doc.setFontSize(12);
+      doc.fontSize(12);
       doc.setTextColor(14, 165, 233);
       doc.text('ML-DSA (FIPS 204):', 25, yPos);
       doc.setFontSize(10);
@@ -1590,7 +1599,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       doc.text('Digital Signature Algorithm - Quantum-resistant signatures', 25, yPos + 8);
       yPos += 20;
       
-      doc.setFontSize(12);
+      doc.fontSize(12);
       doc.setTextColor(14, 165, 233);
       doc.text('SLH-DSA (FIPS 205):', 25, yPos);
       doc.setFontSize(10);
@@ -1599,12 +1608,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       yPos += 30;
       
       // Cost Estimation
-      doc.setFontSize(16);
+      doc.fontSize(16);
       doc.setTextColor(30, 64, 175);
       doc.text('Cost Estimation', 20, yPos);
       yPos += 20;
       
-      doc.setFontSize(12);
+      doc.fontSize(12);
       doc.setTextColor(51, 51, 51);
       doc.text(`Development: $${baseCost.toLocaleString()} - $${maxCost.toLocaleString()}`, 25, yPos);
       yPos += 10;
@@ -1616,7 +1625,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       yPos += 30;
       
       // Contact Information
-      doc.setFontSize(16);
+      doc.fontSize(16);
       doc.setTextColor(30, 64, 175);
       doc.text('Contact Information', 20, yPos);
       yPos += 20;
@@ -1638,11 +1647,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       doc.text('© 2025 Averox Ltd. All rights reserved.', 20, yPos + 16);
       
       // Generate PDF buffer
-      const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
-      
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', 'attachment; filename="Averox-Quantum-Migration-Guide.pdf"');
-      res.send(pdfBuffer);
+      doc.end();
     } catch (error: any) {
       console.error("Migration guide PDF generation error:", error);
       res.status(500).json({ message: "Failed to generate migration guide PDF", error: error.message });
@@ -2561,54 +2566,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // JavaScript/TypeScript Installation Guide
   app.get('/api/docs/javascript-installation-guide', isAuthenticated, async (req, res) => {
     try {
-      const doc = new jsPDF();
-      
+      const doc = new PDFDocument();
+      const chunks: Buffer[] = [];
+
+      doc.on('data', (chunk) => chunks.push(chunk));
+      doc.on('end', () => {
+        const pdfBuffer = Buffer.concat(chunks);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', 'attachment; filename="javascript-installation-guide.pdf"');
+        res.send(pdfBuffer);
+      });
+
       // Title
-      doc.setFontSize(20);
-      doc.text('JavaScript/TypeScript SDK - Installation Guide', 20, 20);
+      doc.fontSize(20);
+      doc.text('JavaScript/TypeScript SDK - Installation Guide', 50, 50);
       
       // System Requirements
-      doc.setFontSize(16);
-      doc.text('System Requirements', 20, 40);
-      doc.setFontSize(12);
-      doc.text('Minimum Requirements:', 20, 55);
-      doc.text('• Node.js: 16.0+ (LTS recommended)', 25, 65);
-      doc.text('• npm: 8.0+ or yarn: 1.22+', 25, 75);
-      doc.text('• TypeScript: 4.5+ (for TypeScript projects)', 25, 85);
-      doc.text('• Operating System: Windows 10+, macOS 10.15+, Linux', 25, 95);
+      doc.fontSize(16);
+      doc.text('System Requirements', 50, 100);
+      doc.fontSize(12);
+      doc.text('Minimum Requirements:', 50, 125);
+      doc.text('• Node.js: 16.0+ (LTS recommended)', 70, 145);
+      doc.text('• npm: 8.0+ or yarn: 1.22+', 70, 165);
+      doc.text('• TypeScript: 4.5+ (for TypeScript projects)', 70, 185);
+      doc.text('• Operating System: Windows 10+, macOS 10.15+, Linux', 70, 205);
       
       // Installation
-      doc.setFontSize(16);
-      doc.text('Installation', 20, 115);
-      doc.setFontSize(12);
-      doc.text('NPM Installation (Recommended):', 20, 130);
-      doc.text('npm install @averox/crypto-sdk', 25, 140);
-      doc.text('npm install --save-dev typescript', 25, 150);
+      doc.fontSize(16);
+      doc.text('Installation', 50, 240);
+      doc.fontSize(12);
+      doc.text('NPM Installation (Recommended):', 50, 265);
+      doc.text('npm install @averox/crypto-sdk', 70, 285);
+      doc.text('npm install --save-dev typescript', 70, 305);
       
       // Quick Start
-      doc.setFontSize(16);
-      doc.text('Quick Start', 20, 170);
-      doc.setFontSize(12);
-      doc.text('Basic JavaScript Setup:', 20, 185);
-      doc.text('const { AveroxCrypto } = require(\'@averox/crypto-sdk\');', 25, 195);
-      doc.text('const masterKey = AveroxCrypto.generateMasterKey();', 25, 205);
-      doc.text('const crypto = new AveroxCrypto(masterKey);', 25, 215);
-      doc.text('const aad = Buffer.from("user-context-data");', 25, 225);
-      doc.text('const envelope = crypto.encrypt("Hello, World!", aad);', 25, 235);
+      doc.fontSize(16);
+      doc.text('Quick Start', 50, 340);
+      doc.fontSize(12);
+      doc.text('Basic JavaScript Setup:', 50, 365);
+      doc.text('const { AveroxCrypto } = require(\'@averox/crypto-sdk\');', 70, 385);
+      doc.text('const masterKey = AveroxCrypto.generateMasterKey();', 70, 405);
+      doc.text('const crypto = new AveroxCrypto(masterKey);', 70, 425);
+      doc.text('const aad = Buffer.from("user-context-data");', 70, 445);
+      doc.text('const envelope = crypto.encrypt("Hello, World!", aad);', 70, 465);
       
       // Troubleshooting
-      doc.setFontSize(16);
-      doc.text('Troubleshooting', 20, 255);
-      doc.setFontSize(12);
-      doc.text('Common Issues:', 20, 270);
-      doc.text('• Module not found: npm list @averox/crypto-sdk', 25, 280);
-      doc.text('• Reinstall: npm uninstall @averox/crypto-sdk && npm install', 25, 290);
+      doc.fontSize(16);
+      doc.text('Troubleshooting', 50, 500);
+      doc.fontSize(12);
+      doc.text('Common Issues:', 50, 525);
+      doc.text('• Module not found: npm list @averox/crypto-sdk', 70, 545);
+      doc.text('• Reinstall: npm uninstall @averox/crypto-sdk && npm install', 70, 565);
       
-      const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
-      
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', 'attachment; filename="javascript-installation-guide.pdf"');
-      res.send(pdfBuffer);
+      doc.end();
     } catch (error) {
       console.error('Error generating PDF:', error);
       res.status(500).json({ error: 'Failed to generate PDF' });
@@ -2618,54 +2628,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Python Installation Guide
   app.get('/api/docs/python-installation-guide', isAuthenticated, async (req, res) => {
     try {
-      const doc = new jsPDF();
-      
+      const doc = new PDFDocument();
+      const chunks: Buffer[] = [];
+
+      doc.on('data', (chunk) => chunks.push(chunk));
+      doc.on('end', () => {
+        const pdfBuffer = Buffer.concat(chunks);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', 'attachment; filename="python-installation-guide.pdf"');
+        res.send(pdfBuffer);
+      });
+
       // Title
-      doc.setFontSize(20);
-      doc.text('Python SDK - Installation Guide', 20, 20);
+      doc.fontSize(20);
+      doc.text('Python SDK - Installation Guide', 50, 50);
       
       // System Requirements
-      doc.setFontSize(16);
-      doc.text('System Requirements', 20, 40);
-      doc.setFontSize(12);
-      doc.text('• Python: 3.8+ (3.11+ recommended)', 25, 55);
-      doc.text('• pip: 21.0+', 25, 65);
-      doc.text('• Operating System: Windows 10+, macOS 10.15+, Linux', 25, 75);
-      doc.text('• Memory: 256MB+ available', 25, 85);
-      doc.text('• Dependencies: cryptography library, requests', 25, 95);
+      doc.fontSize(16);
+      doc.text('System Requirements', 50, 100);
+      doc.fontSize(12);
+      doc.text('• Python: 3.8+ (3.11+ recommended)', 70, 125);
+      doc.text('• pip: 21.0+', 70, 145);
+      doc.text('• Operating System: Windows 10+, macOS 10.15+, Linux', 70, 165);
+      doc.text('• Memory: 256MB+ available', 70, 185);
+      doc.text('• Dependencies: cryptography library, requests', 70, 205);
       
       // Installation
-      doc.setFontSize(16);
-      doc.text('Installation', 20, 115);
-      doc.setFontSize(12);
-      doc.text('Using pip (Recommended):', 20, 130);
-      doc.text('pip install averox-crypto', 25, 140);
-      doc.text('python -c "import averox_crypto; print(\'Installation successful\')"', 25, 150);
+      doc.fontSize(16);
+      doc.text('Installation', 50, 240);
+      doc.fontSize(12);
+      doc.text('Using pip (Recommended):', 50, 265);
+      doc.text('pip install averox-crypto', 70, 285);
+      doc.text('python -c "import averox_crypto; print(\'Installation successful\')"', 70, 305);
       
       // Quick Start
-      doc.setFontSize(16);
-      doc.text('Quick Start', 20, 170);
-      doc.setFontSize(12);
-      doc.text('from averox_crypto import AveroxCrypto', 25, 185);
-      doc.text('master_key = AveroxCrypto.generate_master_key()', 25, 195);
-      doc.text('crypto = AveroxCrypto(master_key)', 25, 205);
-      doc.text('plaintext = b"Sensitive data"', 25, 215);
-      doc.text('aad = b"context-information"', 25, 225);
-      doc.text('envelope = crypto.encrypt(plaintext, aad)', 25, 235);
-      doc.text('decrypted = crypto.decrypt(envelope, aad)', 25, 245);
+      doc.fontSize(16);
+      doc.text('Quick Start', 50, 340);
+      doc.fontSize(12);
+      doc.text('from averox_crypto import AveroxCrypto', 70, 365);
+      doc.text('master_key = AveroxCrypto.generate_master_key()', 70, 385);
+      doc.text('crypto = AveroxCrypto(master_key)', 70, 405);
+      doc.text('plaintext = b"Sensitive data"', 70, 425);
+      doc.text('aad = b"context-information"', 70, 445);
+      doc.text('envelope = crypto.encrypt(plaintext, aad)', 70, 465);
+      doc.text('decrypted = crypto.decrypt(envelope, aad)', 70, 485);
       
       // Troubleshooting
-      doc.setFontSize(16);
-      doc.text('Troubleshooting', 20, 265);
-      doc.setFontSize(12);
-      doc.text('Import Errors:', 20, 280);
-      doc.text('• Check: pip show averox-crypto', 25, 290);
+      doc.fontSize(16);
+      doc.text('Troubleshooting', 50, 520);
+      doc.fontSize(12);
+      doc.text('Import Errors:', 50, 545);
+      doc.text('• Check: pip show averox-crypto', 70, 565);
       
-      const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
-      
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', 'attachment; filename="python-installation-guide.pdf"');
-      res.send(pdfBuffer);
+      doc.end();
     } catch (error) {
       console.error('Error generating PDF:', error);
       res.status(500).json({ error: 'Failed to generate PDF' });
@@ -2675,52 +2690,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Universal Troubleshooting Guide
   app.get('/api/docs/universal-troubleshooting-guide', isAuthenticated, async (req, res) => {
     try {
-      const doc = new jsPDF();
-      
+      const doc = new PDFDocument();
+      const chunks: Buffer[] = [];
+
+      doc.on('data', (chunk) => chunks.push(chunk));
+      doc.on('end', () => {
+        const pdfBuffer = Buffer.concat(chunks);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', 'attachment; filename="universal-troubleshooting-guide.pdf"');
+        res.send(pdfBuffer);
+      });
+
       // Title
-      doc.setFontSize(20);
-      doc.text('Universal SDK Troubleshooting Guide', 20, 20);
+      doc.fontSize(20);
+      doc.text('Universal SDK Troubleshooting Guide', 50, 50);
       
       // Quick Diagnosis
-      doc.setFontSize(16);
-      doc.text('Quick Diagnosis', 20, 40);
-      doc.setFontSize(12);
-      doc.text('Encryption Failure Checklist:', 20, 55);
-      doc.text('□ AAD (Additional Authenticated Data) is provided and non-empty', 25, 65);
-      doc.text('□ Key is exactly 32 bytes (256 bits) for AES-256-GCM', 25, 75);
-      doc.text('□ Input data is not corrupted', 25, 85);
-      doc.text('□ Sufficient memory available', 25, 95);
-      doc.text('□ No network connectivity issues (for cloud key management)', 25, 105);
+      doc.fontSize(16);
+      doc.text('Quick Diagnosis', 50, 100);
+      doc.fontSize(12);
+      doc.text('Encryption Failure Checklist:', 50, 125);
+      doc.text('□ AAD (Additional Authenticated Data) is provided and non-empty', 70, 145);
+      doc.text('□ Key is exactly 32 bytes (256 bits) for AES-256-GCM', 70, 165);
+      doc.text('□ Input data is not corrupted', 70, 185);
+      doc.text('□ Sufficient memory available', 70, 205);
+      doc.text('□ No network connectivity issues (for cloud key management)', 70, 225);
       
       // Error Codes
-      doc.setFontSize(16);
-      doc.text('Error Code Reference', 20, 125);
-      doc.setFontSize(12);
-      doc.text('Encryption Errors:', 20, 140);
-      doc.text('• AAD_REQUIRED: AAD parameter missing or empty', 25, 150);
-      doc.text('• INVALID_KEY_SIZE: Key must be exactly 32 bytes', 25, 160);
-      doc.text('• INVALID_IV: IV must be exactly 12 bytes', 25, 170);
-      doc.text('• AUTHENTICATION_FAILED: Data tampered or wrong AAD/key', 25, 180);
+      doc.fontSize(16);
+      doc.text('Error Code Reference', 50, 260);
+      doc.fontSize(12);
+      doc.text('Encryption Errors:', 50, 285);
+      doc.text('• AAD_REQUIRED: AAD parameter missing or empty', 70, 305);
+      doc.text('• INVALID_KEY_SIZE: Key must be exactly 32 bytes', 70, 325);
+      doc.text('• INVALID_IV: IV must be exactly 12 bytes', 70, 345);
+      doc.text('• AUTHENTICATION_FAILED: Data tampered or wrong AAD/key', 70, 365);
       
-      doc.text('Installation Errors:', 20, 200);
-      doc.text('• MODULE_NOT_FOUND: Package not installed or wrong import path', 25, 210);
-      doc.text('• PERMISSION_DENIED: Insufficient installation permissions', 25, 220);
-      doc.text('• DEPENDENCY_CONFLICT: Version conflicts with other packages', 25, 230);
-      doc.text('• PLATFORM_UNSUPPORTED: Platform/architecture not supported', 25, 240);
+      doc.text('Installation Errors:', 50, 400);
+      doc.text('• MODULE_NOT_FOUND: Package not installed or wrong import path', 70, 420);
+      doc.text('• PERMISSION_DENIED: Insufficient installation permissions', 70, 440);
+      doc.text('• DEPENDENCY_CONFLICT: Version conflicts with other packages', 70, 460);
+      doc.text('• PLATFORM_UNSUPPORTED: Platform/architecture not supported', 70, 480);
       
       // Recovery Procedures
-      doc.setFontSize(16);
-      doc.text('Emergency Recovery Procedures', 20, 260);
-      doc.setFontSize(12);
-      doc.text('Complete SDK Reset:', 20, 275);
-      doc.text('1. Uninstall current SDK', 25, 285);
-      doc.text('2. Clear all caches', 25, 295);
+      doc.fontSize(16);
+      doc.text('Emergency Recovery Procedures', 50, 515);
+      doc.fontSize(12);
+      doc.text('Complete SDK Reset:', 50, 540);
+      doc.text('1. Uninstall current SDK', 70, 560);
+      doc.text('2. Clear all caches', 70, 580);
       
-      const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
-      
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', 'attachment; filename="universal-troubleshooting-guide.pdf"');
-      res.send(pdfBuffer);
+      doc.end();
     } catch (error) {
       console.error('Error generating PDF:', error);
       res.status(500).json({ error: 'Failed to generate PDF' });
@@ -2730,20 +2750,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Encryption Failure Debugging Guide
   app.get('/api/docs/encryption-failure-debugging', isAuthenticated, async (req, res) => {
     try {
-      const doc = new jsPDF();
+      const doc = new PDFDocument();
+      const chunks: Buffer[] = [];
+
+      doc.on('data', (chunk) => chunks.push(chunk));
+      doc.on('end', () => {
+        const pdfBuffer = Buffer.concat(chunks);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', 'attachment; filename="' + req.path.split('/').pop() + '.pdf"');
+        res.send(pdfBuffer);
+      });
       
       // Title
-      doc.setFontSize(20);
+      doc.fontSize(20);
       doc.text('Encryption Failure Debugging Guide', 20, 20);
       
       // Common Scenarios
-      doc.setFontSize(16);
+      doc.fontSize(16);
       doc.text('Common Encryption Failure Scenarios', 20, 40);
       
       // AAD Issues
-      doc.setFontSize(14);
+      doc.fontSize(14);
       doc.text('1. AAD (Additional Authenticated Data) Issues', 20, 55);
-      doc.setFontSize(12);
+      doc.fontSize(12);
       doc.text('Missing AAD:', 25, 70);
       doc.text('❌ Error: AAD_REQUIRED', 30, 80);
       doc.text('✅ Solution: Always provide AAD parameter', 30, 90);
@@ -2757,9 +2786,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       doc.text('Correct: crypto.encrypt("data", Buffer.from("user-session-123"))', 30, 165);
       
       // Key Management Issues  
-      doc.setFontSize(14);
+      doc.fontSize(14);
       doc.text('2. Key Management Issues', 20, 185);
-      doc.setFontSize(12);
+      doc.fontSize(12);
       doc.text('Invalid Key Size:', 25, 200);
       doc.text('❌ Error: INVALID_KEY_SIZE', 30, 210);
       doc.text('✅ Solution: Use exactly 32 bytes (256 bits)', 30, 220);
@@ -2767,18 +2796,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       doc.text('Correct: const key = AveroxCrypto.generateMasterKey()', 30, 240);
       
       // Debugging Techniques
-      doc.setFontSize(14);
+      doc.fontSize(14);
       doc.text('3. Debugging Techniques', 20, 260);
-      doc.setFontSize(12);
+      doc.fontSize(12);
       doc.text('Enable Debug Logging:', 25, 275);
       doc.text('JavaScript: process.env.DEBUG = "averox:*"', 30, 285);
       doc.text('Python: import logging; logging.basicConfig(level=logging.DEBUG)', 30, 295);
       
-      const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
-      
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', 'attachment; filename="encryption-failure-debugging.pdf"');
-      res.send(pdfBuffer);
+      doc.end();
     } catch (error) {
       console.error('Error generating PDF:', error);
       res.status(500).json({ error: 'Failed to generate PDF' });
@@ -2788,16 +2813,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Java Installation Guide
   app.get('/api/docs/java-installation-guide', isAuthenticated, async (req, res) => {
     try {
-      const doc = new jsPDF();
+      const doc = new PDFDocument();
+      const chunks: Buffer[] = [];
+
+      doc.on('data', (chunk) => chunks.push(chunk));
+      doc.on('end', () => {
+        const pdfBuffer = Buffer.concat(chunks);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', 'attachment; filename="' + req.path.split('/').pop() + '.pdf"');
+        res.send(pdfBuffer);
+      });
       
       // Title
-      doc.setFontSize(20);
+      doc.fontSize(20);
       doc.text('Java SDK - Installation Guide', 20, 20);
       
       // System Requirements
-      doc.setFontSize(16);
+      doc.fontSize(16);
       doc.text('System Requirements', 20, 40);
-      doc.setFontSize(12);
+      doc.fontSize(12);
       doc.text('• Java: 11+ (17+ recommended)', 25, 55);
       doc.text('• Maven: 3.6+ or Gradle: 7.0+', 25, 65);
       doc.text('• Operating System: Windows 10+, macOS 10.15+, Linux', 25, 75);
@@ -2805,9 +2839,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       doc.text('• JCE: Unlimited strength jurisdiction policy files', 25, 95);
       
       // Installation
-      doc.setFontSize(16);
+      doc.fontSize(16);
       doc.text('Installation', 20, 115);
-      doc.setFontSize(12);
+      doc.fontSize(12);
       doc.text('Maven:', 20, 130);
       doc.text('<dependency>', 25, 140);
       doc.text('  <groupId>com.averox</groupId>', 30, 150);
@@ -2819,19 +2853,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       doc.text('implementation \'com.averox:crypto-sdk:2.0.0\'', 25, 210);
       
       // Quick Start
-      doc.setFontSize(16);
+      doc.fontSize(16);
       doc.text('Quick Start', 20, 230);
-      doc.setFontSize(12);
+      doc.fontSize(12);
       doc.text('import com.averox.crypto.AveroxCrypto;', 25, 245);
       doc.text('byte[] masterKey = AveroxCrypto.generateMasterKey();', 25, 255);
       doc.text('AveroxCrypto crypto = new AveroxCrypto(masterKey);', 25, 265);
       doc.text('byte[] aad = "context-data".getBytes();', 25, 275);
       doc.text('AveroxEnvelope envelope = crypto.encrypt(plaintext, aad);', 25, 285);
       
-      const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
-      
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', 'attachment; filename="java-installation-guide.pdf"');
+      doc.end();
       res.send(pdfBuffer);
     } catch (error) {
       console.error('Error generating PDF:', error);
@@ -2842,16 +2873,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // C/C++ Installation Guide
   app.get('/api/docs/c-cpp-installation-guide', isAuthenticated, async (req, res) => {
     try {
-      const doc = new jsPDF();
+      const doc = new PDFDocument();
+      const chunks: Buffer[] = [];
+
+      doc.on('data', (chunk) => chunks.push(chunk));
+      doc.on('end', () => {
+        const pdfBuffer = Buffer.concat(chunks);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', 'attachment; filename="' + req.path.split('/').pop() + '.pdf"');
+        res.send(pdfBuffer);
+      });
       
       // Title
-      doc.setFontSize(20);
+      doc.fontSize(20);
       doc.text('C/C++ SDK - Installation Guide', 20, 20);
       
       // System Requirements
-      doc.setFontSize(16);
+      doc.fontSize(16);
       doc.text('System Requirements', 20, 40);
-      doc.setFontSize(12);
+      doc.fontSize(12);
       doc.text('• CMake: 3.10+', 25, 55);
       doc.text('• Compiler: GCC 7+, Clang 10+, MSVC 2019+', 25, 65);
       doc.text('• OpenSSL: 1.1.0+', 25, 75);
@@ -2859,9 +2899,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       doc.text('• Operating System: Windows 10+, macOS 10.15+, Linux', 25, 95);
       
       // Installation
-      doc.setFontSize(16);
+      doc.fontSize(16);
       doc.text('Installation', 20, 115);
-      doc.setFontSize(12);
+      doc.fontSize(12);
       doc.text('From Source (Recommended):', 20, 130);
       doc.text('git clone https://github.com/averox/c-sdk.git', 25, 140);
       doc.text('cd averox-c-sdk', 25, 150);
@@ -2871,9 +2911,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       doc.text('sudo make install', 25, 190);
       
       // Quick Start
-      doc.setFontSize(16);
+      doc.fontSize(16);
       doc.text('Quick Start', 20, 210);
-      doc.setFontSize(12);
+      doc.fontSize(12);
       doc.text('#include <averox_crypto.h>', 25, 225);
       doc.text('uint8_t master_key[AVEROX_KEY_SIZE];', 25, 235);
       doc.text('averox_generate_key(master_key);', 25, 245);
@@ -2881,15 +2921,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       doc.text('averox_error_t result = averox_encrypt(...);', 25, 265);
       
       // Troubleshooting
-      doc.setFontSize(16);
+      doc.fontSize(16);
       doc.text('Troubleshooting', 20, 285);
-      doc.setFontSize(12);
+      doc.fontSize(12);
       doc.text('Build Errors:', 20, 300);
       
-      const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
-      
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', 'attachment; filename="c-cpp-installation-guide.pdf"');
+      doc.end();
       res.send(pdfBuffer);
     } catch (error) {
       console.error('Error generating PDF:', error);
@@ -2900,28 +2937,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // C# Installation Guide (Placeholder)
   app.get('/api/docs/csharp-installation-guide', isAuthenticated, async (req, res) => {
     try {
-      const doc = new jsPDF();
+      const doc = new PDFDocument();
+      const chunks: Buffer[] = [];
+
+      doc.on('data', (chunk) => chunks.push(chunk));
+      doc.on('end', () => {
+        const pdfBuffer = Buffer.concat(chunks);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', 'attachment; filename="' + req.path.split('/').pop() + '.pdf"');
+        res.send(pdfBuffer);
+      });
       
       // Title
-      doc.setFontSize(20);
+      doc.fontSize(20);
       doc.text('C# SDK - Installation Guide', 20, 20);
       
       // Warning
-      doc.setFontSize(16);
+      doc.fontSize(16);
       doc.text('⚠️ Current Status: Placeholder Implementation', 20, 40);
       
-      doc.setFontSize(12);
+      doc.fontSize(12);
       doc.text('Important Notice: The C# SDK is currently a placeholder implementation', 20, 55);
       doc.text('that returns the JavaScript/TypeScript SDK. Full native C# implementation', 20, 65);
       doc.text('is planned for future releases.', 20, 75);
       
       // Recommended Approach
-      doc.setFontSize(16);
+      doc.fontSize(16);
       doc.text('Recommended Approach', 20, 95);
       
-      doc.setFontSize(14);
+      doc.fontSize(14);
       doc.text('Option 1: Use JavaScript SDK via Node.js Integration', 20, 110);
-      doc.setFontSize(12);
+      doc.fontSize(12);
       doc.text('using System.Diagnostics;', 25, 125);
       doc.text('public class AveroxCryptoWrapper', 25, 135);
       doc.text('{', 25, 145);
@@ -2934,19 +2980,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       doc.text('}', 25, 215);
       
       // Future Implementation
-      doc.setFontSize(14);
+      doc.fontSize(14);
       doc.text('Option 2: Wait for Native C# Implementation', 20, 235);
-      doc.setFontSize(12);
+      doc.fontSize(12);
       doc.text('The native C# SDK is planned with these features:', 25, 250);
       doc.text('• Native .NET 6+ support', 30, 260);
       doc.text('• NuGet package distribution', 30, 270);
       doc.text('• Enterprise security compliance', 30, 280);
       doc.text('• OpenTelemetry integration', 30, 290);
       
-      const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
-      
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', 'attachment; filename="csharp-installation-guide.pdf"');
+      doc.end();
       res.send(pdfBuffer);
     } catch (error) {
       console.error('Error generating PDF:', error);
@@ -2957,28 +3000,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Swift Installation Guide (Placeholder)
   app.get('/api/docs/swift-installation-guide', isAuthenticated, async (req, res) => {
     try {
-      const doc = new jsPDF();
+      const doc = new PDFDocument();
+      const chunks: Buffer[] = [];
+
+      doc.on('data', (chunk) => chunks.push(chunk));
+      doc.on('end', () => {
+        const pdfBuffer = Buffer.concat(chunks);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', 'attachment; filename="' + req.path.split('/').pop() + '.pdf"');
+        res.send(pdfBuffer);
+      });
       
       // Title
-      doc.setFontSize(20);
+      doc.fontSize(20);
       doc.text('Swift SDK - Installation Guide', 20, 20);
       
       // Warning
-      doc.setFontSize(16);
+      doc.fontSize(16);
       doc.text('⚠️ Current Status: Placeholder Implementation', 20, 40);
       
-      doc.setFontSize(12);
+      doc.fontSize(12);
       doc.text('Important Notice: The Swift SDK is currently a placeholder implementation', 20, 55);
       doc.text('that returns the JavaScript/TypeScript SDK. Full native Swift implementation', 20, 65);
       doc.text('is planned for future releases.', 20, 75);
       
       // Recommended Approach
-      doc.setFontSize(16);
+      doc.fontSize(16);
       doc.text('Recommended Approach', 20, 95);
       
-      doc.setFontSize(14);
+      doc.fontSize(14);
       doc.text('Option 1: Use JavaScript SDK via JavaScriptCore', 20, 110);
-      doc.setFontSize(12);
+      doc.fontSize(12);
       doc.text('import JavaScriptCore', 25, 125);
       doc.text('class AveroxCryptoWrapper {', 25, 135);
       doc.text('  private let context = JSContext()!', 30, 145);
@@ -2991,19 +3043,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       doc.text('}', 25, 215);
       
       // Future Implementation
-      doc.setFontSize(14);
+      doc.fontSize(14);
       doc.text('Option 2: Wait for Native Swift Implementation', 20, 235);
-      doc.setFontSize(12);
+      doc.fontSize(12);
       doc.text('The native Swift SDK is planned with these features:', 25, 250);
       doc.text('• Native Swift 5.7+ support', 30, 260);
       doc.text('• Swift Package Manager distribution', 30, 270);
       doc.text('• iOS 15+ and macOS 12+ support', 30, 280);
       doc.text('• Enterprise security compliance', 30, 290);
       
-      const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
-      
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', 'attachment; filename="swift-installation-guide.pdf"');
+      doc.end();
       res.send(pdfBuffer);
     } catch (error) {
       console.error('Error generating PDF:', error);
