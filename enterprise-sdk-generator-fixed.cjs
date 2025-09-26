@@ -1468,6 +1468,7 @@ Enterprise-grade encryption library with ENFORCED security policies.
 - CMake 3.10+
 - OpenSSL 1.1.0+
 - C compiler (GCC, Clang, MSVC)
+- pkg-config (for integration)
 
 ### Standard Build
 \`\`\`bash
@@ -1567,6 +1568,42 @@ The verification process:
 1. Installs to a temporary prefix
 2. Verifies pkg-config file exists: \`/tmp/pfx/lib/pkgconfig/sdkcrypto.pc\`
 3. Tests pkg-config functionality: \`pkg-config --exists sdkcrypto\`
+
+## Integration with pkg-config
+
+After installation, you can use pkg-config to compile applications:
+
+\`\`\`bash
+# Check if the library is available
+pkg-config --exists sdkcrypto
+
+# Get compiler flags
+pkg-config --cflags sdkcrypto
+
+# Get linker flags  
+pkg-config --libs sdkcrypto
+
+# Compile your application
+gcc myapp.c \$(pkg-config --cflags --libs sdkcrypto) -o myapp
+\`\`\`
+
+### Example Application
+\`\`\`c
+#include <averox_crypto.h>
+#include <stdio.h>
+
+int main() {
+    uint8_t key[AVEROX_KEY_SIZE];
+    averox_generate_key(key);
+    printf("Generated 256-bit encryption key\\n");
+    return 0;
+}
+\`\`\`
+
+Compile with:
+\`\`\`bash
+gcc example.c \$(pkg-config --cflags --libs sdkcrypto) -o example
+\`\`\`
 
 ## Error Handling
 
@@ -1697,6 +1734,7 @@ jobs:
         test -f /tmp/test-install/lib/pkgconfig/sdkcrypto.pc
         PKG_CONFIG_PATH=/tmp/test-install/lib/pkgconfig pkg-config --exists sdkcrypto
         PKG_CONFIG_PATH=/tmp/test-install/lib/pkgconfig pkg-config --cflags --libs sdkcrypto
+        echo "✅ pkg-config integration verified successfully"
 
   security-gates:
     name: Enterprise Security Gates
@@ -1722,6 +1760,97 @@ jobs:
         grep -q "crypto_encrypt_total" src/index.ts
         grep -q "crypto_decrypt_total" src/index.ts
         grep -q "crypto_fail_total" src/index.ts
+
+  release:
+    name: Release and SBOM Publishing
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [node-tests, c-sanitizer-build, security-gates]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Generate Release SBOMs
+      run: |
+        chmod +x scripts/generate-sbom.sh
+        ./scripts/generate-sbom.sh
+        
+        # Add release metadata to SBOMs
+        TAG_NAME=\${GITHUB_REF#refs/tags/}
+        echo "Adding release tag \$TAG_NAME to SBOMs"
+        
+        # Update CycloneDX SBOM with release info
+        if [ -f sbom/sbom-cyclonedx.json ]; then
+          jq ".metadata.component.version = \"\$TAG_NAME\"" sbom/sbom-cyclonedx.json > sbom/sbom-cyclonedx-release.json
+          mv sbom/sbom-cyclonedx-release.json sbom/sbom-cyclonedx.json
+        fi
+    
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: \${{ github.ref }}
+        release_name: Release \${{ github.ref }}
+        body: |
+          ## Enterprise Security SDK Release
+          
+          ### Security Features
+          - ✅ ENFORCED AAD policy for all operations
+          - ✅ Real cryptographic implementations (no mocks)
+          - ✅ OpenTelemetry metrics integration
+          - ✅ Comprehensive test coverage (NIST + Wycheproof)
+          - ✅ Supply chain security (SBOM included)
+          
+          ### Artifacts
+          - Software Bill of Materials (SBOM) - CycloneDX and SPDX formats
+          - Threat model and security documentation
+          - Multi-language SDK implementations
+        draft: false
+        prerelease: false
+    
+    - name: Upload CycloneDX SBOM
+      if: hashFiles('sbom/sbom-cyclonedx.json') != ''
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: \${{ steps.create_release.outputs.upload_url }}
+        asset_path: sbom/sbom-cyclonedx.json
+        asset_name: sbom-cyclonedx.json
+        asset_content_type: application/json
+    
+    - name: Upload SPDX SBOM
+      if: hashFiles('sbom/sbom-spdx.json') != ''
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: \${{ steps.create_release.outputs.upload_url }}
+        asset_path: sbom/sbom-spdx.json
+        asset_name: sbom-spdx.json
+        asset_content_type: application/json
+    
+    - name: Upload Threat Model
+      if: hashFiles('THREAT-MODEL.md') != ''
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: \${{ steps.create_release.outputs.upload_url }}
+        asset_path: THREAT-MODEL.md
+        asset_name: THREAT-MODEL.md
+        asset_content_type: text/markdown
 `;
   }
 
