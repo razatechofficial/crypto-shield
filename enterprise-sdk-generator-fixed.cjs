@@ -10266,7 +10266,7 @@ class AveroxCryptoSuite extends FunSuite {
         assertEquals(decoded.iv, envelope.iv)
         assertEquals(decoded.timestamp, envelope.timestamp)
       case Left(error) =>
-        fail(s"JSON deserialization failed: $error")
+        fail(s"JSON deserialization failed: \$error")
     }
   }
 }`;
@@ -10315,7 +10315,7 @@ val result = for {
 
 result match {
   case Right(decryptedText) => println(s"Decrypted: $decryptedText")
-  case Left(error) => println(s"Error: ${error.message}")
+  case Left(error) => println(s"Error: \${error.message}")
 }
 
 // Securely clear key from memory
