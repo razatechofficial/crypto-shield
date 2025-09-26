@@ -596,6 +596,445 @@ class AveroxCrypto:
         if hasattr(self, '_aesgcm'):
             del self._aesgcm
 `;
+
+    return {
+      'setup.py': setupPy,
+      'averox_crypto/__init__.py': coreImplementation,
+      'README.md': this.getUniversalReadme('Python', 'pip install averox-crypto-sdk'),
+      'requirements.txt': 'cryptography>=41.0.0\\nopentelemetry-api>=1.20.0',
+      'tests/test_averox_crypto.py': this.getNISTTestSuite('python'),
+      'SECURITY.md': this.getUniversalSecurityGuide(),
+      'TROUBLESHOOTING.md': this.getUniversalTroubleshootingGuide()
+    };
+  }
+
+  // Java SDK with real javax.crypto implementation
+  static generateJavaSDK(sdk, algorithms) {
+    console.log('☕ Generating real Java SDK with javax.crypto...');
+    
+    const pomXml = `<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    
+    <groupId>com.averox</groupId>
+    <artifactId>averox-crypto-sdk</artifactId>
+    <version>${sdk.version || "2.0.0"}</version>
+    <packaging>jar</packaging>
+    
+    <name>Averox Crypto SDK</name>
+    <description>Enterprise-grade AES-256-GCM cryptographic SDK with AAD enforcement</description>
+    <url>https://docs.averox.com</url>
+    
+    <properties>
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+    
+    <dependencies>
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-api</artifactId>
+            <version>1.32.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.15.2</version>
+        </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.13.2</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+    
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
+            </plugin>
+        </plugins>
+    </build>
+</project>`;
+
+    const coreImplementation = `package com.averox.crypto;
+
+import javax.crypto.Cipher;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
+import java.security.SecureRandom;
+import java.security.GeneralSecurityException;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Arrays;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import io.opentelemetry.api.GlobalOpenTelemetry;
+import io.opentelemetry.api.metrics.LongCounter;
+import io.opentelemetry.api.metrics.Meter;
+import io.opentelemetry.api.common.AttributeKey;
+import io.opentelemetry.api.common.Attributes;
+
+/**
+ * Averox Crypto SDK for Java - Real AES-256-GCM Implementation
+ * Enterprise-grade cryptographic SDK with mandatory AAD enforcement
+ */
+public class AveroxCrypto {
+    private static final String ALGORITHM = "AES-256-GCM";
+    private static final String TRANSFORMATION = "AES/GCM/NoPadding";
+    private static final int KEY_SIZE = 32;
+    private static final int IV_SIZE = 12;
+    private static final int TAG_SIZE = 16;
+    
+    private final SecretKey masterKey;
+    private final SecureRandom secureRandom;
+    
+    // OpenTelemetry metrics
+    private static final Meter meter = GlobalOpenTelemetry.getMeter("averox-crypto");
+    private static final LongCounter encryptCounter = meter.counterBuilder("crypto_encrypt_total").build();
+    private static final LongCounter decryptCounter = meter.counterBuilder("crypto_decrypt_total").build();
+    private static final LongCounter failCounter = meter.counterBuilder("crypto_fail_total").build();
+    
+    /**
+     * Base exception for Averox cryptographic operations
+     */
+    public static class AveroxCryptoException extends Exception {
+        private final String code;
+        private final Map<String, Object> details;
+        
+        public AveroxCryptoException(String code, String message) {
+            this(code, message, new HashMap<>());
+        }
+        
+        public AveroxCryptoException(String code, String message, Map<String, Object> details) {
+            super(message);
+            this.code = code;
+            this.details = details;
+        }
+        
+        public String getCode() { return code; }
+        public Map<String, Object> getDetails() { return details; }
+    }
+    
+    /**
+     * Raised when authentication tag verification fails
+     */
+    public static class InvalidTagException extends AveroxCryptoException {
+        public InvalidTagException() {
+            this("Authentication tag verification failed");
+        }
+        
+        public InvalidTagException(String message) {
+            super("INVALID_TAG", message);
+        }
+    }
+    
+    /**
+     * Raised when input validation fails
+     */
+    public static class BadInputException extends AveroxCryptoException {
+        public BadInputException(String message) {
+            super("BAD_INPUT", message);
+        }
+    }
+    
+    /**
+     * Constructor with master key
+     * @param masterKey 32-byte master key
+     * @throws BadInputException if key is invalid
+     */
+    public AveroxCrypto(byte[] masterKey) throws BadInputException {
+        if (masterKey == null || masterKey.length != KEY_SIZE) {
+            throw new BadInputException("Master key must be exactly " + KEY_SIZE + " bytes");
+        }
+        
+        this.masterKey = new SecretKeySpec(Arrays.copyOf(masterKey, masterKey.length), "AES");
+        this.secureRandom = new SecureRandom();
+    }
+    
+    /**
+     * Generate cryptographically secure 32-byte master key
+     * @return 32-byte master key
+     */
+    public static byte[] generateMasterKey() {
+        try {
+            KeyGenerator keyGen = KeyGenerator.getInstance("AES");
+            keyGen.init(256);
+            return keyGen.generateKey().getEncoded();
+        } catch (Exception e) {
+            // Fallback to SecureRandom
+            SecureRandom random = new SecureRandom();
+            byte[] key = new byte[KEY_SIZE];
+            random.nextBytes(key);
+            return key;
+        }
+    }
+    
+    /**
+     * Encrypt data with AES-256-GCM and mandatory AAD
+     * @param plaintext Data to encrypt
+     * @param aad Additional Authenticated Data (required)
+     * @param keyId Optional key identifier
+     * @return AveroxEnvelope with encrypted data
+     * @throws AveroxCryptoException if encryption fails
+     */
+    public AveroxEnvelope encrypt(byte[] plaintext, byte[] aad, String keyId) throws AveroxCryptoException {
+        Attributes attributes = Attributes.of(
+            AttributeKey.stringKey("alg"), ALGORITHM,
+            AttributeKey.stringKey("kid"), keyId != null ? keyId : "unknown"
+        );
+        
+        try {
+            // Validate AAD requirement
+            if (aad == null || aad.length == 0) {
+                failCounter.add(1, attributes.toBuilder()
+                    .put(AttributeKey.stringKey("reason"), "missing_aad").build());
+                throw new BadInputException("AAD (Additional Authenticated Data) is required and cannot be empty");
+            }
+            
+            // Generate random 12-byte IV
+            byte[] iv = new byte[IV_SIZE];
+            secureRandom.nextBytes(iv);
+            
+            // Setup cipher
+            Cipher cipher = Cipher.getInstance(TRANSFORMATION);
+            GCMParameterSpec gcmSpec = new GCMParameterSpec(TAG_SIZE * 8, iv);
+            cipher.init(Cipher.ENCRYPT_MODE, masterKey, gcmSpec);
+            cipher.updateAAD(aad);
+            
+            // Encrypt
+            byte[] ciphertext = cipher.doFinal(plaintext);
+            
+            // Split ciphertext and tag (last 16 bytes)
+            byte[] ct = Arrays.copyOf(ciphertext, ciphertext.length - TAG_SIZE);
+            byte[] tag = Arrays.copyOfRange(ciphertext, ciphertext.length - TAG_SIZE, ciphertext.length);
+            
+            encryptCounter.add(1, attributes);
+            
+            return new AveroxEnvelope(
+                "2.0",
+                ALGORITHM,
+                Base64.getUrlEncoder().withoutPadding().encodeToString(iv),
+                Base64.getUrlEncoder().withoutPadding().encodeToString(tag),
+                Base64.getUrlEncoder().withoutPadding().encodeToString(ct),
+                Base64.getUrlEncoder().withoutPadding().encodeToString(aad),
+                keyId
+            );
+            
+        } catch (GeneralSecurityException e) {
+            failCounter.add(1, attributes.toBuilder()
+                .put(AttributeKey.stringKey("reason"), "encryption_error").build());
+            throw new AveroxCryptoException("ENCRYPTION_FAILED", "Encryption failed: " + e.getMessage());
+        } catch (Exception e) {
+            failCounter.add(1, attributes.toBuilder()
+                .put(AttributeKey.stringKey("reason"), "general_error").build());
+            if (e instanceof AveroxCryptoException) throw e;
+            throw new AveroxCryptoException("ENCRYPTION_FAILED", "Encryption failed: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Decrypt envelope with AES-256-GCM and mandatory AAD
+     * @param envelope Encrypted envelope
+     * @param aad Additional Authenticated Data (required)
+     * @return Decrypted plaintext
+     * @throws AveroxCryptoException if decryption fails
+     */
+    public byte[] decrypt(AveroxEnvelope envelope, byte[] aad) throws AveroxCryptoException {
+        Attributes attributes = Attributes.of(
+            AttributeKey.stringKey("alg"), envelope.getAlgorithm() != null ? envelope.getAlgorithm() : ALGORITHM,
+            AttributeKey.stringKey("kid"), envelope.getKeyId() != null ? envelope.getKeyId() : "unknown"
+        );
+        
+        try {
+            // Validate AAD requirement
+            if (aad == null || aad.length == 0) {
+                failCounter.add(1, attributes.toBuilder()
+                    .put(AttributeKey.stringKey("reason"), "missing_aad").build());
+                throw new BadInputException("AAD (Additional Authenticated Data) is required and cannot be empty");
+            }
+            
+            // Validate algorithm
+            if (!ALGORITHM.equals(envelope.getAlgorithm())) {
+                failCounter.add(1, attributes.toBuilder()
+                    .put(AttributeKey.stringKey("reason"), "unsupported_algorithm").build());
+                throw new BadInputException("Algorithm " + envelope.getAlgorithm() + " not supported");
+            }
+            
+            // Decode envelope components
+            byte[] iv = Base64.getUrlDecoder().decode(envelope.getIv());
+            byte[] tag = Base64.getUrlDecoder().decode(envelope.getTag());
+            byte[] ct = Base64.getUrlDecoder().decode(envelope.getCiphertext());
+            
+            // Validate sizes
+            if (iv.length != IV_SIZE) {
+                throw new AveroxCryptoException("INVALID_IV", "IV must be exactly " + IV_SIZE + " bytes");
+            }
+            
+            if (tag.length != TAG_SIZE) {
+                throw new AveroxCryptoException("INVALID_TAG", "Tag must be exactly " + TAG_SIZE + " bytes");
+            }
+            
+            // Reconstruct full ciphertext with tag
+            byte[] fullCiphertext = new byte[ct.length + tag.length];
+            System.arraycopy(ct, 0, fullCiphertext, 0, ct.length);
+            System.arraycopy(tag, 0, fullCiphertext, ct.length, tag.length);
+            
+            // Setup cipher
+            Cipher cipher = Cipher.getInstance(TRANSFORMATION);
+            GCMParameterSpec gcmSpec = new GCMParameterSpec(TAG_SIZE * 8, iv);
+            cipher.init(Cipher.DECRYPT_MODE, masterKey, gcmSpec);
+            cipher.updateAAD(aad);
+            
+            // Decrypt
+            byte[] plaintext = cipher.doFinal(fullCiphertext);
+            
+            decryptCounter.add(1, attributes);
+            return plaintext;
+            
+        } catch (GeneralSecurityException e) {
+            failCounter.add(1, attributes.toBuilder()
+                .put(AttributeKey.stringKey("reason"), "decryption_error").build());
+            
+            if (e.getMessage() != null && e.getMessage().toLowerCase().contains("tag")) {
+                throw new InvalidTagException("Authentication failed - data may have been tampered with");
+            }
+            
+            throw new AveroxCryptoException("DECRYPTION_FAILED", "Decryption failed: " + e.getMessage());
+        } catch (Exception e) {
+            failCounter.add(1, attributes.toBuilder()
+                .put(AttributeKey.stringKey("reason"), "general_error").build());
+            if (e instanceof AveroxCryptoException) throw e;
+            throw new AveroxCryptoException("DECRYPTION_FAILED", "Decryption failed: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Securely clear master key from memory (Java limitations apply)
+     */
+    public void zeroize() {
+        // Java doesn't provide direct memory control, but we can try to help GC
+        if (masterKey instanceof SecretKeySpec) {
+            try {
+                java.lang.reflect.Field keyField = SecretKeySpec.class.getDeclaredField("key");
+                keyField.setAccessible(true);
+                byte[] keyBytes = (byte[]) keyField.get(masterKey);
+                if (keyBytes != null) {
+                    Arrays.fill(keyBytes, (byte) 0);
+                }
+            } catch (Exception e) {
+                // Best effort - Java doesn't guarantee memory clearing
+            }
+        }
+    }
+}`;
+
+    const envelopeClass = `package com.averox.crypto;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.Map;
+import java.util.HashMap;
+
+/**
+ * Standardized envelope format for encrypted data
+ */
+public class AveroxEnvelope {
+    @JsonProperty("v")
+    private String version;
+    
+    @JsonProperty("alg")
+    private String algorithm;
+    
+    @JsonProperty("kid")
+    private String keyId;
+    
+    @JsonProperty("iv")
+    private String iv;
+    
+    @JsonProperty("tag")
+    private String tag;
+    
+    @JsonProperty("ct")
+    private String ciphertext;
+    
+    @JsonProperty("aad")
+    private String aad;
+    
+    // Constructors
+    public AveroxEnvelope() {}
+    
+    public AveroxEnvelope(String version, String algorithm, String iv, String tag, 
+                         String ciphertext, String aad, String keyId) {
+        this.version = version;
+        this.algorithm = algorithm;
+        this.iv = iv;
+        this.tag = tag;
+        this.ciphertext = ciphertext;
+        this.aad = aad;
+        this.keyId = keyId;
+    }
+    
+    // Getters and setters
+    public String getVersion() { return version; }
+    public void setVersion(String version) { this.version = version; }
+    
+    public String getAlgorithm() { return algorithm; }
+    public void setAlgorithm(String algorithm) { this.algorithm = algorithm; }
+    
+    public String getKeyId() { return keyId; }
+    public void setKeyId(String keyId) { this.keyId = keyId; }
+    
+    public String getIv() { return iv; }
+    public void setIv(String iv) { this.iv = iv; }
+    
+    public String getTag() { return tag; }
+    public void setTag(String tag) { this.tag = tag; }
+    
+    public String getCiphertext() { return ciphertext; }
+    public void setCiphertext(String ciphertext) { this.ciphertext = ciphertext; }
+    
+    public String getAad() { return aad; }
+    public void setAad(String aad) { this.aad = aad; }
+    
+    public String toJson() throws AveroxCrypto.AveroxCryptoException {
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            return mapper.writeValueAsString(this);
+        } catch (Exception e) {
+            throw new AveroxCrypto.AveroxCryptoException("JSON_ERROR", "Failed to serialize envelope: " + e.getMessage());
+        }
+    }
+    
+    public static AveroxEnvelope fromJson(String json) throws AveroxCrypto.AveroxCryptoException {
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            return mapper.readValue(json, AveroxEnvelope.class);
+        } catch (Exception e) {
+            throw new AveroxCrypto.AveroxCryptoException("JSON_ERROR", "Failed to deserialize envelope: " + e.getMessage());
+        }
+    }
+}`;
+
+    return {
+      'pom.xml': pomXml,
+      'src/main/java/com/averox/crypto/AveroxCrypto.java': coreImplementation,
+      'src/main/java/com/averox/crypto/AveroxEnvelope.java': envelopeClass,
+      'README.md': this.getUniversalReadme('Java', 'mvn clean install'),
+      'src/test/java/com/averox/crypto/AveroxCryptoTest.java': this.getNISTTestSuite('java'),
+      'SECURITY.md': this.getUniversalSecurityGuide(),
+      'TROUBLESHOOTING.md': this.getUniversalTroubleshootingGuide()
+    };
   }
 
   static getFixedTypeDefinitions() {
