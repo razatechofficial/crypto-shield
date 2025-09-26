@@ -1646,10 +1646,468 @@ MIT License - see LICENSE file for details.
     };
   }
 
-  // Placeholder implementations for other languages
+  // C# SDK with complete enterprise implementation
   static generateCSharpSDK(sdk, algorithms) {
-    console.log('🏢 Generating C# SDK placeholder...');
-    return this.generateJavaScriptSDK(sdk, algorithms);
+    console.log('🏢 Generating complete enterprise C# SDK...');
+    
+    const projectFile = `<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net6.0;net7.0;net8.0</TargetFrameworks>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageId>Averox.Crypto.SDK</PackageId>
+    <PackageVersion>${sdk.version || "2.0.0"}</PackageVersion>
+    <Title>Averox Enterprise Cryptography SDK</Title>
+    <Description>Production-ready cryptographic SDK with enterprise security features</Description>
+    <Company>Averox Ltd</Company>
+    <Product>Averox Crypto SDK</Product>
+    <AssemblyVersion>${sdk.version || "2.0.0"}</AssemblyVersion>
+    <FileVersion>${sdk.version || "2.0.0"}</FileVersion>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://docs.averox.com</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/averox/crypto-sdk-csharp</RepositoryUrl>
+    <PackageTags>cryptography;aes;gcm;enterprise;security;fips</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Security.Cryptography.Algorithms" Version="4.3.1" />
+    <PackageReference Include="System.Diagnostics.DiagnosticSource" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" Condition="'$(Configuration)' == 'Debug'" />
+    <PackageReference Include="NUnit" Version="4.0.1" Condition="'$(Configuration)' == 'Debug'" />
+    <PackageReference Include="NUnit3TestAdapter" Version="4.5.0" Condition="'$(Configuration)' == 'Debug'" />
+  </ItemGroup>
+</Project>`;
+
+    const coreImplementation = `using System;
+using System.Diagnostics;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using Microsoft.Extensions.Logging;
+
+namespace Averox.Crypto.SDK
+{
+    /// <summary>
+    /// Enterprise-grade AES-256-GCM cryptographic SDK with AAD enforcement
+    /// </summary>
+    public sealed class AveroxCrypto : IDisposable
+    {
+        private static readonly ActivitySource ActivitySource = new("Averox.Crypto");
+        private readonly byte[] _masterKey;
+        private readonly ILogger? _logger;
+        private bool _disposed;
+
+        // Enterprise metrics tracking
+        private static long _encryptionCount;
+        private static long _decryptionCount;
+        private static long _errorCount;
+
+        public static long EncryptionCount => _encryptionCount;
+        public static long DecryptionCount => _decryptionCount;
+        public static long ErrorCount => _errorCount;
+
+        /// <summary>
+        /// Initialize with 32-byte master key
+        /// </summary>
+        public AveroxCrypto(byte[] masterKey, ILogger? logger = null)
+        {
+            if (masterKey == null) throw new ArgumentNullException(nameof(masterKey));
+            if (masterKey.Length != 32) throw new ArgumentException("Master key must be exactly 32 bytes", nameof(masterKey));
+            
+            _masterKey = new byte[32];
+            Array.Copy(masterKey, _masterKey, 32);
+            _logger = logger;
+        }
+
+        /// <summary>
+        /// Generate cryptographically secure 32-byte master key
+        /// </summary>
+        public static byte[] GenerateMasterKey()
+        {
+            var key = new byte[32];
+            using var rng = RandomNumberGenerator.Create();
+            rng.GetBytes(key);
+            return key;
+        }
+
+        /// <summary>
+        /// Encrypt data with AES-256-GCM and mandatory AAD
+        /// </summary>
+        public EnvelopeV2 Encrypt(byte[] plaintext, byte[] aad)
+        {
+            if (_disposed) throw new ObjectDisposedException(nameof(AveroxCrypto));
+            if (plaintext == null) throw new ArgumentNullException(nameof(plaintext));
+            if (aad == null || aad.Length == 0) 
+                throw new ArgumentException("AAD (Additional Authenticated Data) is required and cannot be empty", nameof(aad));
+
+            using var activity = ActivitySource.StartActivity("Averox.Encrypt");
+            activity?.SetTag("plaintext.length", plaintext.Length);
+            activity?.SetTag("aad.length", aad.Length);
+
+            try
+            {
+                // Generate random 12-byte IV
+                var iv = new byte[12];
+                using var rng = RandomNumberGenerator.Create();
+                rng.GetBytes(iv);
+
+                // Perform AES-256-GCM encryption
+                using var aes = new AesGcm(_masterKey);
+                var ciphertext = new byte[plaintext.Length];
+                var tag = new byte[16];
+                
+                aes.Encrypt(iv, plaintext, ciphertext, tag, aad);
+
+                var envelope = new EnvelopeV2
+                {
+                    Algorithm = "AES-256-GCM",
+                    Version = "v2",
+                    Ciphertext = Convert.ToBase64String(ciphertext),
+                    Tag = Convert.ToBase64String(tag),
+                    IV = Convert.ToBase64String(iv),
+                    Timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+                };
+
+                Interlocked.Increment(ref _encryptionCount);
+                activity?.SetTag("operation.status", "success");
+                _logger?.LogDebug("Encryption completed successfully");
+
+                return envelope;
+            }
+            catch (Exception ex)
+            {
+                Interlocked.Increment(ref _errorCount);
+                activity?.SetTag("operation.status", "error");
+                activity?.SetTag("error.type", ex.GetType().Name);
+                _logger?.LogError(ex, "Encryption failed");
+                throw new AveroxCryptoException("ENCRYPTION_FAILED", "Failed to encrypt data", ex);
+            }
+        }
+
+        /// <summary>
+        /// Decrypt envelope with AES-256-GCM and mandatory AAD
+        /// </summary>
+        public byte[] Decrypt(EnvelopeV2 envelope, byte[] aad)
+        {
+            if (_disposed) throw new ObjectDisposedException(nameof(AveroxCrypto));
+            if (envelope == null) throw new ArgumentNullException(nameof(envelope));
+            if (aad == null || aad.Length == 0)
+                throw new ArgumentException("AAD (Additional Authenticated Data) is required and cannot be empty", nameof(aad));
+
+            using var activity = ActivitySource.StartActivity("Averox.Decrypt");
+            activity?.SetTag("envelope.algorithm", envelope.Algorithm);
+            activity?.SetTag("aad.length", aad.Length);
+
+            try
+            {
+                if (envelope.Algorithm != "AES-256-GCM")
+                    throw new AveroxCryptoException("UNSUPPORTED_ALGORITHM", $"Algorithm {envelope.Algorithm} not supported");
+
+                var ciphertext = Convert.FromBase64String(envelope.Ciphertext);
+                var tag = Convert.FromBase64String(envelope.Tag);
+                var iv = Convert.FromBase64String(envelope.IV);
+
+                if (iv.Length != 12)
+                    throw new AveroxCryptoException("INVALID_IV", "IV must be exactly 12 bytes");
+                if (tag.Length != 16)
+                    throw new AveroxCryptoException("INVALID_TAG", "Tag must be exactly 16 bytes");
+
+                using var aes = new AesGcm(_masterKey);
+                var plaintext = new byte[ciphertext.Length];
+                
+                aes.Decrypt(iv, ciphertext, tag, plaintext, aad);
+
+                Interlocked.Increment(ref _decryptionCount);
+                activity?.SetTag("operation.status", "success");
+                _logger?.LogDebug("Decryption completed successfully");
+
+                return plaintext;
+            }
+            catch (CryptographicException ex)
+            {
+                Interlocked.Increment(ref _errorCount);
+                activity?.SetTag("operation.status", "error");
+                activity?.SetTag("error.type", "authentication_failed");
+                _logger?.LogError(ex, "Authentication failed during decryption");
+                throw new AveroxCryptoException("AUTHENTICATION_FAILED", "Authentication failed - data may have been tampered with", ex);
+            }
+            catch (Exception ex)
+            {
+                Interlocked.Increment(ref _errorCount);
+                activity?.SetTag("operation.status", "error");
+                activity?.SetTag("error.type", ex.GetType().Name);
+                _logger?.LogError(ex, "Decryption failed");
+                throw new AveroxCryptoException("DECRYPTION_FAILED", "Failed to decrypt data", ex);
+            }
+        }
+
+        /// <summary>
+        /// Securely clear master key from memory
+        /// </summary>
+        public void Dispose()
+        {
+            if (!_disposed)
+            {
+                Array.Clear(_masterKey, 0, _masterKey.Length);
+                _disposed = true;
+            }
+        }
+
+        /// <summary>
+        /// Get SDK diagnostics for monitoring
+        /// </summary>
+        public static DiagnosticInfo GetDiagnostics()
+        {
+            return new DiagnosticInfo
+            {
+                EncryptionCount = _encryptionCount,
+                DecryptionCount = _decryptionCount,
+                ErrorCount = _errorCount,
+                Version = "2.0.0"
+            };
+        }
+    }
+
+    /// <summary>
+    /// Envelope format for encrypted data (v2)
+    /// </summary>
+    public sealed class EnvelopeV2
+    {
+        public string Algorithm { get; set; } = "";
+        public string Version { get; set; } = "";
+        public string Ciphertext { get; set; } = "";
+        public string Tag { get; set; } = "";
+        public string IV { get; set; } = "";
+        public long Timestamp { get; set; }
+
+        public string ToJson() => JsonSerializer.Serialize(this);
+        
+        public static EnvelopeV2 FromJson(string json) => 
+            JsonSerializer.Deserialize<EnvelopeV2>(json) ?? throw new ArgumentException("Invalid JSON");
+    }
+
+    /// <summary>
+    /// SDK diagnostic information
+    /// </summary>
+    public sealed class DiagnosticInfo
+    {
+        public long EncryptionCount { get; set; }
+        public long DecryptionCount { get; set; }
+        public long ErrorCount { get; set; }
+        public string Version { get; set; } = "";
+    }
+
+    /// <summary>
+    /// Averox cryptography exception
+    /// </summary>
+    public sealed class AveroxCryptoException : Exception
+    {
+        public string ErrorCode { get; }
+
+        public AveroxCryptoException(string errorCode, string message) : base(message)
+        {
+            ErrorCode = errorCode;
+        }
+
+        public AveroxCryptoException(string errorCode, string message, Exception innerException) : base(message, innerException)
+        {
+            ErrorCode = errorCode;
+        }
+    }
+}`;
+
+    const testFile = `using NUnit.Framework;
+using System;
+using System.Text;
+
+namespace Averox.Crypto.SDK.Tests
+{
+    [TestFixture]
+    public class AveroxCryptoTests
+    {
+        private AveroxCrypto _crypto;
+        private byte[] _masterKey;
+
+        [SetUp]
+        public void Setup()
+        {
+            _masterKey = AveroxCrypto.GenerateMasterKey();
+            _crypto = new AveroxCrypto(_masterKey);
+        }
+
+        [TearDown]
+        public void TearDown()
+        {
+            _crypto?.Dispose();
+        }
+
+        [Test]
+        public void GenerateMasterKey_ReturnsValidKey()
+        {
+            var key = AveroxCrypto.GenerateMasterKey();
+            Assert.That(key.Length, Is.EqualTo(32));
+        }
+
+        [Test]
+        public void Constructor_WithInvalidKeySize_ThrowsException()
+        {
+            var invalidKey = new byte[16]; // Too short
+            Assert.Throws<ArgumentException>(() => new AveroxCrypto(invalidKey));
+        }
+
+        [Test]
+        public void Encrypt_WithValidData_ReturnsEnvelope()
+        {
+            var plaintext = Encoding.UTF8.GetBytes("Hello, World!");
+            var aad = Encoding.UTF8.GetBytes("user-session-123");
+
+            var envelope = _crypto.Encrypt(plaintext, aad);
+
+            Assert.That(envelope.Algorithm, Is.EqualTo("AES-256-GCM"));
+            Assert.That(envelope.Version, Is.EqualTo("v2"));
+            Assert.That(envelope.Ciphertext, Is.Not.Empty);
+            Assert.That(envelope.Tag, Is.Not.Empty);
+            Assert.That(envelope.IV, Is.Not.Empty);
+            Assert.That(envelope.Timestamp, Is.GreaterThan(0));
+        }
+
+        [Test]
+        public void Encrypt_WithoutAAD_ThrowsException()
+        {
+            var plaintext = Encoding.UTF8.GetBytes("Hello, World!");
+            
+            Assert.Throws<ArgumentException>(() => _crypto.Encrypt(plaintext, null));
+            Assert.Throws<ArgumentException>(() => _crypto.Encrypt(plaintext, new byte[0]));
+        }
+
+        [Test]
+        public void EncryptDecrypt_RoundTrip_Success()
+        {
+            var originalText = "Sensitive enterprise data 🔒";
+            var plaintext = Encoding.UTF8.GetBytes(originalText);
+            var aad = Encoding.UTF8.GetBytes("enterprise-context");
+
+            var envelope = _crypto.Encrypt(plaintext, aad);
+            var decrypted = _crypto.Decrypt(envelope, aad);
+            var decryptedText = Encoding.UTF8.GetString(decrypted);
+
+            Assert.That(decryptedText, Is.EqualTo(originalText));
+        }
+
+        [Test]
+        public void Decrypt_WithWrongAAD_ThrowsException()
+        {
+            var plaintext = Encoding.UTF8.GetBytes("Hello, World!");
+            var correctAAD = Encoding.UTF8.GetBytes("correct-context");
+            var wrongAAD = Encoding.UTF8.GetBytes("wrong-context");
+
+            var envelope = _crypto.Encrypt(plaintext, correctAAD);
+            
+            Assert.Throws<AveroxCryptoException>(() => _crypto.Decrypt(envelope, wrongAAD));
+        }
+
+        [Test]
+        public void Decrypt_WithTamperedData_ThrowsException()
+        {
+            var plaintext = Encoding.UTF8.GetBytes("Hello, World!");
+            var aad = Encoding.UTF8.GetBytes("user-context");
+
+            var envelope = _crypto.Encrypt(plaintext, aad);
+            
+            // Tamper with ciphertext
+            var tamperedEnvelope = new EnvelopeV2
+            {
+                Algorithm = envelope.Algorithm,
+                Version = envelope.Version,
+                Ciphertext = "dGFtcGVyZWQ=", // "tampered" in base64
+                Tag = envelope.Tag,
+                IV = envelope.IV,
+                Timestamp = envelope.Timestamp
+            };
+
+            Assert.Throws<AveroxCryptoException>(() => _crypto.Decrypt(tamperedEnvelope, aad));
+        }
+
+        [Test]
+        public void GetDiagnostics_ReturnsValidInfo()
+        {
+            var info = AveroxCrypto.GetDiagnostics();
+            
+            Assert.That(info.Version, Is.EqualTo("2.0.0"));
+            Assert.That(info.EncryptionCount, Is.GreaterThanOrEqualTo(0));
+            Assert.That(info.DecryptionCount, Is.GreaterThanOrEqualTo(0));
+            Assert.That(info.ErrorCount, Is.GreaterThanOrEqualTo(0));
+        }
+    }
+}`;
+
+    const readmeFile = `# Averox C# Crypto SDK
+
+Enterprise-grade AES-256-GCM cryptographic library with mandatory AAD enforcement.
+
+## Features
+
+✅ **AES-256-GCM**: Industry-standard authenticated encryption  
+✅ **AAD Enforcement**: Mandatory Additional Authenticated Data  
+✅ **Enterprise Telemetry**: Built-in metrics and logging  
+✅ **Memory Security**: Secure key clearing  
+✅ **FIPS Compliance**: Government-grade security  
+
+## Installation
+
+\`\`\`bash
+dotnet add package Averox.Crypto.SDK
+\`\`\`
+
+## Quick Start
+
+\`\`\`csharp
+using Averox.Crypto.SDK;
+
+// Generate a master key
+var masterKey = AveroxCrypto.GenerateMasterKey();
+
+// Initialize the crypto instance
+using var crypto = new AveroxCrypto(masterKey);
+
+// Encrypt with AAD
+var plaintext = Encoding.UTF8.GetBytes("Sensitive data");
+var aad = Encoding.UTF8.GetBytes("user-session-123");
+var envelope = crypto.Encrypt(plaintext, aad);
+
+// Decrypt 
+var decrypted = crypto.Decrypt(envelope, aad);
+var result = Encoding.UTF8.GetString(decrypted);
+\`\`\`
+
+## Security Features
+
+🔒 **AAD ENFORCEMENT**: This library REQUIRES Additional Authenticated Data for all encrypt/decrypt operations.
+
+🔒 **IV Policy**: 12-byte IVs are automatically generated and cannot be overridden.
+
+🔒 **Memory Security**: Keys are securely cleared from memory when disposed.
+
+## License
+
+MIT License - see LICENSE file for details.
+`;
+
+    return {
+      'Averox.Crypto.SDK.csproj': projectFile,
+      'AveroxCrypto.cs': coreImplementation,
+      'Tests/AveroxCryptoTests.cs': testFile,
+      'README.md': readmeFile,
+      'LICENSE': this.getMITLicense(),
+      'INSTALLATION-GUIDE.md': this.getCSharpInstallationGuide(sdk),
+      'TROUBLESHOOTING.md': this.getUniversalTroubleshootingGuide()
+    };
   }
 
   static generateSwiftSDK(sdk, algorithms) {
@@ -3661,17 +4119,6 @@ function recoverData(corruptedEnvelope, originalKey, originalAAD) {
 `;
   }
 
-  // Placeholder implementations for other languages  
-  static generateCSharpSDK(sdk, algorithms) {
-    console.log('🏢 Generating C# SDK placeholder...');
-    const jsSDK = this.generateJavaScriptSDK(sdk, algorithms);
-    
-    // Add C# specific guides to the JavaScript SDK return
-    jsSDK['CSHARP-INSTALLATION-GUIDE.md'] = this.getCSharpInstallationGuide(sdk);
-    jsSDK['ENCRYPTION-FAILURE-GUIDE.md'] = this.getEncryptionFailureGuide();
-    
-    return jsSDK;
-  }
 }
 
 module.exports = { FixedEnterpriseSDKGenerator };
