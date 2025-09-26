@@ -354,7 +354,7 @@ export default function Settings() {
                     variant="outline" 
                     className="border-slate-600 text-slate-300 hover:bg-slate-700 justify-start"
                     data-testid="button-js-installation-guide"
-                    onClick={() => window.open('/docs/javascript-installation-guide.md', '_blank')}
+                    onClick={() => window.open('/api/docs/javascript-installation-guide', '_blank')}
                   >
                     <Download className="w-4 h-4 mr-2" />
                     JavaScript/TypeScript Guide
@@ -363,7 +363,7 @@ export default function Settings() {
                     variant="outline" 
                     className="border-slate-600 text-slate-300 hover:bg-slate-700 justify-start"
                     data-testid="button-python-installation-guide"
-                    onClick={() => window.open('/docs/python-installation-guide.md', '_blank')}
+                    onClick={() => window.open('/api/docs/python-installation-guide', '_blank')}
                   >
                     <Download className="w-4 h-4 mr-2" />
                     Python Installation Guide
@@ -372,7 +372,7 @@ export default function Settings() {
                     variant="outline" 
                     className="border-slate-600 text-slate-300 hover:bg-slate-700 justify-start"
                     data-testid="button-java-installation-guide"
-                    onClick={() => window.open('/docs/java-installation-guide.md', '_blank')}
+                    onClick={() => window.open('/api/docs/java-installation-guide', '_blank')}
                   >
                     <Download className="w-4 h-4 mr-2" />
                     Java Installation Guide
@@ -381,7 +381,7 @@ export default function Settings() {
                     variant="outline" 
                     className="border-slate-600 text-slate-300 hover:bg-slate-700 justify-start"
                     data-testid="button-c-installation-guide"
-                    onClick={() => window.open('/docs/c-cpp-installation-guide.md', '_blank')}
+                    onClick={() => window.open('/api/docs/c-cpp-installation-guide', '_blank')}
                   >
                     <Download className="w-4 h-4 mr-2" />
                     C/C++ Installation Guide
@@ -399,7 +399,7 @@ export default function Settings() {
                     variant="outline" 
                     className="border-slate-600 text-slate-300 hover:bg-slate-700 justify-start"
                     data-testid="button-universal-troubleshooting"
-                    onClick={() => window.open('/docs/universal-troubleshooting-guide.md', '_blank')}
+                    onClick={() => window.open('/api/docs/universal-troubleshooting-guide', '_blank')}
                   >
                     <ExternalLink className="w-4 h-4 mr-2" />
                     Universal Troubleshooting
@@ -408,7 +408,7 @@ export default function Settings() {
                     variant="outline" 
                     className="border-slate-600 text-slate-300 hover:bg-slate-700 justify-start"
                     data-testid="button-encryption-failure-guide"
-                    onClick={() => window.open('/docs/encryption-failure-debugging.md', '_blank')}
+                    onClick={() => window.open('/api/docs/encryption-failure-debugging', '_blank')}
                   >
                     <ExternalLink className="w-4 h-4 mr-2" />
                     Encryption Failure Guide
@@ -426,7 +426,7 @@ export default function Settings() {
                     variant="outline" 
                     className="border-slate-600 text-slate-300 hover:bg-slate-700 justify-start"
                     data-testid="button-csharp-installation-guide"
-                    onClick={() => window.open('/docs/csharp-installation-guide.md', '_blank')}
+                    onClick={() => window.open('/api/docs/csharp-installation-guide', '_blank')}
                   >
                     <Download className="w-4 h-4 mr-2" />
                     C# Installation Guide
@@ -435,7 +435,7 @@ export default function Settings() {
                     variant="outline" 
                     className="border-slate-600 text-slate-300 hover:bg-slate-700 justify-start"
                     data-testid="button-swift-installation-guide"
-                    onClick={() => window.open('/docs/swift-installation-guide.md', '_blank')}
+                    onClick={() => window.open('/api/docs/swift-installation-guide', '_blank')}
                   >
                     <Download className="w-4 h-4 mr-2" />
                     Swift Installation Guide
