@@ -876,7 +876,9 @@ __all__ = ['AveroxCrypto', 'AveroxChaCha20Poly1305', 'AveroxEnvelope',
       'setup.py': setupPy,
       'averox_crypto/__init__.py': pythonCore,
       'README.md': this.getFixedReadme(sdk),
-      'LICENSE': this.getMITLicense()
+      'LICENSE': this.getMITLicense(),
+      'INSTALLATION-GUIDE.md': this.getPythonInstallationGuide(sdk),
+      'TROUBLESHOOTING.md': this.getUniversalTroubleshootingGuide()
     };
   }
 
@@ -1019,7 +1021,9 @@ class AveroxEnvelope {
     return {
       'src/main/java/com/averox/crypto/AveroxCrypto.java': javaCore,
       'README.md': this.getFixedReadme(sdk),
-      'LICENSE': this.getMITLicense()
+      'LICENSE': this.getMITLicense(),
+      'INSTALLATION-GUIDE.md': this.getJavaInstallationGuide(sdk),
+      'TROUBLESHOOTING.md': this.getUniversalTroubleshootingGuide()
     };
   }
 
@@ -1636,7 +1640,9 @@ MIT License - see LICENSE file for details.
       'sdkcrypto.pc.in': pkgConfigTemplate,
       'test/test_crypto.c': testFile,
       'README.md': readmeFile,
-      'LICENSE': this.getMITLicense()
+      'LICENSE': this.getMITLicense(),
+      'INSTALLATION-GUIDE.md': this.getCInstallationGuide(sdk),
+      'TROUBLESHOOTING.md': this.getUniversalTroubleshootingGuide()
     };
   }
 
