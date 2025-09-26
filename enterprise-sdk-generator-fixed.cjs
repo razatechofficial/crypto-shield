@@ -79,7 +79,9 @@ class FixedEnterpriseSDKGenerator {
       'README.md': readme,
       'SECURITY.md': security,
       'LICENSE': this.getMITLicense(),
-      'tsconfig.json': this.getTypeScriptConfig()
+      'tsconfig.json': this.getTypeScriptConfig(),
+      'INSTALLATION-GUIDE.md': this.getJavaScriptInstallationGuide(sdk),
+      'TROUBLESHOOTING.md': this.getUniversalTroubleshootingGuide()
     };
   }
 
@@ -2263,6 +2265,812 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 
 *For security issues, please refer to our [Security Policy](SECURITY.md).*
+`;
+  }
+
+  // JavaScript/TypeScript Installation Guide
+  static getJavaScriptInstallationGuide(sdk) {
+    return `# ${sdk.name} SDK - JavaScript/TypeScript Installation Guide
+
+## Table of Contents
+1. [System Requirements](#system-requirements)
+2. [Installation](#installation)
+3. [Quick Start](#quick-start)
+4. [Configuration](#configuration)
+5. [Uninstallation](#uninstallation)
+6. [Troubleshooting](#troubleshooting)
+7. [Support](#support)
+
+## System Requirements
+
+### Minimum Requirements
+- **Node.js**: 16.0+ (LTS recommended)
+- **npm**: 8.0+ or **yarn**: 1.22+
+- **TypeScript**: 4.5+ (for TypeScript projects)
+- **Operating System**: Windows 10+, macOS 10.15+, Linux (Ubuntu 18.04+)
+
+### Recommended Requirements
+- **Node.js**: 20.x LTS
+- **npm**: 10.x or **yarn**: 4.x
+- **Memory**: 512MB+ available
+- **Disk Space**: 50MB+ for SDK and dependencies
+
+## Installation
+
+### Option 1: NPM Installation (Recommended)
+\`\`\`bash
+# Install the SDK
+npm install @averox/${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto-sdk
+
+# For TypeScript projects, types are included
+npm install --save-dev typescript
+\`\`\`
+
+### Option 2: Yarn Installation
+\`\`\`bash
+# Install the SDK
+yarn add @averox/${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto-sdk
+
+# For TypeScript projects
+yarn add --dev typescript
+\`\`\`
+
+### Option 3: Local Development Installation
+\`\`\`bash
+# Clone or download the SDK package
+# Navigate to the SDK directory
+npm install
+npm run build
+npm link
+
+# In your project
+npm link @averox/${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto-sdk
+\`\`\`
+
+## Quick Start
+
+### Basic Setup (JavaScript)
+\`\`\`javascript
+const { AveroxCrypto, configureTelemetry } = require('@averox/${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto-sdk');
+
+// Generate a master key
+const masterKey = AveroxCrypto.generateMasterKey();
+const crypto = new AveroxCrypto(masterKey);
+
+// Encrypt data (AAD is required)
+const plaintext = "Hello, World!";
+const aad = Buffer.from("user-context-data");
+const envelope = crypto.encrypt(plaintext, aad);
+
+console.log('Encrypted successfully:', envelope);
+
+// Decrypt data
+const decrypted = crypto.decrypt(envelope, aad);
+console.log('Decrypted:', decrypted.toString());
+\`\`\`
+
+### TypeScript Setup
+\`\`\`typescript
+import { AveroxCrypto, AveroxEnvelope, configureTelemetry } from '@averox/${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto-sdk';
+
+const masterKey: Buffer = AveroxCrypto.generateMasterKey();
+const crypto: AveroxCrypto = new AveroxCrypto(masterKey);
+
+const plaintext: string = "Sensitive data";
+const aad: Buffer = Buffer.from("authentication-context");
+
+try {
+  const envelope: AveroxEnvelope = crypto.encrypt(plaintext, aad);
+  const decrypted: Buffer = crypto.decrypt(envelope, aad);
+  console.log('Success:', decrypted.toString());
+} catch (error) {
+  console.error('Encryption failed:', error.message);
+}
+\`\`\`
+
+### OpenTelemetry Integration
+\`\`\`javascript
+// Configure telemetry (optional)
+const { configureTelemetry } = require('@averox/${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto-sdk');
+
+// Your OpenTelemetry setup
+const telemetryProvider = {
+  increment: (name, value, attributes) => {
+    console.log(\`Metric: \${name} = \${value}\`, attributes);
+    // Send to your monitoring system
+  }
+};
+
+configureTelemetry(telemetryProvider);
+\`\`\`
+
+## Configuration
+
+### Environment Variables
+\`\`\`bash
+# Optional: Set log level for debugging
+export NODE_ENV=development
+
+# Optional: Configure telemetry endpoint
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
+\`\`\`
+
+### Package.json Configuration
+\`\`\`json
+{
+  "dependencies": {
+    "@averox/${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto-sdk": "^2.0.0"
+  },
+  "scripts": {
+    "test:crypto": "node test-crypto.js",
+    "security:audit": "npm audit"
+  }
+}
+\`\`\`
+
+## Uninstallation
+
+### Complete Removal
+\`\`\`bash
+# Remove the SDK package
+npm uninstall @averox/${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto-sdk
+
+# Clear npm cache (optional)
+npm cache clean --force
+
+# Remove any global installations
+npm uninstall -g @averox/${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto-sdk
+\`\`\`
+
+### Clean Project Dependencies
+\`\`\`bash
+# Remove node_modules and reinstall
+rm -rf node_modules package-lock.json
+npm install
+\`\`\`
+
+## Troubleshooting
+
+### Common Issues
+
+#### 1. "Module not found" Error
+\`\`\`bash
+# Verify installation
+npm list @averox/${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto-sdk
+
+# Reinstall if necessary
+npm uninstall @averox/${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto-sdk
+npm install @averox/${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto-sdk
+\`\`\`
+
+#### 2. TypeScript Import Issues
+\`\`\`bash
+# Ensure TypeScript is properly configured
+npx tsc --showConfig
+
+# Check tsconfig.json
+{
+  "compilerOptions": {
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true
+  }
+}
+\`\`\`
+
+#### 3. Build Errors
+\`\`\`bash
+# Clear TypeScript cache
+npx tsc --build --clean
+
+# Rebuild
+npm run build
+\`\`\`
+
+### Performance Issues
+
+#### 1. Slow Encryption/Decryption
+- Verify Node.js version (16+ recommended)
+- Check available memory
+- Monitor AAD size (keep under 1KB for best performance)
+
+#### 2. Memory Leaks
+\`\`\`javascript
+// Proper cleanup example
+const crypto = new AveroxCrypto(masterKey);
+try {
+  const result = crypto.encrypt(data, aad);
+  // Use result
+} finally {
+  // SDK automatically clears sensitive memory
+  crypto = null;
+}
+\`\`\`
+
+## Support
+
+### Debug Mode
+\`\`\`javascript
+// Enable debug logging
+process.env.DEBUG = 'averox:*';
+const crypto = new AveroxCrypto(masterKey);
+\`\`\`
+
+### Health Check
+\`\`\`javascript
+const { AveroxCrypto } = require('@averox/${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto-sdk');
+
+// Verify SDK functionality
+try {
+  const key = AveroxCrypto.generateMasterKey();
+  const crypto = new AveroxCrypto(key);
+  const aad = Buffer.from('test');
+  const envelope = crypto.encrypt('test', aad);
+  const decrypted = crypto.decrypt(envelope, aad);
+  console.log('✅ SDK is working properly');
+} catch (error) {
+  console.error('❌ SDK health check failed:', error.message);
+}
+\`\`\`
+
+### Getting Help
+1. Check the troubleshooting guide
+2. Review error logs with \`NODE_ENV=development\`
+3. Verify OpenTelemetry metrics for operation insights
+4. Contact support with error details and environment info
+
+---
+*Generated by Averox Enterprise SDK Generator v2.0*
+`;
+  }
+
+  // Universal Troubleshooting Guide
+  static getUniversalTroubleshootingGuide() {
+    return `# Universal SDK Troubleshooting Guide
+
+## Quick Diagnosis
+
+### 1. Encryption Failure Checklist
+\`\`\`
+❏ AAD (Additional Authenticated Data) is provided and non-empty
+❏ Key is exactly 32 bytes (256 bits) for AES-256-GCM
+❏ Input data is not corrupted
+❏ Sufficient memory available
+❏ No network connectivity issues (for cloud key management)
+\`\`\`
+
+### 2. Installation Issues
+\`\`\`
+❏ Correct platform/architecture (x64, ARM64)
+❏ Required dependencies installed
+❏ Sufficient disk space
+❏ Proper permissions for installation directory
+❏ No conflicting SDK versions
+\`\`\`
+
+### 3. Runtime Issues
+\`\`\`
+❏ OpenTelemetry configured properly (if using metrics)
+❏ Environment variables set correctly
+❏ No antivirus interference
+❏ System resources available (CPU, memory)
+\`\`\`
+
+## Error Code Reference
+
+### Encryption Errors
+- \`AAD_REQUIRED\`: AAD parameter missing or empty
+- \`INVALID_KEY_SIZE\`: Key must be exactly 32 bytes
+- \`INVALID_IV\`: IV must be exactly 12 bytes
+- \`AUTHENTICATION_FAILED\`: Data tampered or wrong AAD/key
+
+### Installation Errors
+- \`MODULE_NOT_FOUND\`: Package not installed or wrong import path
+- \`PERMISSION_DENIED\`: Insufficient installation permissions
+- \`DEPENDENCY_CONFLICT\`: Version conflicts with other packages
+- \`PLATFORM_UNSUPPORTED\`: Platform/architecture not supported
+
+## Emergency Recovery Procedures
+
+### 1. Complete SDK Reset
+\`\`\`bash
+# Language-specific commands in respective guides
+# This is the general approach:
+1. Uninstall current SDK
+2. Clear all caches
+3. Restart development environment
+4. Reinstall SDK
+5. Run health check
+\`\`\`
+
+### 2. Data Recovery from Failed Encryption
+\`\`\`
+⚠️  If encryption fails mid-operation:
+1. Do NOT retry immediately
+2. Check logs for specific error
+3. Verify key and AAD integrity
+4. Use backup/rollback procedures
+5. Contact support if data loss suspected
+\`\`\`
+
+### 3. Security Incident Response
+\`\`\`
+🚨 If you suspect key compromise:
+1. Immediately stop using affected keys
+2. Rotate encryption keys
+3. Audit recent operations
+4. Review access logs
+5. Follow your organization's incident response plan
+\`\`\`
+
+## Platform-Specific Notes
+
+### Windows
+- Use PowerShell with admin privileges
+- Check Windows Defender exclusions
+- Verify Visual Studio Build Tools
+
+### macOS  
+- Xcode Command Line Tools required for native modules
+- Check Gatekeeper and SIP settings
+- Use Homebrew for system dependencies
+
+### Linux
+- Install build-essential package
+- Check OpenSSL version compatibility
+- Verify pkg-config for C/C++ SDKs
+
+---
+*This guide covers common issues across all Averox SDK implementations*
+`;
+  }
+
+  // Python Installation Guide  
+  static getPythonInstallationGuide(sdk) {
+    return `# ${sdk.name} SDK - Python Installation Guide
+
+## System Requirements
+- **Python**: 3.8+ (3.11+ recommended)
+- **pip**: 21.0+
+- **Operating System**: Windows 10+, macOS 10.15+, Linux
+- **Memory**: 256MB+ available
+- **Dependencies**: cryptography library, requests
+
+## Installation
+
+### Using pip (Recommended)
+\`\`\`bash
+# Install the SDK
+pip install averox-${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto
+
+# Verify installation
+python -c "import averox_crypto; print('✅ Installation successful')"
+\`\`\`
+
+### Using conda
+\`\`\`bash
+# Create environment
+conda create -n averox python=3.11
+conda activate averox
+
+# Install SDK
+pip install averox-${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto
+\`\`\`
+
+### Development Installation
+\`\`\`bash
+# Clone/download SDK
+pip install -e .
+
+# Install development dependencies
+pip install -e ".[dev]"
+\`\`\`
+
+## Quick Start
+
+\`\`\`python
+from averox_crypto import AveroxCrypto, configure_telemetry
+
+# Generate master key
+master_key = AveroxCrypto.generate_master_key()
+crypto = AveroxCrypto(master_key)
+
+# Encrypt with required AAD
+plaintext = b"Sensitive data"
+aad = b"context-information"
+envelope = crypto.encrypt(plaintext, aad)
+
+print(f"Encrypted: {envelope}")
+
+# Decrypt
+decrypted = crypto.decrypt(envelope, aad)
+print(f"Decrypted: {decrypted.decode()}")
+\`\`\`
+
+## Configuration
+
+### Environment Variables
+\`\`\`bash
+export PYTHONPATH=\${PYTHONPATH}:/path/to/sdk
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
+\`\`\`
+
+### Requirements.txt
+\`\`\`
+averox-${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto>=2.0.0
+cryptography>=41.0.0
+opentelemetry-api>=1.20.0
+\`\`\`
+
+## Uninstallation
+\`\`\`bash
+pip uninstall averox-${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto
+pip cache purge
+\`\`\`
+
+## Troubleshooting
+
+### Import Errors
+\`\`\`bash
+# Check installation
+pip show averox-${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto
+
+# Reinstall if needed
+pip uninstall averox-${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto
+pip install --no-cache-dir averox-${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto
+\`\`\`
+
+### Cryptography Issues
+\`\`\`bash
+# Update cryptography
+pip install --upgrade cryptography
+
+# On older systems
+pip install --upgrade pip setuptools wheel
+\`\`\`
+
+### Virtual Environment Issues
+\`\`\`bash
+# Create fresh environment
+python -m venv averox_env
+source averox_env/bin/activate  # Linux/Mac
+# averox_env\\Scripts\\activate  # Windows
+pip install averox-${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto
+\`\`\`
+`;
+  }
+
+  // Java Installation Guide
+  static getJavaInstallationGuide(sdk) {
+    return `# ${sdk.name} SDK - Java Installation Guide
+
+## System Requirements
+- **Java**: 11+ (17+ recommended)
+- **Maven**: 3.6+ or **Gradle**: 7.0+
+- **Operating System**: Windows 10+, macOS 10.15+, Linux
+- **Memory**: 512MB+ heap space
+- **JCE**: Unlimited strength jurisdiction policy files
+
+## Installation
+
+### Maven
+\`\`\`xml
+<dependency>
+    <groupId>com.averox</groupId>
+    <artifactId>${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto-sdk</artifactId>
+    <version>2.0.0</version>
+</dependency>
+\`\`\`
+
+### Gradle
+\`\`\`gradle
+implementation 'com.averox:${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto-sdk:2.0.0'
+\`\`\`
+
+### Manual Installation
+\`\`\`bash
+# Download JAR file
+wget https://repo1.maven.org/maven2/com/averox/${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto-sdk/2.0.0/${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto-sdk-2.0.0.jar
+
+# Add to classpath
+java -cp ".:${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto-sdk-2.0.0.jar" YourApp
+\`\`\`
+
+## Quick Start
+
+\`\`\`java
+import com.averox.crypto.AveroxCrypto;
+import com.averox.crypto.AveroxEnvelope;
+
+public class CryptoExample {
+    public static void main(String[] args) {
+        try {
+            // Generate master key
+            byte[] masterKey = AveroxCrypto.generateMasterKey();
+            AveroxCrypto crypto = new AveroxCrypto(masterKey);
+            
+            // Encrypt with AAD
+            byte[] plaintext = "Sensitive data".getBytes();
+            byte[] aad = "context-data".getBytes();
+            AveroxEnvelope envelope = crypto.encrypt(plaintext, aad);
+            
+            System.out.println("Encrypted successfully");
+            
+            // Decrypt
+            byte[] decrypted = crypto.decrypt(envelope, aad);
+            System.out.println("Decrypted: " + new String(decrypted));
+            
+        } catch (Exception e) {
+            System.err.println("Encryption failed: " + e.getMessage());
+        }
+    }
+}
+\`\`\`
+
+## Configuration
+
+### Maven Configuration
+\`\`\`xml
+<properties>
+    <maven.compiler.source>11</maven.compiler.source>
+    <maven.compiler.target>11</maven.compiler.target>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+</properties>
+\`\`\`
+
+### JVM Arguments
+\`\`\`bash
+java -Djava.security.debug=provider \\
+     -Dcom.averox.telemetry.endpoint=http://localhost:4317 \\
+     -Xmx512m \\
+     YourApplication
+\`\`\`
+
+## Uninstallation
+
+### Maven
+\`\`\`xml
+<!-- Remove from pom.xml -->
+<!-- mvn clean -->
+\`\`\`
+
+### Gradle
+\`\`\`bash
+# Remove from build.gradle
+./gradlew clean
+\`\`\`
+
+## Troubleshooting
+
+### ClassNotFoundException
+\`\`\`bash
+# Verify Maven/Gradle installation
+mvn dependency:tree | grep averox
+# or
+./gradlew dependencies | grep averox
+\`\`\`
+
+### Security Policy Issues
+\`\`\`bash
+# Check JCE policy
+java -Dfile.encoding=UTF-8 -Djava.security.debug=provider YourApp
+
+# Update to Java 8u161+ or Java 11+ for unlimited crypto
+\`\`\`
+
+### Memory Issues
+\`\`\`bash
+# Increase heap size
+java -Xmx1g -XX:+UseG1GC YourApp
+\`\`\`
+`;
+  }
+
+  // C/C++ Installation Guide (Enhanced)
+  static getCInstallationGuide(sdk) {
+    return `# ${sdk.name} SDK - C/C++ Installation Guide
+
+## System Requirements
+- **CMake**: 3.10+
+- **Compiler**: GCC 7+, Clang 10+, MSVC 2019+
+- **OpenSSL**: 1.1.0+
+- **pkg-config**: For integration
+- **Operating System**: Windows 10+, macOS 10.15+, Linux
+
+## Installation
+
+### From Source (Recommended)
+\`\`\`bash
+# Download and extract SDK
+git clone https://github.com/averox/${sdk.name.toLowerCase().replace(/\s+/g, '-')}-c-sdk.git
+cd ${sdk.name.toLowerCase().replace(/\s+/g, '-')}-c-sdk
+
+# Build and install
+mkdir build && cd build
+cmake ..
+make -j\$(nproc)
+sudo make install
+\`\`\`
+
+### Using Package Manager
+
+#### Ubuntu/Debian
+\`\`\`bash
+sudo apt update
+sudo apt install libaverox-crypto-dev
+\`\`\`
+
+#### CentOS/RHEL
+\`\`\`bash
+sudo yum install averox-crypto-devel
+\`\`\`
+
+#### macOS (Homebrew)
+\`\`\`bash
+brew install averox/${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto
+\`\`\`
+
+## Quick Start
+
+### Basic Usage
+\`\`\`c
+#include <averox_crypto.h>
+#include <stdio.h>
+#include <string.h>
+
+int main() {
+    // Generate master key
+    uint8_t master_key[AVEROX_KEY_SIZE];
+    averox_generate_key(master_key);
+    
+    // Setup encryption
+    const char* plaintext = "Sensitive data";
+    const char* aad = "context-info";
+    
+    averox_envelope_t envelope;
+    averox_envelope_init(&envelope);
+    
+    // Encrypt (AAD required)
+    averox_error_t result = averox_encrypt(
+        master_key,
+        (uint8_t*)plaintext, strlen(plaintext),
+        (uint8_t*)aad, strlen(aad),
+        &envelope
+    );
+    
+    if (result != AVEROX_SUCCESS) {
+        printf("Encryption failed: %d\\n", result);
+        return 1;
+    }
+    
+    printf("✅ Encryption successful\\n");
+    
+    // Decrypt
+    uint8_t decrypted[256];
+    size_t decrypted_len;
+    
+    result = averox_decrypt(
+        master_key,
+        &envelope,
+        (uint8_t*)aad, strlen(aad),
+        decrypted, &decrypted_len
+    );
+    
+    if (result == AVEROX_SUCCESS) {
+        printf("Decrypted: %.*s\\n", (int)decrypted_len, decrypted);
+    }
+    
+    // Cleanup
+    averox_envelope_free(&envelope);
+    averox_secure_zero(master_key, AVEROX_KEY_SIZE);
+    
+    return 0;
+}
+\`\`\`
+
+### CMake Integration
+\`\`\`cmake
+cmake_minimum_required(VERSION 3.10)
+project(MyApp)
+
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(AVEROX REQUIRED sdkcrypto)
+
+add_executable(myapp main.c)
+target_link_libraries(myapp \${AVEROX_LIBRARIES})
+target_include_directories(myapp PRIVATE \${AVEROX_INCLUDE_DIRS})
+target_compile_options(myapp PRIVATE \${AVEROX_CFLAGS_OTHER})
+\`\`\`
+
+### Makefile Integration
+\`\`\`makefile
+CFLAGS += \$(shell pkg-config --cflags sdkcrypto)
+LDFLAGS += \$(shell pkg-config --libs sdkcrypto)
+
+myapp: main.c
+        gcc \$(CFLAGS) main.c \$(LDFLAGS) -o myapp
+\`\`\`
+
+## Configuration
+
+### Build Options
+\`\`\`bash
+# Debug build
+cmake -DCMAKE_BUILD_TYPE=Debug ..
+
+# Release build
+cmake -DCMAKE_BUILD_TYPE=Release ..
+
+# With AddressSanitizer
+cmake -DCMAKE_C_FLAGS="-fsanitize=address" ..
+\`\`\`
+
+### Environment Variables
+\`\`\`bash
+export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:\$PKG_CONFIG_PATH
+export LD_LIBRARY_PATH=/usr/local/lib:\$LD_LIBRARY_PATH
+\`\`\`
+
+## Uninstallation
+
+### From Source
+\`\`\`bash
+cd build
+sudo make uninstall
+
+# Manual cleanup if needed
+sudo rm -f /usr/local/include/averox_crypto.h
+sudo rm -f /usr/local/lib/lib*averox*
+sudo rm -f /usr/local/lib/pkgconfig/sdkcrypto.pc
+\`\`\`
+
+### Package Manager
+\`\`\`bash
+# Ubuntu/Debian
+sudo apt remove libaverox-crypto-dev
+
+# CentOS/RHEL  
+sudo yum remove averox-crypto-devel
+
+# macOS
+brew uninstall averox/${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto
+\`\`\`
+
+## Troubleshooting
+
+### Build Errors
+\`\`\`bash
+# Missing OpenSSL
+sudo apt install libssl-dev  # Ubuntu
+brew install openssl         # macOS
+
+# Missing CMake
+sudo apt install cmake       # Ubuntu
+brew install cmake          # macOS
+
+# Missing pkg-config
+sudo apt install pkg-config  # Ubuntu
+brew install pkgconfig      # macOS
+\`\`\`
+
+### Runtime Errors
+\`\`\`bash
+# Library not found
+export LD_LIBRARY_PATH=/usr/local/lib:\$LD_LIBRARY_PATH
+
+# Check installation
+pkg-config --exists sdkcrypto && echo "✅ SDK found" || echo "❌ SDK not found"
+\`\`\`
+
+### Memory Issues
+\`\`\`bash
+# Run with AddressSanitizer
+gcc -fsanitize=address -g main.c \$(pkg-config --cflags --libs sdkcrypto) -o myapp
+./myapp
+
+# Run with Valgrind
+valgrind --tool=memcheck --leak-check=full ./myapp
+\`\`\`
 `;
   }
 
