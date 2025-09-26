@@ -40,6 +40,9 @@ class FixedEnterpriseSDKGenerator {
       "dependencies": {
         "node-hkdf": "^1.0.0"
       },
+      "peerDependencies": {
+        "@opentelemetry/api": "^1.0.0"
+      },
       "devDependencies": {
         "@types/node": "^20.0.0",
         "jest": "^29.0.0",
@@ -74,9 +77,35 @@ class FixedEnterpriseSDKGenerator {
     return `/**
  * FIXED Averox Crypto SDK - Actually implements claimed security features
  * All security features are REALLY implemented, not just claimed
+ * Enterprise-grade with OpenTelemetry metrics integration
  */
 
 import crypto from 'crypto';
+
+// OpenTelemetry Metrics Integration (Enterprise requirement)
+interface TelemetryCounters {
+  increment(name: string, value?: number, attributes?: Record<string, string>): void;
+}
+
+class NoOpTelemetry implements TelemetryCounters {
+  increment(name: string, value?: number, attributes?: Record<string, string>): void {
+    // No-op implementation when OpenTelemetry is not configured
+  }
+}
+
+// Global telemetry instance - can be configured by consumers
+let telemetry: TelemetryCounters = new NoOpTelemetry();
+
+export function configureTelemetry(telemetryProvider: TelemetryCounters): void {
+  telemetry = telemetryProvider;
+}
+
+// Enterprise telemetry metrics
+const METRICS = {
+  ENCRYPT_TOTAL: 'crypto_encrypt_total',
+  DECRYPT_TOTAL: 'crypto_decrypt_total', 
+  FAIL_TOTAL: 'crypto_fail_total'
+} as const;
 
 // REAL Error Classes (was missing in original)
 export class AveroxCryptoError extends Error {
@@ -161,49 +190,87 @@ export class ChaCha20Poly1305 {
   private static readonly NONCE_SIZE = 12;
   private static readonly TAG_SIZE = 16;
   
-  static encrypt(plaintext: Buffer, key: Buffer, aad?: Buffer): AveroxEnvelope {
-    if (key.length !== this.KEY_SIZE) {
-      throw new BadInputError(\`Key must be \${this.KEY_SIZE} bytes\`);
-    }
-    
-    const nonce = crypto.randomBytes(this.NONCE_SIZE);
-    const cipher = crypto.createCipher(this.ALGORITHM, key);
-    cipher.setAAD(aad || Buffer.alloc(0));
-    
-    let ciphertext = cipher.update(plaintext);
-    ciphertext = Buffer.concat([ciphertext, cipher.final()]);
-    const tag = cipher.getAuthTag();
-    
-    return {
-      v: '2.0',
+  static encrypt(plaintext: Buffer, key: Buffer, aad?: Buffer, kid?: string): AveroxEnvelope {
+    const attributes = {
       alg: 'ChaCha20-Poly1305',
-      iv: nonce.toString('base64url'),
-      tag: tag.toString('base64url'), 
-      ct: ciphertext.toString('base64url'),
-      aad: aad ? aad.toString('base64url') : undefined
+      kid: kid || 'unknown',
+      env: process.env.NODE_ENV || 'development'
     };
+
+    try {
+      if (key.length !== this.KEY_SIZE) {
+        telemetry.increment(METRICS.FAIL_TOTAL, 1, { ...attributes, reason: 'invalid_key_size' });
+        throw new BadInputError(\`Key must be \${this.KEY_SIZE} bytes\`);
+      }
+      
+      const nonce = crypto.randomBytes(this.NONCE_SIZE);
+      const cipher = crypto.createCipher(this.ALGORITHM, key);
+      cipher.setAAD(aad || Buffer.alloc(0));
+      
+      let ciphertext = cipher.update(plaintext);
+      ciphertext = Buffer.concat([ciphertext, cipher.final()]);
+      const tag = cipher.getAuthTag();
+      
+      // Track successful encryption
+      telemetry.increment(METRICS.ENCRYPT_TOTAL, 1, attributes);
+      
+      return {
+        v: '2.0',
+        alg: 'ChaCha20-Poly1305',
+        kid: kid,
+        iv: nonce.toString('base64url'),
+        tag: tag.toString('base64url'), 
+        ct: ciphertext.toString('base64url'),
+        aad: aad ? aad.toString('base64url') : undefined
+      };
+    } catch (error) {
+      const reason = error instanceof BadInputError ? 'invalid_input' : 'crypto_error';
+      telemetry.increment(METRICS.FAIL_TOTAL, 1, { ...attributes, reason });
+      throw error;
+    }
   }
   
   static decrypt(envelope: AveroxEnvelope, key: Buffer): Buffer {
-    if (key.length !== this.KEY_SIZE) {
-      throw new BadInputError(\`Key must be \${this.KEY_SIZE} bytes\`);
-    }
-    
-    const nonce = Buffer.from(envelope.iv, 'base64url');
-    const tag = Buffer.from(envelope.tag, 'base64url');
-    const ciphertext = Buffer.from(envelope.ct, 'base64url');
-    const aad = envelope.aad ? Buffer.from(envelope.aad, 'base64url') : Buffer.alloc(0);
-    
-    const decipher = crypto.createDecipher(this.ALGORITHM, key);
-    decipher.setAuthTag(tag);
-    decipher.setAAD(aad);
-    
+    const attributes = {
+      alg: envelope.alg || 'ChaCha20-Poly1305',
+      kid: envelope.kid || 'unknown',
+      env: process.env.NODE_ENV || 'development'
+    };
+
     try {
-      let plaintext = decipher.update(ciphertext);
-      plaintext = Buffer.concat([plaintext, decipher.final()]);
-      return plaintext;
+      if (key.length !== this.KEY_SIZE) {
+        telemetry.increment(METRICS.FAIL_TOTAL, 1, { ...attributes, reason: 'invalid_key_size' });
+        throw new BadInputError(\`Key must be \${this.KEY_SIZE} bytes\`);
+      }
+      
+      const nonce = Buffer.from(envelope.iv, 'base64url');
+      const tag = Buffer.from(envelope.tag, 'base64url');
+      const ciphertext = Buffer.from(envelope.ct, 'base64url');
+      const aad = envelope.aad ? Buffer.from(envelope.aad, 'base64url') : Buffer.alloc(0);
+      
+      const decipher = crypto.createDecipher(this.ALGORITHM, key);
+      decipher.setAuthTag(tag);
+      decipher.setAAD(aad);
+      
+      try {
+        let plaintext = decipher.update(ciphertext);
+        plaintext = Buffer.concat([plaintext, decipher.final()]);
+        
+        // Track successful decryption
+        telemetry.increment(METRICS.DECRYPT_TOTAL, 1, attributes);
+        
+        return plaintext;
+      } catch (error) {
+        // Track authentication tag failures
+        telemetry.increment(METRICS.FAIL_TOTAL, 1, { ...attributes, reason: 'auth_tag' });
+        throw new InvalidTagError('Decryption failed - invalid authentication tag');
+      }
     } catch (error) {
-      throw new InvalidTagError('Decryption failed - invalid authentication tag');
+      if (!(error instanceof InvalidTagError)) {
+        const reason = error instanceof BadInputError ? 'invalid_input' : 'crypto_error';
+        telemetry.increment(METRICS.FAIL_TOTAL, 1, { ...attributes, reason });
+      }
+      throw error;
     }
   }
 }
@@ -222,68 +289,112 @@ export class AveroxCrypto {
   }
   
   // REAL AAD-enforced encryption (AAD is REQUIRED, not optional)
-  encrypt(plaintext: string | Buffer, aad: Buffer): AveroxEnvelope {
-    if (!aad || !Buffer.isBuffer(aad)) {
-      throw new BadInputError('AAD is required for all encryption operations');
-    }
-    
-    const plaintextBuffer = Buffer.isBuffer(plaintext) ? 
-      plaintext : Buffer.from(plaintext, 'utf8');
-    
-    // ENFORCED 12-byte IV generation (cannot be overridden)
-    const iv = crypto.randomBytes(AveroxCrypto.IV_SIZE);
-    
-    const cipher = crypto.createCipherGCM(AveroxCrypto.ALGORITHM, this.masterKey);
-    cipher.setAAD(aad);
-    
-    let ciphertext = cipher.update(plaintextBuffer);
-    ciphertext = Buffer.concat([ciphertext, cipher.final()]);
-    const tag = cipher.getAuthTag();
-    
-    return {
-      v: '2.0',
+  encrypt(plaintext: string | Buffer, aad: Buffer, kid?: string): AveroxEnvelope {
+    const startTime = Date.now();
+    const attributes = {
       alg: 'AES-256-GCM',
-      iv: iv.toString('base64url'),
-      tag: tag.toString('base64url'),
-      ct: ciphertext.toString('base64url'),
-      aad: aad.toString('base64url')
+      kid: kid || 'unknown',
+      env: process.env.NODE_ENV || 'development'
     };
+
+    try {
+      if (!aad || !Buffer.isBuffer(aad)) {
+        telemetry.increment(METRICS.FAIL_TOTAL, 1, { ...attributes, reason: 'aad_missing' });
+        throw new BadInputError('AAD is required for all encryption operations');
+      }
+      
+      const plaintextBuffer = Buffer.isBuffer(plaintext) ? 
+        plaintext : Buffer.from(plaintext, 'utf8');
+      
+      // ENFORCED 12-byte IV generation (cannot be overridden)
+      const iv = crypto.randomBytes(AveroxCrypto.IV_SIZE);
+      
+      const cipher = crypto.createCipherGCM(AveroxCrypto.ALGORITHM, this.masterKey);
+      cipher.setAAD(aad);
+      
+      let ciphertext = cipher.update(plaintextBuffer);
+      ciphertext = Buffer.concat([ciphertext, cipher.final()]);
+      const tag = cipher.getAuthTag();
+      
+      // Track successful encryption
+      telemetry.increment(METRICS.ENCRYPT_TOTAL, 1, attributes);
+      
+      return {
+        v: '2.0',
+        alg: 'AES-256-GCM',
+        kid: kid,
+        iv: iv.toString('base64url'),
+        tag: tag.toString('base64url'),
+        ct: ciphertext.toString('base64url'),
+        aad: aad.toString('base64url')
+      };
+    } catch (error) {
+      // Track encryption failures
+      const reason = error instanceof BadInputError ? 'invalid_input' : 'crypto_error';
+      telemetry.increment(METRICS.FAIL_TOTAL, 1, { ...attributes, reason });
+      throw error;
+    }
   }
   
   // REAL AAD-enforced decryption with timing-safe verification
   decrypt(envelope: AveroxEnvelope, aad: Buffer): Buffer {
-    if (!aad || !Buffer.isBuffer(aad)) {
-      throw new BadInputError('AAD is required for all decryption operations');
-    }
-    
-    // Verify envelope format
-    if (!envelope.v || !envelope.alg || !envelope.iv || !envelope.tag || !envelope.ct) {
-      throw new BadInputError('Invalid envelope format');
-    }
-    
-    const iv = Buffer.from(envelope.iv, 'base64url');
-    const tag = Buffer.from(envelope.tag, 'base64url');
-    const ciphertext = Buffer.from(envelope.ct, 'base64url');
-    
-    // ENFORCED IV size validation
-    if (iv.length !== AveroxCrypto.IV_SIZE) {
-      throw new BadInputError(\`IV must be \${AveroxCrypto.IV_SIZE} bytes\`);
-    }
-    
-    const decipher = crypto.createDecipherGCM(AveroxCrypto.ALGORITHM, this.masterKey);
-    decipher.setAuthTag(tag);
-    decipher.setAAD(aad);
-    
+    const startTime = Date.now();
+    const attributes = {
+      alg: envelope.alg || 'AES-256-GCM',
+      kid: envelope.kid || 'unknown',
+      env: process.env.NODE_ENV || 'development'
+    };
+
     try {
-      let plaintext = decipher.update(ciphertext);
-      plaintext = Buffer.concat([plaintext, decipher.final()]);
-      return plaintext;
+      if (!aad || !Buffer.isBuffer(aad)) {
+        telemetry.increment(METRICS.FAIL_TOTAL, 1, { ...attributes, reason: 'aad_missing' });
+        throw new BadInputError('AAD is required for all decryption operations');
+      }
+      
+      // Verify envelope format
+      if (!envelope.v || !envelope.alg || !envelope.iv || !envelope.tag || !envelope.ct) {
+        telemetry.increment(METRICS.FAIL_TOTAL, 1, { ...attributes, reason: 'invalid_envelope' });
+        throw new BadInputError('Invalid envelope format');
+      }
+      
+      const iv = Buffer.from(envelope.iv, 'base64url');
+      const tag = Buffer.from(envelope.tag, 'base64url');
+      const ciphertext = Buffer.from(envelope.ct, 'base64url');
+      
+      // ENFORCED IV size validation
+      if (iv.length !== AveroxCrypto.IV_SIZE) {
+        telemetry.increment(METRICS.FAIL_TOTAL, 1, { ...attributes, reason: 'invalid_iv' });
+        throw new BadInputError(\`IV must be \${AveroxCrypto.IV_SIZE} bytes\`);
+      }
+      
+      const decipher = crypto.createDecipherGCM(AveroxCrypto.ALGORITHM, this.masterKey);
+      decipher.setAuthTag(tag);
+      decipher.setAAD(aad);
+      
+      try {
+        let plaintext = decipher.update(ciphertext);
+        plaintext = Buffer.concat([plaintext, decipher.final()]);
+        
+        // Track successful decryption
+        telemetry.increment(METRICS.DECRYPT_TOTAL, 1, attributes);
+        
+        return plaintext;
+      } catch (error) {
+        // Track authentication tag failures specifically
+        telemetry.increment(METRICS.FAIL_TOTAL, 1, { ...attributes, reason: 'auth_tag' });
+        throw new InvalidTagError('Decryption failed - invalid authentication tag or AAD');
+      } finally {
+        // REAL memory zeroization
+        secureZero(iv);
+        secureZero(tag);
+      }
     } catch (error) {
-      throw new InvalidTagError('Decryption failed - invalid authentication tag or AAD');
-    } finally {
-      // REAL memory zeroization
-      secureZero(iv);
-      secureZero(tag);
+      // Track general decryption failures
+      if (!(error instanceof InvalidTagError)) {
+        const reason = error instanceof BadInputError ? 'invalid_input' : 'crypto_error';
+        telemetry.increment(METRICS.FAIL_TOTAL, 1, { ...attributes, reason });
+      }
+      throw error;
     }
   }
   

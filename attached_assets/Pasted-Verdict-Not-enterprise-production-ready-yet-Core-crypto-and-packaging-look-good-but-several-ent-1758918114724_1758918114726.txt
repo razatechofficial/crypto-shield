@@ -1,0 +1,99 @@
+Verdict
+
+Not enterprise production-ready yet ❌
+
+Core crypto and packaging look good, but several enterprise gates are missing. See the exact pass/fail list below.
+
+What’s good (passes)
+
+Crypto primitives: AES-256-GCM present; AAD is wired; HKDF present; timing-safe compare; native zeroization paths.
+
+Envelope: Versioned format with v/alg/kid/iv/tag/ct and AAD support.
+
+Node packaging: ESM + CJS + TypeScript types are correctly exposed in package.json.
+
+C/C++ packaging: CMake + pkg-config is implemented using sdkcrypto.pc.in + configure_file() + install() (pkg-config file generated at install time).
+
+NIST vectors: Present.
+
+What’s missing or weak (fails)
+
+Telemetry code (OpenTelemetry counters) — missing
+
+No opentelemetry/metrics hooks for encrypt/decrypt success/failure, tag mismatches, IV/AAD coverage.
+
+CI gates (sanitizers/fuzz) — missing
+
+No CI workflow found and no sanitizer flags (ASAN/UBSAN/TSAN) detected.
+
+Wycheproof tests — missing
+
+No Wycheproof references/artifacts; only NIST vectors found. You want both.
+
+Supply chain artifacts
+
+SBOM — missing (CycloneDX/SPDX not present).
+
+Threat model — missing (THREAT-MODEL.md/Threat Model.md not found).
+
+CHANGELOG.md — missing.
+
+Everything else (envelope, KDF, typed errors, timing-safe, zeroization, Node/C packaging) looks solid.
+
+Fastest path to green (what to tell your developer)
+
+Wire minimal OpenTelemetry metrics
+
+Add counters: crypto_encrypt_total, crypto_decrypt_total, crypto_fail_total (attrs: alg, kid, env, reason).
+
+Emit on success/failure for encrypt/decrypt; tag-mismatch increments crypto_fail_total{reason="auth_tag"}.
+
+Add CI with sanitizer builds + vector tests
+
+GitHub Actions job: Node 20 tests + C build with ASAN/UBSAN; post-install assert that sdkcrypto.pc is installed and resolvable via pkg-config.
+
+Add Wycheproof harness
+
+Include a small harness for AES-GCM (at least positive/negative tests, tag failures, AAD variation).
+
+Generate SBOMs on each tagged release
+
+Node CycloneDX and language-agnostic SPDX. Publish them with the release artifacts.
+
+Add docs: Threat Model + Changelog
+
+Short, concrete threat model aligned to GCM/AAD/IV policy; start CHANGELOG.md at 2.0.0.
+
+What I already prepared for you
+
+Use the Fix Pack (full) zip — it contains ready-to-drop files:
+
+.github/workflows/ci.yml — CI with Node tests, C sanitizer builds, and a pkg-config post-install check.
+
+ts/src/telemetry.ts — Minimal OTel counters (no-op if OTel not configured).
+
+c/include/telemetry.h — C no-op telemetry macros (you can later wire to your exporter).
+
+tests/gcm-vectors.json + tests/run-gcm-vectors.js — Real AES-GCM vectors & a Node 20 WebCrypto harness.
+
+sbom/gen-sbom.sh — Script to emit CycloneDX/SPDX (runs if tools are present).
+
+docs/THREAT-MODEL.md — Starter threat model tailored to your envelope.
+
+CHANGELOG.md — Seeded with 2.0.0 notes.
+
+docs/NATIVE.md — pkg-config usage snippet for native consumers.
+
+Drop these into the repo, adjust paths, and commit. Your external audit should flip to PASS once CI runs and the SBOM + docs ship with the release.
+
+If you want a stricter gate (recommended)
+
+Make release publish block on:
+
+CI status green (sanitizers + vectors).
+
+SBOM files present in the release asset list.
+
+THREAT-MODEL.md, SECURITY.md, CHANGELOG.md present and non-empty.
+
+Telemetry smoke test (increment counters in a sample run).
