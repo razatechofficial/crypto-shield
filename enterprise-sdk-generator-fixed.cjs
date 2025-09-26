@@ -2555,6 +2555,490 @@ import (
     };
   }
 
+  // Rust SDK with real aes-gcm crate implementation
+  static generateRustSDK(sdk, algorithms) {
+    console.log('🦀 Generating real Rust SDK with aes-gcm crate...');
+    
+    const cargoToml = `[package]
+name = "averox-crypto-sdk"
+version = "${sdk.version || "2.0.0"}"
+edition = "2021"
+authors = ["Averox Ltd <info@averox.com>"]
+description = "Enterprise-grade AES-256-GCM cryptographic SDK with AAD enforcement"
+license = "MIT"
+repository = "https://github.com/averox/crypto-sdk"
+keywords = ["cryptography", "encryption", "security", "enterprise"]
+categories = ["cryptography"]
+
+[dependencies]
+aes-gcm = "0.10.3"
+base64ct = { version = "1.6.0", features = ["alloc"] }
+opentelemetry = { version = "0.20.0", features = ["metrics"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+rand = "0.8.5"
+thiserror = "1.0"
+zeroize = { version = "1.6", features = ["zeroize_derive"] }
+
+[dev-dependencies]
+tokio = { version = "1.0", features = ["full"] }
+hex = "0.4"
+
+[lib]
+name = "averox_crypto"
+path = "src/lib.rs"
+
+[[example]]
+name = "basic_usage"
+path = "examples/basic_usage.rs"`;
+
+    const coreImplementation = `use aes_gcm::{
+    aead::{Aead, AeadCore, KeyInit, OsRng},
+    Aes256Gcm, Key, Nonce,
+};
+use base64ct::{Base64UrlUnpadded, Encoding};
+use opentelemetry::{
+    global,
+    metrics::{Counter, Meter},
+    KeyValue,
+};
+use serde::{Deserialize, Serialize};
+use std::fmt;
+use thiserror::Error;
+use zeroize::{Zeroize, ZeroizeOnDrop};
+
+/// Algorithm identifier for AES-256-GCM
+pub const ALGORITHM: &str = "AES-256-GCM";
+
+/// Key size in bytes (32 bytes for AES-256)
+pub const KEY_SIZE: usize = 32;
+
+/// IV size in bytes (12 bytes for GCM)
+pub const IV_SIZE: usize = 12;
+
+/// Authentication tag size in bytes (16 bytes for GCM)
+pub const TAG_SIZE: usize = 16;
+
+/// OpenTelemetry metrics
+struct Metrics {
+    encrypt_counter: Counter<u64>,
+    decrypt_counter: Counter<u64>,
+    fail_counter: Counter<u64>,
+}
+
+impl Metrics {
+    fn new() -> Self {
+        let meter: Meter = global::meter("averox-crypto");
+        
+        Self {
+            encrypt_counter: meter
+                .u64_counter("crypto_encrypt_total")
+                .with_description("Total number of encryption operations")
+                .init(),
+            decrypt_counter: meter
+                .u64_counter("crypto_decrypt_total")
+                .with_description("Total number of decryption operations")
+                .init(),
+            fail_counter: meter
+                .u64_counter("crypto_fail_total")
+                .with_description("Total number of failed operations")
+                .init(),
+        }
+    }
+}
+
+lazy_static::lazy_static! {
+    static ref METRICS: Metrics = Metrics::new();
+}
+
+/// Errors that can occur during cryptographic operations
+#[derive(Error, Debug)]
+pub enum AveroxCryptoError {
+    #[error("Invalid input: {message}")]
+    BadInput { message: String },
+    
+    #[error("Missing AAD: AAD (Additional Authenticated Data) is required and cannot be empty")]
+    MissingAAD,
+    
+    #[error("Authentication failed: data may have been tampered with")]
+    InvalidTag,
+    
+    #[error("Unsupported algorithm: {algorithm}")]
+    UnsupportedAlgorithm { algorithm: String },
+    
+    #[error("Invalid IV size: expected {expected}, got {actual}")]
+    InvalidIV { expected: usize, actual: usize },
+    
+    #[error("Invalid tag size: expected {expected}, got {actual}")]
+    InvalidTagSize { expected: usize, actual: usize },
+    
+    #[error("Encryption failed: {source}")]
+    EncryptionFailed { source: Box<dyn std::error::Error + Send + Sync> },
+    
+    #[error("Decryption failed: {source}")]
+    DecryptionFailed { source: Box<dyn std::error::Error + Send + Sync> },
+    
+    #[error("JSON error: {source}")]
+    JsonError { source: serde_json::Error },
+    
+    #[error("Base64 decoding error: {source}")]
+    Base64Error { source: base64ct::Error },
+}
+
+impl From<serde_json::Error> for AveroxCryptoError {
+    fn from(err: serde_json::Error) -> Self {
+        AveroxCryptoError::JsonError { source: err }
+    }
+}
+
+impl From<base64ct::Error> for AveroxCryptoError {
+    fn from(err: base64ct::Error) -> Self {
+        AveroxCryptoError::Base64Error { source: err }
+    }
+}
+
+/// Result type for cryptographic operations
+pub type Result<T> = std::result::Result<T, AveroxCryptoError>;
+
+/// Standardized envelope format for encrypted data
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct AveroxEnvelope {
+    /// Version of the envelope format
+    #[serde(rename = "v")]
+    pub version: String,
+    
+    /// Encryption algorithm used
+    #[serde(rename = "alg")]
+    pub algorithm: String,
+    
+    /// Optional key identifier
+    #[serde(rename = "kid", skip_serializing_if = "Option::is_none")]
+    pub key_id: Option<String>,
+    
+    /// Base64URL encoded initialization vector
+    #[serde(rename = "iv")]
+    pub iv: String,
+    
+    /// Base64URL encoded authentication tag
+    #[serde(rename = "tag")]
+    pub tag: String,
+    
+    /// Base64URL encoded ciphertext
+    #[serde(rename = "ct")]
+    pub ciphertext: String,
+    
+    /// Base64URL encoded additional authenticated data
+    #[serde(rename = "aad")]
+    pub aad: String,
+}
+
+impl AveroxEnvelope {
+    /// Serialize envelope to JSON
+    pub fn to_json(&self) -> Result<String> {
+        serde_json::to_string(self).map_err(AveroxCryptoError::from)
+    }
+    
+    /// Deserialize envelope from JSON
+    pub fn from_json(json: &str) -> Result<Self> {
+        serde_json::from_str(json).map_err(AveroxCryptoError::from)
+    }
+}
+
+/// Main cryptographic context with secure key storage
+#[derive(ZeroizeOnDrop)]
+pub struct AveroxCrypto {
+    #[zeroize(skip)]
+    cipher: Aes256Gcm,
+    master_key: [u8; KEY_SIZE],
+}
+
+impl AveroxCrypto {
+    /// Create new crypto context with master key
+    pub fn new(master_key: [u8; KEY_SIZE]) -> Self {
+        let key = Key::<Aes256Gcm>::from_slice(&master_key);
+        let cipher = Aes256Gcm::new(key);
+        
+        Self {
+            cipher,
+            master_key,
+        }
+    }
+    
+    /// Generate cryptographically secure 32-byte master key
+    pub fn generate_master_key() -> [u8; KEY_SIZE] {
+        let mut key = [0u8; KEY_SIZE];
+        rand::RngCore::fill_bytes(&mut OsRng, &mut key);
+        key
+    }
+    
+    /// Encrypt data with AES-256-GCM and mandatory AAD
+    pub fn encrypt(
+        &self,
+        plaintext: &[u8],
+        aad: &[u8],
+        key_id: Option<&str>,
+    ) -> Result<AveroxEnvelope> {
+        // Validate AAD requirement
+        if aad.is_empty() {
+            METRICS.fail_counter.add(
+                1,
+                &[
+                    KeyValue::new("alg", ALGORITHM),
+                    KeyValue::new("kid", key_id.unwrap_or("unknown")),
+                    KeyValue::new("reason", "missing_aad"),
+                ],
+            );
+            return Err(AveroxCryptoError::MissingAAD);
+        }
+        
+        // Generate random nonce (IV)
+        let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
+        
+        // Encrypt with AAD
+        let ciphertext = self
+            .cipher
+            .encrypt(&nonce, aes_gcm::aead::Payload { msg: plaintext, aad })
+            .map_err(|e| AveroxCryptoError::EncryptionFailed {
+                source: Box::new(e),
+            })?;
+        
+        // Split ciphertext and tag (last 16 bytes)
+        if ciphertext.len() < TAG_SIZE {
+            METRICS.fail_counter.add(
+                1,
+                &[
+                    KeyValue::new("alg", ALGORITHM),
+                    KeyValue::new("kid", key_id.unwrap_or("unknown")),
+                    KeyValue::new("reason", "invalid_ciphertext_length"),
+                ],
+            );
+            return Err(AveroxCryptoError::EncryptionFailed {
+                source: "Invalid ciphertext length".into(),
+            });
+        }
+        
+        let ct_len = ciphertext.len() - TAG_SIZE;
+        let ct = &ciphertext[..ct_len];
+        let tag = &ciphertext[ct_len..];
+        
+        METRICS.encrypt_counter.add(
+            1,
+            &[
+                KeyValue::new("alg", ALGORITHM),
+                KeyValue::new("kid", key_id.unwrap_or("unknown")),
+            ],
+        );
+        
+        Ok(AveroxEnvelope {
+            version: "2.0".to_string(),
+            algorithm: ALGORITHM.to_string(),
+            key_id: key_id.map(|s| s.to_string()),
+            iv: Base64UrlUnpadded::encode_string(nonce.as_slice()),
+            tag: Base64UrlUnpadded::encode_string(tag),
+            ciphertext: Base64UrlUnpadded::encode_string(ct),
+            aad: Base64UrlUnpadded::encode_string(aad),
+        })
+    }
+    
+    /// Encrypt string data with AES-256-GCM and mandatory AAD
+    pub fn encrypt_string(
+        &self,
+        plaintext: &str,
+        aad: &str,
+        key_id: Option<&str>,
+    ) -> Result<AveroxEnvelope> {
+        self.encrypt(plaintext.as_bytes(), aad.as_bytes(), key_id)
+    }
+    
+    /// Decrypt envelope with AES-256-GCM and mandatory AAD
+    pub fn decrypt(&self, envelope: &AveroxEnvelope, aad: &[u8]) -> Result<Vec<u8>> {
+        // Validate AAD requirement
+        if aad.is_empty() {
+            METRICS.fail_counter.add(
+                1,
+                &[
+                    KeyValue::new("alg", &envelope.algorithm),
+                    KeyValue::new("kid", envelope.key_id.as_deref().unwrap_or("unknown")),
+                    KeyValue::new("reason", "missing_aad"),
+                ],
+            );
+            return Err(AveroxCryptoError::MissingAAD);
+        }
+        
+        // Validate algorithm
+        if envelope.algorithm != ALGORITHM {
+            METRICS.fail_counter.add(
+                1,
+                &[
+                    KeyValue::new("alg", &envelope.algorithm),
+                    KeyValue::new("kid", envelope.key_id.as_deref().unwrap_or("unknown")),
+                    KeyValue::new("reason", "unsupported_algorithm"),
+                ],
+            );
+            return Err(AveroxCryptoError::UnsupportedAlgorithm {
+                algorithm: envelope.algorithm.clone(),
+            });
+        }
+        
+        // Decode envelope components
+        let iv = Base64UrlUnpadded::decode_vec(&envelope.iv)?;
+        let tag = Base64UrlUnpadded::decode_vec(&envelope.tag)?;
+        let ct = Base64UrlUnpadded::decode_vec(&envelope.ciphertext)?;
+        
+        // Validate sizes
+        if iv.len() != IV_SIZE {
+            return Err(AveroxCryptoError::InvalidIV {
+                expected: IV_SIZE,
+                actual: iv.len(),
+            });
+        }
+        
+        if tag.len() != TAG_SIZE {
+            return Err(AveroxCryptoError::InvalidTagSize {
+                expected: TAG_SIZE,
+                actual: tag.len(),
+            });
+        }
+        
+        // Reconstruct full ciphertext with tag
+        let mut full_ciphertext = ct;
+        full_ciphertext.extend_from_slice(&tag);
+        
+        // Create nonce from IV
+        let nonce = Nonce::from_slice(&iv);
+        
+        // Decrypt
+        let plaintext = self
+            .cipher
+            .decrypt(nonce, aes_gcm::aead::Payload { msg: &full_ciphertext, aad })
+            .map_err(|e| AveroxCryptoError::InvalidTag)?;
+        
+        METRICS.decrypt_counter.add(
+            1,
+            &[
+                KeyValue::new("alg", &envelope.algorithm),
+                KeyValue::new("kid", envelope.key_id.as_deref().unwrap_or("unknown")),
+            ],
+        );
+        
+        Ok(plaintext)
+    }
+    
+    /// Decrypt envelope to string with AES-256-GCM and mandatory AAD
+    pub fn decrypt_string(&self, envelope: &AveroxEnvelope, aad: &str) -> Result<String> {
+        let plaintext = self.decrypt(envelope, aad.as_bytes())?;
+        String::from_utf8(plaintext).map_err(|e| AveroxCryptoError::DecryptionFailed {
+            source: Box::new(e),
+        })
+    }
+    
+    /// Securely clear master key from memory
+    pub fn zeroize(&mut self) {
+        self.master_key.zeroize();
+    }
+}
+
+impl fmt::Debug for AveroxCrypto {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("AveroxCrypto")
+            .field("master_key", &"[REDACTED]")
+            .finish()
+    }
+}
+
+// Ensure keys are cleared when dropped
+impl Drop for AveroxCrypto {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn test_encryption_roundtrip() {
+        let key = AveroxCrypto::generate_master_key();
+        let crypto = AveroxCrypto::new(key);
+        
+        let plaintext = b"Hello, World!";
+        let aad = b"test-aad";
+        
+        let envelope = crypto.encrypt(plaintext, aad, Some("test-key")).unwrap();
+        let decrypted = crypto.decrypt(&envelope, aad).unwrap();
+        
+        assert_eq!(plaintext, decrypted.as_slice());
+    }
+    
+    #[test]
+    fn test_missing_aad_fails() {
+        let key = AveroxCrypto::generate_master_key();
+        let crypto = AveroxCrypto::new(key);
+        
+        let plaintext = b"Hello, World!";
+        let aad = b"";
+        
+        let result = crypto.encrypt(plaintext, aad, None);
+        assert!(matches!(result, Err(AveroxCryptoError::MissingAAD)));
+    }
+    
+    #[test]
+    fn test_envelope_serialization() {
+        let envelope = AveroxEnvelope {
+            version: "2.0".to_string(),
+            algorithm: ALGORITHM.to_string(),
+            key_id: Some("test".to_string()),
+            iv: "dGVzdC1pdg".to_string(),
+            tag: "dGVzdC10YWc".to_string(),
+            ciphertext: "dGVzdC1jdA".to_string(),
+            aad: "dGVzdC1hYWQ".to_string(),
+        };
+        
+        let json = envelope.to_json().unwrap();
+        let deserialized = AveroxEnvelope::from_json(&json).unwrap();
+        
+        assert_eq!(envelope, deserialized);
+    }
+}`;
+
+    const exampleUsage = `use averox_crypto::{AveroxCrypto, Result};
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Generate a secure master key
+    let master_key = AveroxCrypto::generate_master_key();
+    
+    // Create crypto context
+    let crypto = AveroxCrypto::new(master_key);
+    
+    // Encrypt some data
+    let plaintext = "Sensitive enterprise data";
+    let aad = "user-context-data";
+    
+    let envelope = crypto.encrypt_string(plaintext, aad, Some("app-key-1"))?;
+    println!("Encrypted envelope: {}", envelope.to_json()?);
+    
+    // Decrypt the data
+    let decrypted = crypto.decrypt_string(&envelope, aad)?;
+    println!("Decrypted: {}", decrypted);
+    
+    assert_eq!(plaintext, decrypted);
+    
+    Ok(())
+}`;
+
+    return {
+      'Cargo.toml': cargoToml,
+      'src/lib.rs': coreImplementation,
+      'examples/basic_usage.rs': exampleUsage,
+      'README.md': this.getUniversalReadme('Rust', 'cargo build'),
+      'src/tests.rs': this.getNISTTestSuite('rust'),
+      'SECURITY.md': this.getUniversalSecurityGuide(),
+      'TROUBLESHOOTING.md': this.getUniversalTroubleshootingGuide()
+    };
+  }
+
   static getFixedTypeDefinitions() {
     return `// REAL TypeScript definitions
 export interface AveroxEnvelope {
