@@ -564,7 +564,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`🔧 Generating REAL production SDK for languages: ${languages.join(', ')}`);
 
       // Import the FIXED enterprise SDK generator with real implementations
-      const { FixedEnterpriseSDKGenerator } = require('../enterprise-sdk-generator-fixed.js');
+      const { FixedEnterpriseSDKGenerator } = require('../enterprise-sdk-generator-fixed.cjs');
 
       res.setHeader('Content-Type', 'application/zip');
       res.setHeader('Content-Disposition', `attachment; filename="${sdk.name.toLowerCase().replace(/\s+/g, '-')}-enterprise-sdk-v${sdk.version}.zip"`);
