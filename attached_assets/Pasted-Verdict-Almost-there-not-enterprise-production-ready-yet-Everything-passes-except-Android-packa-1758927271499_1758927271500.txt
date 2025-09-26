@@ -1,0 +1,54 @@
+Verdict
+
+Almost there — not enterprise production-ready yet ❌
+Everything passes except Android packaging (docs claim Android, but no Gradle module is shipped). If you either (a) include the attached Android library skeleton or (b) remove the Android claim from docs, this build flips to PASS.
+
+What passed (great work)
+
+Crypto & envelope: AES-256-GCM with AAD; versioned envelope (v/alg/kid/iv/tag/ct); alg/kid fields present; timing-safe compares; native zeroization where applicable.
+
+Key derivation: HKDF present (and at least one of PBKDF2/Argon2id/scrypt detected).
+
+Telemetry: OpenTelemetry/metrics hooks found for crypto success/failure paths.
+
+Packaging:
+
+Node: ESM + CJS + TypeScript types exposed in package.json.
+
+C/C++: CMake with install(); *.pc.in + configure_file() → installs a proper pkg-config file.
+
+CI & testing: CI workflow present with ASAN/UBSAN sanitizer builds; NIST + Wycheproof vectors included.
+
+Supply chain & security docs: SBOM, LICENSE, SECURITY.md, Threat Model, README, CHANGELOG all present and detectable.
+
+The only blocker
+
+Mobile packaging (Android) — FAIL
+
+Your docs claim Android/iOS support, but the zip contains iOS/Swift/Podspec while no Gradle/Android library is present.
+
+Signals: mobile_claimed_in_docs = true, has_podspec_or_swiftpm = true, has_gradle = false.
+
+Fastest path to green (pick one)
+Option A — Ship Android now (recommended)
+
+Drop in the ready-to-use Android Gradle module I generated:
+
+Download Android add-on
+Contains:
+
+settings.gradle, top-level build.gradle
+
+cryptoshield/ Android library module with build.gradle
+
+src/main/AndroidManifest.xml
+
+Kotlin AES-GCM helper (Gcm.kt) that enforces 96-bit IVs, AAD, and 128-bit tag
+
+README with Gradle dependency snippet
+
+Wire it into your repo (or into your generator’s Android template), then re-publish.
+
+Option B — Update the docs
+
+If Android isn’t meant to be included in this release, remove the Android claims and keep only the platforms you actually ship (Node, C/C++, iOS). That will also pass the gate.

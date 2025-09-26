@@ -13285,6 +13285,552 @@ runNISTTestSuite();`
     return testCases[language] || testCases.default;
   }
 
+  static generateAndroidSDK(sdk, algorithms) {
+    console.log('🤖 Generating complete enterprise Android SDK with Gradle...');
+    
+    const packageName = `com.averox.crypto.sdk`;
+    const className = 'AveroxCrypto';
+    
+    // Android Gradle module structure
+    const settingsGradle = `rootProject.name = "averox-crypto-android"
+include ':cryptoshield'`;
+
+    const topLevelBuildGradle = `buildscript {
+    ext.kotlin_version = "1.9.10"
+    dependencies {
+        classpath "com.android.tools.build:gradle:8.1.2"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}`;
+
+    const moduleBuildGradle = `plugins {
+    id 'com.android.library'
+    id 'org.jetbrains.kotlin.android'
+    id 'maven-publish'
+}
+
+android {
+    namespace '${packageName}'
+    compileSdk 34
+
+    defaultConfig {
+        minSdk 24
+        targetSdk 34
+        
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        consumerProguardFiles "consumer-rules.pro"
+        
+        aarMetadata {
+            minCompileSdk = 24
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
+    
+    testOptions {
+        unitTests.returnDefaultValues = true
+    }
+}
+
+dependencies {
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version'
+    implementation 'androidx.core:core-ktx:1.12.0'
+    implementation 'androidx.annotation:annotation:1.7.0'
+    implementation 'io.opentelemetry:opentelemetry-api:1.32.0'
+    implementation 'io.opentelemetry:opentelemetry-instrumentation-annotations:1.32.0'
+    
+    // Testing dependencies
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.jetbrains.kotlin:kotlin-test:$kotlin_version'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+}
+
+publishing {
+    publications {
+        release(MavenPublication) {
+            groupId = 'com.averox.crypto'
+            artifactId = 'averox-crypto-android'
+            version = '${sdk.version}'
+            
+            afterEvaluate {
+                from components.release
+            }
+        }
+    }
+}`;
+
+    const androidManifest = `<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+</manifest>`;
+
+    const kotlinImplementation = `package ${packageName}
+
+import android.util.Base64
+import androidx.annotation.Keep
+import io.opentelemetry.api.OpenTelemetry
+import io.opentelemetry.api.metrics.LongCounter
+import io.opentelemetry.api.metrics.Meter
+import io.opentelemetry.api.trace.Span
+import io.opentelemetry.api.trace.Tracer
+import io.opentelemetry.instrumentation.annotations.WithSpan
+import java.security.SecureRandom
+import javax.crypto.Cipher
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
+import javax.crypto.spec.GCMParameterSpec
+import javax.crypto.spec.SecretKeySpec
+import kotlin.random.Random
+
+/**
+ * Enterprise AES-256-GCM encryption with AAD enforcement for Android
+ * 
+ * Features:
+ * - AES-256-GCM authenticated encryption
+ * - Mandatory Additional Authenticated Data (AAD)
+ * - OpenTelemetry monitoring integration
+ * - Memory security with key zeroization
+ * - Enterprise-grade error handling
+ */
+@Keep
+class ${className} @JvmOverloads constructor(
+    private val masterKey: ByteArray,
+    openTelemetry: OpenTelemetry? = null
+) : AutoCloseable {
+    
+    companion object {
+        private const val AES_KEY_SIZE = 256
+        private const val GCM_IV_LENGTH = 12
+        private const val GCM_TAG_LENGTH = 16
+        private const val ALGORITHM = "AES"
+        private const val TRANSFORMATION = "AES/GCM/NoPadding"
+        
+        /**
+         * Generate a cryptographically secure 32-byte master key
+         */
+        @JvmStatic
+        fun generateMasterKey(): ByteArray {
+            val keyGenerator = KeyGenerator.getInstance(ALGORITHM)
+            keyGenerator.init(AES_KEY_SIZE)
+            return keyGenerator.generateKey().encoded
+        }
+    }
+    
+    private val tracer: Tracer?
+    private val encryptCounter: LongCounter?
+    private val decryptCounter: LongCounter?
+    private val errorCounter: LongCounter?
+    private val secureRandom = SecureRandom()
+    
+    init {
+        require(masterKey.size == 32) { 
+            "Master key must be exactly 32 bytes (256 bits), got \${masterKey.size} bytes" 
+        }
+        
+        // Initialize OpenTelemetry if provided
+        if (openTelemetry != null) {
+            tracer = openTelemetry.getTracer("averox-crypto-android", "${sdk.version}")
+            val meter: Meter = openTelemetry.getMeter("averox-crypto-android")
+            
+            encryptCounter = meter.counterBuilder("averox.encrypt.total")
+                .setDescription("Total number of encryption operations")
+                .build()
+            decryptCounter = meter.counterBuilder("averox.decrypt.total")
+                .setDescription("Total number of decryption operations")
+                .build()
+            errorCounter = meter.counterBuilder("averox.error.total")
+                .setDescription("Total number of cryptographic errors")
+                .build()
+        } else {
+            tracer = null
+            encryptCounter = null
+            decryptCounter = null
+            errorCounter = null
+        }
+    }
+    
+    /**
+     * Encrypt data with AES-256-GCM and mandatory AAD
+     */
+    @WithSpan("averox.encrypt")
+    fun encrypt(plaintext: ByteArray, aad: ByteArray, keyId: String = "default"): EnvelopeV2 {
+        require(aad.isNotEmpty()) { 
+            errorCounter?.add(1)
+            "AAD (Additional Authenticated Data) is required and cannot be empty"
+        }
+        
+        val span = tracer?.spanBuilder("averox.encrypt")
+            ?.setAttribute("plaintext.length", plaintext.size.toLong())
+            ?.setAttribute("aad.length", aad.size.toLong())
+            ?.setAttribute("key.id", keyId)
+            ?.startSpan()
+        
+        return try {
+            // Generate secure 12-byte IV
+            val iv = ByteArray(GCM_IV_LENGTH)
+            secureRandom.nextBytes(iv)
+            
+            // Initialize cipher
+            val cipher = Cipher.getInstance(TRANSFORMATION)
+            val secretKey = SecretKeySpec(masterKey, ALGORITHM)
+            val gcmSpec = GCMParameterSpec(GCM_TAG_LENGTH * 8, iv)
+            
+            cipher.init(Cipher.ENCRYPT_MODE, secretKey, gcmSpec)
+            cipher.updateAAD(aad)
+            
+            // Encrypt and get ciphertext + tag
+            val encryptedData = cipher.doFinal(plaintext)
+            val ciphertext = encryptedData.sliceArray(0 until encryptedData.size - GCM_TAG_LENGTH)
+            val tag = encryptedData.sliceArray(encryptedData.size - GCM_TAG_LENGTH until encryptedData.size)
+            
+            // Create envelope
+            val envelope = EnvelopeV2(
+                algorithm = "AES-256-GCM",
+                version = "v2",
+                keyId = keyId,
+                ciphertext = Base64.encodeToString(ciphertext, Base64.NO_WRAP),
+                tag = Base64.encodeToString(tag, Base64.NO_WRAP),
+                iv = Base64.encodeToString(iv, Base64.NO_WRAP),
+                timestamp = System.currentTimeMillis() / 1000
+            )
+            
+            encryptCounter?.add(1)
+            span?.setStatus(io.opentelemetry.api.trace.StatusCode.OK)
+            
+            envelope
+            
+        } catch (e: Exception) {
+            errorCounter?.add(1)
+            span?.recordException(e)
+            span?.setStatus(io.opentelemetry.api.trace.StatusCode.ERROR, "Encryption failed")
+            throw AveroxCryptoException("ENCRYPTION_FAILED", "Failed to encrypt data: \${e.message}", e)
+        } finally {
+            span?.end()
+        }
+    }
+    
+    /**
+     * Decrypt envelope with AES-256-GCM and mandatory AAD
+     */
+    @WithSpan("averox.decrypt")
+    fun decrypt(envelope: EnvelopeV2, aad: ByteArray): ByteArray {
+        require(aad.isNotEmpty()) { 
+            errorCounter?.add(1)
+            "AAD (Additional Authenticated Data) is required and cannot be empty" 
+        }
+        
+        require(envelope.algorithm == "AES-256-GCM") {
+            errorCounter?.add(1)
+            "Algorithm \${envelope.algorithm} not supported"
+        }
+        
+        val span = tracer?.spanBuilder("averox.decrypt")
+            ?.setAttribute("envelope.algorithm", envelope.algorithm)
+            ?.setAttribute("aad.length", aad.size.toLong())
+            ?.startSpan()
+            
+        return try {
+            // Decode components
+            val ciphertext = Base64.decode(envelope.ciphertext, Base64.NO_WRAP)
+            val tag = Base64.decode(envelope.tag, Base64.NO_WRAP)
+            val iv = Base64.decode(envelope.iv, Base64.NO_WRAP)
+            
+            // Combine ciphertext and tag for GCM
+            val encryptedData = ciphertext + tag
+            
+            // Initialize cipher for decryption
+            val cipher = Cipher.getInstance(TRANSFORMATION)
+            val secretKey = SecretKeySpec(masterKey, ALGORITHM)
+            val gcmSpec = GCMParameterSpec(GCM_TAG_LENGTH * 8, iv)
+            
+            cipher.init(Cipher.DECRYPT_MODE, secretKey, gcmSpec)
+            cipher.updateAAD(aad)
+            
+            // Decrypt and verify
+            val plaintext = cipher.doFinal(encryptedData)
+            
+            decryptCounter?.add(1)
+            span?.setStatus(io.opentelemetry.api.trace.StatusCode.OK)
+            
+            plaintext
+            
+        } catch (e: Exception) {
+            errorCounter?.add(1)
+            span?.recordException(e)
+            span?.setStatus(io.opentelemetry.api.trace.StatusCode.ERROR, "Decryption failed")
+            
+            when {
+                e.message?.contains("authentication", ignoreCase = true) == true || 
+                e.message?.contains("BadPaddingException", ignoreCase = true) == true -> 
+                    throw AveroxCryptoException("AUTHENTICATION_FAILED", 
+                        "Authentication failed - data may have been tampered with", e)
+                else -> 
+                    throw AveroxCryptoException("DECRYPTION_FAILED", "Failed to decrypt data: \${e.message}", e)
+            }
+        } finally {
+            span?.end()
+        }
+    }
+    
+    /**
+     * Securely clear the master key from memory
+     */
+    override fun close() {
+        // Clear master key from memory
+        masterKey.fill(0)
+    }
+}
+
+/**
+ * Versioned encryption envelope for cross-platform compatibility
+ */
+@Keep
+data class EnvelopeV2(
+    val algorithm: String,
+    val version: String,
+    val keyId: String,
+    val ciphertext: String,
+    val tag: String,
+    val iv: String,
+    val timestamp: Long
+)
+
+/**
+ * Typed exception for cryptographic operations
+ */
+@Keep
+class AveroxCryptoException(
+    val errorCode: String,
+    message: String,
+    cause: Throwable? = null
+) : Exception(message, cause)`;
+
+    const unitTests = `package ${packageName}
+
+import android.util.Base64
+import org.junit.Test
+import org.junit.Assert.*
+import org.junit.Before
+import java.nio.charset.StandardCharsets
+
+/**
+ * Unit tests for AveroxCrypto Android SDK
+ */
+class AveroxCryptoTest {
+    
+    private lateinit var masterKey: ByteArray
+    private lateinit var crypto: AveroxCrypto
+    
+    @Before
+    fun setUp() {
+        masterKey = AveroxCrypto.generateMasterKey()
+        crypto = AveroxCrypto(masterKey)
+    }
+    
+    @Test
+    fun testGenerateMasterKey() {
+        val key = AveroxCrypto.generateMasterKey()
+        assertEquals("Master key should be 32 bytes", 32, key.size)
+    }
+    
+    @Test
+    fun testEncryptDecryptRoundTrip() {
+        val plaintext = "Hello, Android World!".toByteArray(StandardCharsets.UTF_8)
+        val aad = "test-session-android".toByteArray(StandardCharsets.UTF_8)
+        
+        val envelope = crypto.encrypt(plaintext, aad, "test-key")
+        val decrypted = crypto.decrypt(envelope, aad)
+        
+        assertArrayEquals("Decrypted text should match original", plaintext, decrypted)
+    }
+    
+    @Test
+    fun testMandatoryAAD() {
+        val plaintext = "Hello, World!".toByteArray(StandardCharsets.UTF_8)
+        val emptyAAD = ByteArray(0)
+        
+        try {
+            crypto.encrypt(plaintext, emptyAAD)
+            fail("Should throw exception for empty AAD")
+        } catch (e: IllegalArgumentException) {
+            assertTrue("Should mention AAD requirement", 
+                e.message!!.contains("AAD") && e.message!!.contains("required"))
+        }
+    }
+    
+    @Test
+    fun testInvalidAlgorithm() {
+        val plaintext = "Hello, World!".toByteArray(StandardCharsets.UTF_8)
+        val aad = "test-aad".toByteArray(StandardCharsets.UTF_8)
+        
+        val envelope = crypto.encrypt(plaintext, aad)
+        val invalidEnvelope = envelope.copy(algorithm = "INVALID-ALGO")
+        
+        try {
+            crypto.decrypt(invalidEnvelope, aad)
+            fail("Should throw exception for invalid algorithm")
+        } catch (e: IllegalArgumentException) {
+            assertTrue("Should mention algorithm not supported", e.message!!.contains("not supported"))
+        }
+    }
+    
+    @Test
+    fun testWrongAADFails() {
+        val plaintext = "Hello, World!".toByteArray(StandardCharsets.UTF_8)
+        val correctAAD = "correct-aad".toByteArray(StandardCharsets.UTF_8)
+        val wrongAAD = "wrong-aad".toByteArray(StandardCharsets.UTF_8)
+        
+        val envelope = crypto.encrypt(plaintext, correctAAD)
+        
+        try {
+            crypto.decrypt(envelope, wrongAAD)
+            fail("Should fail with wrong AAD")
+        } catch (e: AveroxCryptoException) {
+            assertEquals("Should be authentication failed", "AUTHENTICATION_FAILED", e.errorCode)
+        }
+    }
+    
+    @Test
+    fun testEnvelopeStructure() {
+        val plaintext = "Hello, World!".toByteArray(StandardCharsets.UTF_8)
+        val aad = "test-aad".toByteArray(StandardCharsets.UTF_8)
+        
+        val envelope = crypto.encrypt(plaintext, aad, "test-key-id")
+        
+        assertEquals("Algorithm should be AES-256-GCM", "AES-256-GCM", envelope.algorithm)
+        assertEquals("Version should be v2", "v2", envelope.version)
+        assertEquals("Key ID should match", "test-key-id", envelope.keyId)
+        assertTrue("Ciphertext should not be empty", envelope.ciphertext.isNotEmpty())
+        assertTrue("Tag should not be empty", envelope.tag.isNotEmpty())
+        assertTrue("IV should not be empty", envelope.iv.isNotEmpty())
+        assertTrue("Timestamp should be positive", envelope.timestamp > 0)
+    }
+}`;
+
+    const proguardRules = `# Keep all public API classes and methods
+-keep public class com.averox.crypto.sdk.** { *; }
+
+# Keep OpenTelemetry classes
+-keep class io.opentelemetry.** { *; }
+
+# Keep annotations
+-keepattributes *Annotation*`;
+
+    const readmeAndroid = `# Averox Crypto SDK for Android
+
+Enterprise-grade AES-256-GCM encryption library for Android applications.
+
+## Features
+
+- 🔒 **AES-256-GCM Encryption**: Authenticated encryption with associated data
+- 🛡️ **Mandatory AAD**: Additional Authenticated Data enforcement for security
+- 📊 **OpenTelemetry Integration**: Built-in metrics and tracing
+- 🔑 **Secure Key Management**: Cryptographically secure key generation
+- 📱 **Android Optimized**: Minimal API level 24+, optimized for mobile
+
+## Installation
+
+### Gradle
+
+Add to your app's \`build.gradle\`:
+
+\`\`\`gradle
+dependencies {
+    implementation 'com.averox.crypto:averox-crypto-android:${sdk.version}'
+}
+\`\`\`
+
+## Quick Start
+
+\`\`\`kotlin
+import com.averox.crypto.sdk.AveroxCrypto
+
+// Generate a master key
+val masterKey = AveroxCrypto.generateMasterKey()
+
+// Initialize crypto instance
+val crypto = AveroxCrypto(masterKey)
+
+// Encrypt data
+val plaintext = "Sensitive data".toByteArray()
+val aad = "user-session-123".toByteArray()
+val envelope = crypto.encrypt(plaintext, aad, "key-id")
+
+// Decrypt data
+val decrypted = crypto.decrypt(envelope, aad)
+val originalText = String(decrypted)
+
+// Always close when done
+crypto.close()
+\`\`\`
+
+## Security Requirements
+
+- **AAD Required**: Additional Authenticated Data must be provided and non-empty
+- **Key Management**: Store master keys securely using Android Keystore
+- **Memory Security**: Always call \`close()\` to clear keys from memory
+
+## Testing
+
+Run unit tests:
+\`\`\`bash
+./gradlew test
+\`\`\`
+
+Run instrumented tests:
+\`\`\`bash
+./gradlew connectedAndroidTest
+\`\`\`
+
+## Documentation
+
+- [Security Guide](SECURITY.md)
+- [Installation Guide](INSTALLATION-GUIDE.md)
+- [Troubleshooting](TROUBLESHOOTING.md)
+
+## License
+
+See [LICENSE](LICENSE) file for details.
+`;
+
+    return {
+      'settings.gradle': settingsGradle,
+      'build.gradle': topLevelBuildGradle,
+      'cryptoshield/build.gradle': moduleBuildGradle,
+      'cryptoshield/src/main/AndroidManifest.xml': androidManifest,
+      [`cryptoshield/src/main/java/${packageName.replace(/\./g, '/')}/AveroxCrypto.kt`]: kotlinImplementation,
+      [`cryptoshield/src/test/java/${packageName.replace(/\./g, '/')}/AveroxCryptoTest.kt`]: unitTests,
+      'cryptoshield/proguard-rules.pro': proguardRules,
+      'README.md': readmeAndroid,
+      'LICENSE': this.getUniversalLicense(),
+      'SECURITY.md': this.getUniversalSecurityGuide(),
+      'INSTALLATION-GUIDE.md': this.getUniversalInstallationGuide('Android', 'Add to build.gradle dependencies'),
+      'TROUBLESHOOTING.md': this.getUniversalTroubleshootingGuide()
+    };
+  }
+
   static getUniversalSecurityGuide() {
     return `# Security Guide - Averox Crypto SDK
 
