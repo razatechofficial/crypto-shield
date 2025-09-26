@@ -61,7 +61,7 @@ import {
   auditEvents,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, count, sum, gte, inArray, sql } from "drizzle-orm";
+import { eq, desc, and, count, sum, gte, inArray, sql, isNull, lte } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -227,14 +227,18 @@ export interface IStorage {
   getRecentActivities(tenantId: string): Promise<any[]>;
   
   // Monitoring operations
-  getCryptoOperations(tenantId: string, hours?: number): Promise<any[]>;
+  getCryptoOperations(tenantId: string, hours?: number, forceReseed?: boolean): Promise<any[]>;
+  getOperationStats(tenantId: string, hours?: number): Promise<any>;
   getSystemHealth(tenantId: string): Promise<any>;
   getSecurityIncidents(tenantId: string): Promise<any[]>;
   getSdkDeployments(tenantId: string): Promise<any[]>;
   getSystemHealthMetrics(tenantId: string): Promise<any>;
   
-  // User management
+  // User management 
   getTenantUsers(tenantId: string): Promise<User[]>;
+  getUsersByTenant(tenantId: string): Promise<User[]>;
+  getTenantUser(tenantId: string, userId: string): Promise<TenantUser | undefined>;
+  getRolePermissions(role: string): Promise<string[]>;
   getUserStats(tenantId: string): Promise<any>;
   
   // Quantum Security
@@ -426,7 +430,7 @@ export class DatabaseStorage implements IStorage {
       .where(
         userId 
           ? and(eq(notifications.tenantId, tenantId), eq(notifications.userId, userId))
-          : and(eq(notifications.tenantId, tenantId), eq(notifications.userId, null))
+          : and(eq(notifications.tenantId, tenantId), isNull(notifications.userId))
       )
       .orderBy(desc(notifications.createdAt))
       .limit(limit);
@@ -444,7 +448,7 @@ export class DatabaseStorage implements IStorage {
           eq(notifications.isRead, false),
           userId 
             ? eq(notifications.userId, userId)
-            : eq(notifications.userId, null)
+            : isNull(notifications.userId)
         )
       );
     
@@ -484,7 +488,7 @@ export class DatabaseStorage implements IStorage {
           eq(notifications.isRead, false),
           userId 
             ? eq(notifications.userId, userId)
-            : eq(notifications.userId, null)
+            : isNull(notifications.userId)
         )
       );
   }
@@ -3965,6 +3969,161 @@ export class DatabaseStorage implements IStorage {
 
   async getSystemHealth(tenantId: string): Promise<any> {
     return await this.getSystemHealthMetrics(tenantId);
+  }
+
+  async getUsersByTenant(tenantId: string): Promise<User[]> {
+    return await this.getTenantUsers(tenantId);
+  }
+
+  async getTenantUser(tenantId: string, userId: string): Promise<TenantUser | undefined> {
+    const [tenantUser] = await db
+      .select()
+      .from(tenantUsers)
+      .where(and(eq(tenantUsers.tenantId, tenantId), eq(tenantUsers.userId, userId)));
+    return tenantUser;
+  }
+
+  async getRolePermissions(role: string): Promise<string[]> {
+    // Static role permissions mapping
+    const permissions: Record<string, string[]> = {
+      admin: ["*"], // Full access
+      developer: ["sdk:read", "sdk:write", "key:read", "key:rotate", "monitor:read"],
+      viewer: ["sdk:read", "key:read", "monitor:read"]
+    };
+    return permissions[role] || [];
+  }
+
+  async getCryptoOperations(tenantId: string, hours: number = 24, forceReseed?: boolean): Promise<any[]> {
+    // Check if operations exist, if not or if forced, seed monitoring data
+    const existing = await db.select().from(cryptoOperations).where(eq(cryptoOperations.tenantId, tenantId)).limit(1);
+    if (existing.length === 0 || forceReseed) {
+      await this.seedMonitoringData(tenantId);
+    }
+    
+    const hoursAgo = new Date(Date.now() - hours * 60 * 60 * 1000);
+    return await db
+      .select()
+      .from(cryptoOperations)
+      .where(and(
+        eq(cryptoOperations.tenantId, tenantId),
+        gte(cryptoOperations.createdAt, hoursAgo)
+      ))
+      .orderBy(desc(cryptoOperations.createdAt))
+      .limit(1000);
+  }
+
+  async getOperationStats(tenantId: string, hours: number = 24): Promise<any> {
+    const hoursAgo = new Date(Date.now() - hours * 60 * 60 * 1000);
+    
+    // Get total operations
+    const [totalOpsResult] = await db
+      .select({ count: count() })
+      .from(cryptoOperations)
+      .where(and(
+        eq(cryptoOperations.tenantId, tenantId),
+        gte(cryptoOperations.createdAt, hoursAgo)
+      ));
+
+    // Get successful operations
+    const [successfulOpsResult] = await db
+      .select({ count: count() })
+      .from(cryptoOperations)
+      .where(and(
+        eq(cryptoOperations.tenantId, tenantId),
+        eq(cryptoOperations.status, 'success'),
+        gte(cryptoOperations.createdAt, hoursAgo)
+      ));
+
+    // Get average latency
+    const [avgLatencyResult] = await db
+      .select({ avg: sql<number>`AVG(${cryptoOperations.duration})` })
+      .from(cryptoOperations)
+      .where(and(
+        eq(cryptoOperations.tenantId, tenantId),
+        gte(cryptoOperations.createdAt, hoursAgo)
+      ));
+
+    // Get operations by algorithm
+    const operationsByAlgorithm = await db
+      .select({
+        algorithm: cryptoOperations.algorithm,
+        count: count()
+      })
+      .from(cryptoOperations)
+      .where(and(
+        eq(cryptoOperations.tenantId, tenantId),
+        gte(cryptoOperations.createdAt, hoursAgo)
+      ))
+      .groupBy(cryptoOperations.algorithm);
+
+    return {
+      totalOperations: totalOpsResult.count,
+      successfulOperations: successfulOpsResult.count,
+      averageLatency: avgLatencyResult.avg || 0,
+      operationsByAlgorithm
+    };
+  }
+
+  async getSecurityIncidents(tenantId: string): Promise<any[]> {
+    // Check if incidents exist, if not, seed monitoring data
+    const existing = await db.select().from(securityIncidents).where(eq(securityIncidents.tenantId, tenantId)).limit(1);
+    if (existing.length === 0) {
+      await this.seedMonitoringData(tenantId);
+    }
+    
+    return await db
+      .select()
+      .from(securityIncidents)
+      .where(eq(securityIncidents.tenantId, tenantId))
+      .orderBy(desc(securityIncidents.createdAt))
+      .limit(100);
+  }
+
+  async getSystemHealthMetrics(tenantId: string): Promise<any> {
+    // Get performance metrics
+    const performanceMetrics = await db
+      .select()
+      .from(performanceMetrics)
+      .where(eq(performanceMetrics.tenantId, tenantId))
+      .orderBy(desc(performanceMetrics.createdAt))
+      .limit(100);
+
+    // Get recent crypto operations for success rate
+    const recentOps = await this.getCryptoOperations(tenantId, 1); // Last hour
+    const totalOps = recentOps.length;
+    const successfulOps = recentOps.filter(op => op.status === 'success').length;
+    const successRate = totalOps > 0 ? successfulOps / totalOps : 1;
+
+    // Get SDK deployments for uptime
+    const deployments = await this.getSdkDeployments(tenantId);
+    const recentlyActive = deployments.filter(d => {
+      const lastHeartbeat = new Date(d.lastHeartbeat || d.createdAt);
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+      return lastHeartbeat > fiveMinutesAgo;
+    });
+    const uptime = deployments.length > 0 ? recentlyActive.length / deployments.length : 1;
+
+    // Calculate average latency
+    const avgLatency = performanceMetrics.length > 0 
+      ? performanceMetrics.reduce((sum, m) => sum + (m.responseTime || 0), 0) / performanceMetrics.length
+      : 0;
+
+    const healthStatus = successRate > 0.95 && uptime > 0.9 && avgLatency < 100 
+      ? 'healthy' 
+      : successRate > 0.8 && uptime > 0.7 
+        ? 'degraded' 
+        : 'critical';
+
+    return {
+      status: healthStatus,
+      successRate,
+      uptime,
+      averageLatency: avgLatency,
+      totalOperations: totalOps,
+      activeDeployments: recentlyActive.length,
+      totalDeployments: deployments.length,
+      performanceScore: Math.round((successRate + uptime) * 50)
+    };
   }
 
   async getUserStats(tenantId: string): Promise<any> {
