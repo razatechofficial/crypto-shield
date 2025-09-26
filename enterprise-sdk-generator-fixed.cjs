@@ -900,6 +900,586 @@ class AveroxEnvelope {
     };
   }
 
+  // C/C++ SDK with proper CMake and pkg-config support
+  static generateCSDK(sdk, algorithms) {
+    console.log('🔧 Generating FIXED C SDK with REAL security implementations...');
+
+    const headerFile = `#ifndef AVEROX_CRYPTO_H
+#define AVEROX_CRYPTO_H
+
+#include <stdint.h>
+#include <stdlib.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+// AES-256-GCM Constants
+#define AVEROX_KEY_SIZE 32
+#define AVEROX_IV_SIZE 12
+#define AVEROX_TAG_SIZE 16
+#define AVEROX_MAX_AAD_SIZE 65536
+#define AVEROX_MAX_PLAINTEXT_SIZE 1048576
+
+// Error codes
+typedef enum {
+    AVEROX_SUCCESS = 0,
+    AVEROX_ERROR_INVALID_PARAMETER = -1,
+    AVEROX_ERROR_BUFFER_TOO_SMALL = -2,
+    AVEROX_ERROR_AUTHENTICATION_FAILED = -3,
+    AVEROX_ERROR_MEMORY_ALLOCATION = -4,
+    AVEROX_ERROR_AAD_REQUIRED = -5
+} averox_error_t;
+
+// Envelope structure
+typedef struct {
+    char version[8];
+    char algorithm[16];
+    uint8_t iv[AVEROX_IV_SIZE];
+    uint8_t tag[AVEROX_TAG_SIZE];
+    uint8_t *ciphertext;
+    size_t ciphertext_len;
+    uint8_t *aad;
+    size_t aad_len;
+} averox_envelope_t;
+
+// Core functions with ENFORCED AAD policy
+averox_error_t averox_encrypt(
+    const uint8_t *key,
+    const uint8_t *plaintext,
+    size_t plaintext_len,
+    const uint8_t *aad,        // REQUIRED - cannot be NULL
+    size_t aad_len,            // REQUIRED - must be > 0
+    averox_envelope_t *envelope
+);
+
+averox_error_t averox_decrypt(
+    const uint8_t *key,
+    const averox_envelope_t *envelope,
+    const uint8_t *aad,        // REQUIRED - cannot be NULL
+    size_t aad_len,            // REQUIRED - must match encryption AAD
+    uint8_t *plaintext,
+    size_t *plaintext_len
+);
+
+// Memory management
+averox_error_t averox_envelope_init(averox_envelope_t *envelope);
+void averox_envelope_free(averox_envelope_t *envelope);
+void averox_secure_zero(void *ptr, size_t len);
+
+// Key generation
+averox_error_t averox_generate_key(uint8_t *key);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif // AVEROX_CRYPTO_H
+`;
+
+    const sourceFile = `#include "averox_crypto.h"
+#include <openssl/evp.h>
+#include <openssl/rand.h>
+#include <openssl/crypto.h>
+#include <string.h>
+#include <stdio.h>
+
+// ENFORCED AAD validation - all operations REQUIRE AAD
+#define VALIDATE_AAD(aad, aad_len) \\
+    do { \\
+        if (!aad || aad_len == 0) { \\
+            return AVEROX_ERROR_AAD_REQUIRED; \\
+        } \\
+    } while(0)
+
+averox_error_t averox_encrypt(
+    const uint8_t *key,
+    const uint8_t *plaintext,
+    size_t plaintext_len,
+    const uint8_t *aad,
+    size_t aad_len,
+    averox_envelope_t *envelope
+) {
+    if (!key || !plaintext || !envelope) {
+        return AVEROX_ERROR_INVALID_PARAMETER;
+    }
+    
+    // ENFORCED: AAD is required for all encryption operations
+    VALIDATE_AAD(aad, aad_len);
+    
+    if (plaintext_len > AVEROX_MAX_PLAINTEXT_SIZE) {
+        return AVEROX_ERROR_INVALID_PARAMETER;
+    }
+    
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    if (!ctx) return AVEROX_ERROR_MEMORY_ALLOCATION;
+    
+    // Initialize envelope
+    strcpy(envelope->version, "2.0");
+    strcpy(envelope->algorithm, "AES-256-GCM");
+    
+    // ENFORCED 12-byte IV generation (cannot be overridden)
+    if (RAND_bytes(envelope->iv, AVEROX_IV_SIZE) != 1) {
+        EVP_CIPHER_CTX_free(ctx);
+        return AVEROX_ERROR_MEMORY_ALLOCATION;
+    }
+    
+    // Initialize encryption
+    if (EVP_EncryptInit_ex(ctx, EVP_aes_256_gcm(), NULL, NULL, NULL) != 1) {
+        EVP_CIPHER_CTX_free(ctx);
+        return AVEROX_ERROR_MEMORY_ALLOCATION;
+    }
+    
+    // Set IV length
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, AVEROX_IV_SIZE, NULL) != 1) {
+        EVP_CIPHER_CTX_free(ctx);
+        return AVEROX_ERROR_MEMORY_ALLOCATION;
+    }
+    
+    // Set key and IV
+    if (EVP_EncryptInit_ex(ctx, NULL, NULL, key, envelope->iv) != 1) {
+        EVP_CIPHER_CTX_free(ctx);
+        return AVEROX_ERROR_MEMORY_ALLOCATION;
+    }
+    
+    // Set AAD
+    int len;
+    if (EVP_EncryptUpdate(ctx, NULL, &len, aad, aad_len) != 1) {
+        EVP_CIPHER_CTX_free(ctx);
+        return AVEROX_ERROR_MEMORY_ALLOCATION;
+    }
+    
+    // Allocate ciphertext buffer
+    envelope->ciphertext = malloc(plaintext_len);
+    if (!envelope->ciphertext) {
+        EVP_CIPHER_CTX_free(ctx);
+        return AVEROX_ERROR_MEMORY_ALLOCATION;
+    }
+    
+    // Encrypt
+    if (EVP_EncryptUpdate(ctx, envelope->ciphertext, &len, plaintext, plaintext_len) != 1) {
+        free(envelope->ciphertext);
+        EVP_CIPHER_CTX_free(ctx);
+        return AVEROX_ERROR_MEMORY_ALLOCATION;
+    }
+    envelope->ciphertext_len = len;
+    
+    // Finalize
+    if (EVP_EncryptFinal_ex(ctx, envelope->ciphertext + len, &len) != 1) {
+        free(envelope->ciphertext);
+        EVP_CIPHER_CTX_free(ctx);
+        return AVEROX_ERROR_MEMORY_ALLOCATION;
+    }
+    envelope->ciphertext_len += len;
+    
+    // Get authentication tag
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, AVEROX_TAG_SIZE, envelope->tag) != 1) {
+        free(envelope->ciphertext);
+        EVP_CIPHER_CTX_free(ctx);
+        return AVEROX_ERROR_MEMORY_ALLOCATION;
+    }
+    
+    // Store AAD copy
+    envelope->aad = malloc(aad_len);
+    if (!envelope->aad) {
+        free(envelope->ciphertext);
+        EVP_CIPHER_CTX_free(ctx);
+        return AVEROX_ERROR_MEMORY_ALLOCATION;
+    }
+    memcpy(envelope->aad, aad, aad_len);
+    envelope->aad_len = aad_len;
+    
+    EVP_CIPHER_CTX_free(ctx);
+    return AVEROX_SUCCESS;
+}
+
+averox_error_t averox_decrypt(
+    const uint8_t *key,
+    const averox_envelope_t *envelope,
+    const uint8_t *aad,
+    size_t aad_len,
+    uint8_t *plaintext,
+    size_t *plaintext_len
+) {
+    if (!key || !envelope || !plaintext || !plaintext_len) {
+        return AVEROX_ERROR_INVALID_PARAMETER;
+    }
+    
+    // ENFORCED: AAD is required for all decryption operations
+    VALIDATE_AAD(aad, aad_len);
+    
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    if (!ctx) return AVEROX_ERROR_MEMORY_ALLOCATION;
+    
+    // Initialize decryption
+    if (EVP_DecryptInit_ex(ctx, EVP_aes_256_gcm(), NULL, NULL, NULL) != 1) {
+        EVP_CIPHER_CTX_free(ctx);
+        return AVEROX_ERROR_MEMORY_ALLOCATION;
+    }
+    
+    // Set IV length
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, AVEROX_IV_SIZE, NULL) != 1) {
+        EVP_CIPHER_CTX_free(ctx);
+        return AVEROX_ERROR_MEMORY_ALLOCATION;
+    }
+    
+    // Set key and IV
+    if (EVP_DecryptInit_ex(ctx, NULL, NULL, key, envelope->iv) != 1) {
+        EVP_CIPHER_CTX_free(ctx);
+        return AVEROX_ERROR_MEMORY_ALLOCATION;
+    }
+    
+    // Set AAD
+    int len;
+    if (EVP_DecryptUpdate(ctx, NULL, &len, aad, aad_len) != 1) {
+        EVP_CIPHER_CTX_free(ctx);
+        return AVEROX_ERROR_MEMORY_ALLOCATION;
+    }
+    
+    // Decrypt
+    if (EVP_DecryptUpdate(ctx, plaintext, &len, envelope->ciphertext, envelope->ciphertext_len) != 1) {
+        EVP_CIPHER_CTX_free(ctx);
+        return AVEROX_ERROR_MEMORY_ALLOCATION;
+    }
+    *plaintext_len = len;
+    
+    // Set expected tag
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, AVEROX_TAG_SIZE, (void*)envelope->tag) != 1) {
+        EVP_CIPHER_CTX_free(ctx);
+        return AVEROX_ERROR_MEMORY_ALLOCATION;
+    }
+    
+    // Verify authentication tag
+    if (EVP_DecryptFinal_ex(ctx, plaintext + len, &len) <= 0) {
+        EVP_CIPHER_CTX_free(ctx);
+        return AVEROX_ERROR_AUTHENTICATION_FAILED;
+    }
+    *plaintext_len += len;
+    
+    EVP_CIPHER_CTX_free(ctx);
+    return AVEROX_SUCCESS;
+}
+
+void averox_secure_zero(void *ptr, size_t len) {
+    if (ptr && len > 0) {
+        OPENSSL_cleanse(ptr, len);
+    }
+}
+
+averox_error_t averox_generate_key(uint8_t *key) {
+    if (!key) return AVEROX_ERROR_INVALID_PARAMETER;
+    return (RAND_bytes(key, AVEROX_KEY_SIZE) == 1) ? AVEROX_SUCCESS : AVEROX_ERROR_MEMORY_ALLOCATION;
+}
+
+averox_error_t averox_envelope_init(averox_envelope_t *envelope) {
+    if (!envelope) return AVEROX_ERROR_INVALID_PARAMETER;
+    memset(envelope, 0, sizeof(averox_envelope_t));
+    return AVEROX_SUCCESS;
+}
+
+void averox_envelope_free(averox_envelope_t *envelope) {
+    if (envelope) {
+        if (envelope->ciphertext) {
+            averox_secure_zero(envelope->ciphertext, envelope->ciphertext_len);
+            free(envelope->ciphertext);
+        }
+        if (envelope->aad) {
+            averox_secure_zero(envelope->aad, envelope->aad_len);
+            free(envelope->aad);
+        }
+        memset(envelope, 0, sizeof(averox_envelope_t));
+    }
+}
+`;
+
+    const cmakeFile = `cmake_minimum_required(VERSION 3.10)
+project(${sdk.name.toLowerCase()}_crypto VERSION ${sdk.version})
+
+# Find OpenSSL
+find_package(OpenSSL REQUIRED)
+
+# Create the library
+add_library(${sdk.name.toLowerCase()}_crypto SHARED
+    src/averox_crypto.c
+)
+
+# Set properties
+set_target_properties(${sdk.name.toLowerCase()}_crypto PROPERTIES
+    VERSION \${PROJECT_VERSION}
+    SOVERSION 1
+    PUBLIC_HEADER "include/averox_crypto.h"
+)
+
+# Link libraries
+target_link_libraries(${sdk.name.toLowerCase()}_crypto PRIVATE OpenSSL::SSL OpenSSL::Crypto)
+
+# Include directories
+target_include_directories(${sdk.name.toLowerCase()}_crypto PUBLIC
+    \$<BUILD_INTERFACE:\${CMAKE_CURRENT_SOURCE_DIR}/include>
+    \$<INSTALL_INTERFACE:include>
+)
+
+# Install the library
+install(TARGETS ${sdk.name.toLowerCase()}_crypto
+    EXPORT ${sdk.name.toLowerCase()}_cryptoTargets
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    PUBLIC_HEADER DESTINATION include
+)
+
+# Generate and install pkg-config file
+configure_file(sdkcrypto.pc.in sdkcrypto.pc @ONLY)
+install(FILES \${CMAKE_BINARY_DIR}/sdkcrypto.pc
+    DESTINATION lib/pkgconfig
+)
+
+# Install CMake config files
+install(EXPORT ${sdk.name.toLowerCase()}_cryptoTargets
+    FILE ${sdk.name.toLowerCase()}_cryptoTargets.cmake
+    NAMESPACE ${sdk.name}::
+    DESTINATION lib/cmake/${sdk.name.toLowerCase()}_crypto
+)
+
+# Add tests
+enable_testing()
+add_executable(test_crypto test/test_crypto.c)
+target_link_libraries(test_crypto ${sdk.name.toLowerCase()}_crypto)
+add_test(NAME crypto_test COMMAND test_crypto)
+
+# Post-install CI assertion (for automated testing)
+add_custom_target(verify_install
+    COMMAND \${CMAKE_COMMAND} --install . --prefix /tmp/verify_pfx
+    COMMAND test -f /tmp/verify_pfx/lib/pkgconfig/sdkcrypto.pc
+    COMMAND PKG_CONFIG_PATH=/tmp/verify_pfx/lib/pkgconfig pkg-config --exists sdkcrypto
+    COMMENT "Verifying pkg-config installation"
+    VERBATIM
+)
+`;
+
+    const pkgConfigTemplate = `prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=\${prefix}
+libdir=\${exec_prefix}/lib
+includedir=\${prefix}/include
+
+Name: sdkcrypto
+Description: ${sdk.name} Cryptographic SDK - Enterprise encryption library
+Version: @PROJECT_VERSION@
+Requires: openssl >= 1.1.0
+Libs: -L\${libdir} -l${sdk.name.toLowerCase()}_crypto
+Cflags: -I\${includedir}
+`;
+
+    const testFile = `#include "averox_crypto.h"
+#include <stdio.h>
+#include <string.h>
+#include <assert.h>
+
+int test_aad_enforcement() {
+    printf("Testing AAD enforcement...\\n");
+    
+    uint8_t key[AVEROX_KEY_SIZE];
+    averox_generate_key(key);
+    
+    const char *plaintext = "Hello, World!";
+    averox_envelope_t envelope;
+    averox_envelope_init(&envelope);
+    
+    // Test 1: Encryption without AAD should fail
+    averox_error_t result = averox_encrypt(key, (uint8_t*)plaintext, strlen(plaintext), 
+                                          NULL, 0, &envelope);
+    assert(result == AVEROX_ERROR_AAD_REQUIRED);
+    printf("  ✅ Correctly rejected encryption without AAD\\n");
+    
+    // Test 2: Encryption with AAD should succeed
+    const char *aad = "metadata";
+    result = averox_encrypt(key, (uint8_t*)plaintext, strlen(plaintext), 
+                           (uint8_t*)aad, strlen(aad), &envelope);
+    assert(result == AVEROX_SUCCESS);
+    printf("  ✅ Successfully encrypted with AAD\\n");
+    
+    // Test 3: Decryption without AAD should fail
+    uint8_t decrypted[256];
+    size_t decrypted_len;
+    result = averox_decrypt(key, &envelope, NULL, 0, decrypted, &decrypted_len);
+    assert(result == AVEROX_ERROR_AAD_REQUIRED);
+    printf("  ✅ Correctly rejected decryption without AAD\\n");
+    
+    // Test 4: Decryption with correct AAD should succeed
+    result = averox_decrypt(key, &envelope, (uint8_t*)aad, strlen(aad), decrypted, &decrypted_len);
+    assert(result == AVEROX_SUCCESS);
+    assert(decrypted_len == strlen(plaintext));
+    assert(memcmp(decrypted, plaintext, decrypted_len) == 0);
+    printf("  ✅ Successfully decrypted with correct AAD\\n");
+    
+    averox_envelope_free(&envelope);
+    return 1;
+}
+
+int main() {
+    printf("🔐 Averox Crypto C SDK Test Suite\\n");
+    printf("==================================\\n");
+    
+    if (!test_aad_enforcement()) {
+        printf("❌ AAD enforcement tests failed\\n");
+        return 1;
+    }
+    
+    printf("\\n🎉 All tests passed!\\n");
+    return 0;
+}
+`;
+
+    const readmeFile = `# ${sdk.name} Cryptographic SDK - C/C++
+
+Enterprise-grade encryption library with ENFORCED security policies.
+
+## Features
+
+✅ **ENFORCED AAD Policy** - All operations require Additional Authenticated Data
+✅ **AES-256-GCM** - Industry standard authenticated encryption
+✅ **12-byte IV Policy** - Cryptographically secure initialization vectors
+✅ **Memory Zeroization** - Secure cleanup of sensitive data
+✅ **OpenSSL Backend** - Production-tested cryptographic primitives
+
+## Building
+
+### Prerequisites
+- CMake 3.10+
+- OpenSSL 1.1.0+
+- C compiler (GCC, Clang, MSVC)
+
+### Standard Build
+\`\`\`bash
+mkdir build && cd build
+cmake ..
+make
+make install
+\`\`\`
+
+### Using pkg-config
+After installation, you can use pkg-config to get build flags:
+
+\`\`\`bash
+# Get compiler and linker flags
+pkg-config --cflags --libs sdkcrypto
+
+# Example compilation
+gcc myapp.c \$(pkg-config --cflags --libs sdkcrypto) -o myapp
+\`\`\`
+
+### CMake Integration
+\`\`\`cmake
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(SDKCRYPTO REQUIRED sdkcrypto)
+
+target_link_libraries(myapp \${SDKCRYPTO_LIBRARIES})
+target_include_directories(myapp PRIVATE \${SDKCRYPTO_INCLUDE_DIRS})
+\`\`\`
+
+## Usage
+
+### Basic Encryption/Decryption
+\`\`\`c
+#include <averox_crypto.h>
+
+int main() {
+    // Generate a key
+    uint8_t key[AVEROX_KEY_SIZE];
+    averox_generate_key(key);
+    
+    // Prepare data
+    const char *message = "Secret message";
+    const char *metadata = "important-context";  // AAD is REQUIRED
+    
+    // Encrypt
+    averox_envelope_t envelope;
+    averox_envelope_init(&envelope);
+    
+    averox_error_t result = averox_encrypt(
+        key,
+        (uint8_t*)message, strlen(message),
+        (uint8_t*)metadata, strlen(metadata),  // AAD cannot be NULL
+        &envelope
+    );
+    
+    if (result != AVEROX_SUCCESS) {
+        printf("Encryption failed: %d\\n", result);
+        return 1;
+    }
+    
+    // Decrypt
+    uint8_t plaintext[1024];
+    size_t plaintext_len;
+    
+    result = averox_decrypt(
+        key, &envelope,
+        (uint8_t*)metadata, strlen(metadata),  // Must match encryption AAD
+        plaintext, &plaintext_len
+    );
+    
+    if (result == AVEROX_SUCCESS) {
+        printf("Decrypted: %.*s\\n", (int)plaintext_len, plaintext);
+    }
+    
+    // Cleanup
+    averox_envelope_free(&envelope);
+    averox_secure_zero(key, sizeof(key));
+    
+    return 0;
+}
+\`\`\`
+
+## Testing
+
+### Run Tests
+\`\`\`bash
+make test
+\`\`\`
+
+### Verify Installation
+\`\`\`bash
+# This runs post-install verification
+make verify_install
+\`\`\`
+
+The verification process:
+1. Installs to a temporary prefix
+2. Verifies pkg-config file exists: \`/tmp/pfx/lib/pkgconfig/sdkcrypto.pc\`
+3. Tests pkg-config functionality: \`pkg-config --exists sdkcrypto\`
+
+## Error Handling
+
+All functions return \`averox_error_t\`:
+
+- \`AVEROX_SUCCESS\` (0) - Operation successful
+- \`AVEROX_ERROR_AAD_REQUIRED\` (-5) - **AAD is mandatory for all operations**
+- \`AVEROX_ERROR_AUTHENTICATION_FAILED\` (-3) - Invalid tag or tampered data
+- \`AVEROX_ERROR_INVALID_PARAMETER\` (-1) - Invalid input parameters
+
+## Security Notes
+
+🔒 **AAD ENFORCEMENT**: This library REQUIRES Additional Authenticated Data for all encrypt/decrypt operations. This prevents certain classes of attacks and ensures data integrity.
+
+🔒 **IV Policy**: 12-byte IVs are automatically generated and cannot be overridden.
+
+🔒 **Memory Security**: Use \`averox_secure_zero()\` to clear sensitive data.
+
+## License
+
+MIT License - see LICENSE file for details.
+`;
+
+    return {
+      'include/averox_crypto.h': headerFile,
+      'src/averox_crypto.c': sourceFile,
+      'CMakeLists.txt': cmakeFile,
+      'sdkcrypto.pc.in': pkgConfigTemplate,
+      'test/test_crypto.c': testFile,
+      'README.md': readmeFile,
+      'LICENSE': this.getMITLicense()
+    };
+  }
+
   // Placeholder implementations for other languages
   static generateCSharpSDK(sdk, algorithms) {
     console.log('🏢 Generating C# SDK placeholder...');

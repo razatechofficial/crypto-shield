@@ -23,7 +23,7 @@ export class EnterpriseAdapter {
       // Use dynamic import with proper path resolution for production
       const { createRequire } = await import('module');
       const require = createRequire(import.meta.url);
-      const EnterpriseSDKGenerator = require("../enterprise-sdk-generator.cjs");
+      const { FixedEnterpriseSDKGenerator } = require("../enterprise-sdk-generator-fixed.cjs");
 
       // Parse algorithms safely
       const algorithms = Array.isArray(sdk.algorithms) 
@@ -41,13 +41,35 @@ export class EnterpriseAdapter {
         switch(language.toLowerCase()) {
           case 'javascript':
           case 'typescript':
-            // Generate REAL JavaScript SDK with ALL security gates
-            fileMap = EnterpriseSDKGenerator.generateJavaScriptSDK(sdk, algorithms);
+            fileMap = FixedEnterpriseSDKGenerator.generateJavaScriptSDK(sdk, algorithms);
+            break;
+          
+          case 'python':
+            fileMap = FixedEnterpriseSDKGenerator.generatePythonSDK(sdk, algorithms);
+            break;
+            
+          case 'java':
+            fileMap = FixedEnterpriseSDKGenerator.generateJavaSDK(sdk, algorithms);
+            break;
+            
+          case 'c':
+          case 'c++':
+          case 'cpp':
+            fileMap = FixedEnterpriseSDKGenerator.generateCSDK(sdk, algorithms);
+            break;
+            
+          case 'csharp':
+          case 'c#':
+            fileMap = FixedEnterpriseSDKGenerator.generateCSharpSDK(sdk, algorithms);
+            break;
+            
+          case 'swift':
+            fileMap = FixedEnterpriseSDKGenerator.generateSwiftSDK(sdk, algorithms);
             break;
           
           default:
-            console.log(`⚠️ Language ${language} using JavaScript fallback with enterprise generator`);
-            fileMap = EnterpriseSDKGenerator.generateJavaScriptSDK(sdk, algorithms);
+            console.log(`⚠️ Language ${language} not yet implemented, using JavaScript SDK`);
+            fileMap = FixedEnterpriseSDKGenerator.generateJavaScriptSDK(sdk, algorithms);
             break;
         }
         
