@@ -4160,6 +4160,617 @@ class AveroxCryptoTest {
     };
   }
 
+  // PHP SDK with real OpenSSL implementation
+  static generatePHPSDK(sdk, algorithms) {
+    console.log('🐘 Generating real PHP SDK with OpenSSL...');
+    
+    const composerJson = `{
+    "name": "averox/crypto-sdk",
+    "description": "Enterprise-grade AES-256-GCM cryptographic SDK with AAD enforcement",
+    "version": "${sdk.version || "2.0.0"}",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Averox Ltd",
+            "email": "info@averox.com"
+        }
+    ],
+    "require": {
+        "php": "^8.0",
+        "ext-openssl": "*",
+        "ext-json": "*",
+        "open-telemetry/api": "^1.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.0",
+        "phpstan/phpstan": "^1.10"
+    },
+    "autoload": {
+        "psr-4": {
+            "Averox\\\\Crypto\\\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Averox\\\\Crypto\\\\Tests\\\\": "tests/"
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "keywords": ["cryptography", "encryption", "security", "enterprise", "aes", "gcm"]
+}`;
+
+    const coreImplementation = `<?php
+
+namespace Averox\\Crypto;
+
+use OpenTelemetry\\API\\Globals;
+use OpenTelemetry\\API\\Metrics\\CounterInterface;
+use OpenTelemetry\\API\\Metrics\\MeterInterface;
+use Averox\\Crypto\\Exception\\AveroxCryptoException;
+use Averox\\Crypto\\Exception\\BadInputException;
+use Averox\\Crypto\\Exception\\MissingAADException;
+use Averox\\Crypto\\Exception\\InvalidTagException;
+use Averox\\Crypto\\Exception\\UnsupportedAlgorithmException;
+use Averox\\Crypto\\Exception\\EncryptionFailedException;
+use Averox\\Crypto\\Exception\\DecryptionFailedException;
+
+/**
+ * Averox Crypto SDK for PHP - Real AES-256-GCM Implementation
+ * Enterprise-grade cryptographic SDK with mandatory AAD enforcement
+ */
+class AveroxCrypto
+{
+    /** Algorithm identifier */
+    public const ALGORITHM = 'AES-256-GCM';
+    
+    /** Key size in bytes (32 bytes for AES-256) */
+    public const KEY_SIZE = 32;
+    
+    /** IV size in bytes (12 bytes for GCM) */
+    public const IV_SIZE = 12;
+    
+    /** Authentication tag size in bytes (16 bytes for GCM) */
+    public const TAG_SIZE = 16;
+    
+    /** OpenSSL cipher method */
+    private const CIPHER_METHOD = 'aes-256-gcm';
+    
+    private string \$masterKey;
+    private static ?MeterInterface \$meter = null;
+    private static ?CounterInterface \$encryptCounter = null;
+    private static ?CounterInterface \$decryptCounter = null;
+    private static ?CounterInterface \$failCounter = null;
+    
+    /**
+     * Initialize crypto context with master key
+     * 
+     * @param string \$masterKey 32-byte master key
+     * @throws BadInputException if master key is invalid
+     */
+    public function __construct(string \$masterKey)
+    {
+        if (strlen(\$masterKey) !== self::KEY_SIZE) {
+            throw new BadInputException(sprintf('Master key must be exactly %d bytes', self::KEY_SIZE));
+        }
+        
+        \$this->masterKey = \$masterKey;
+        \$this->initMetrics();
+    }
+    
+    /**
+     * Generate cryptographically secure 32-byte master key
+     * 
+     * @return string 32-byte master key
+     * @throws EncryptionFailedException if key generation fails
+     */
+    public static function generateMasterKey(): string
+    {
+        \$key = random_bytes(self::KEY_SIZE);
+        if (\$key === false || strlen(\$key) !== self::KEY_SIZE) {
+            throw new EncryptionFailedException('Failed to generate master key');
+        }
+        return \$key;
+    }
+    
+    /**
+     * Encrypt data with AES-256-GCM and mandatory AAD
+     * 
+     * @param string \$plaintext Data to encrypt
+     * @param string \$aad Additional Authenticated Data (required)
+     * @param string|null \$keyId Optional key identifier
+     * @return AveroxEnvelope Encrypted envelope
+     * @throws MissingAADException if AAD is empty
+     * @throws EncryptionFailedException if encryption fails
+     */
+    public function encrypt(string \$plaintext, string \$aad, ?string \$keyId = null): AveroxEnvelope
+    {
+        // Validate AAD requirement
+        if (empty(\$aad)) {
+            self::\$failCounter?->add(1, [
+                'alg' => self::ALGORITHM,
+                'kid' => \$keyId ?? 'unknown',
+                'reason' => 'missing_aad'
+            ]);
+            throw new MissingAADException('AAD (Additional Authenticated Data) is required and cannot be empty');
+        }
+        
+        try {
+            // Generate random 12-byte IV
+            \$iv = random_bytes(self::IV_SIZE);
+            if (\$iv === false || strlen(\$iv) !== self::IV_SIZE) {
+                throw new EncryptionFailedException('Failed to generate IV');
+            }
+            
+            // Initialize tag variable for OpenSSL
+            \$tag = '';
+            
+            // Encrypt with AAD
+            \$ciphertext = openssl_encrypt(
+                \$plaintext,
+                self::CIPHER_METHOD,
+                \$this->masterKey,
+                OPENSSL_RAW_DATA,
+                \$iv,
+                \$tag,
+                \$aad
+            );
+            
+            if (\$ciphertext === false) {
+                throw new EncryptionFailedException('OpenSSL encryption failed: ' . openssl_error_string());
+            }
+            
+            if (strlen(\$tag) !== self::TAG_SIZE) {
+                throw new EncryptionFailedException('Invalid tag size generated');
+            }
+            
+            self::\$encryptCounter?->add(1, [
+                'alg' => self::ALGORITHM,
+                'kid' => \$keyId ?? 'unknown'
+            ]);
+            
+            return new AveroxEnvelope(
+                version: '2.0',
+                algorithm: self::ALGORITHM,
+                keyId: \$keyId,
+                iv: \$this->base64UrlEncode(\$iv),
+                tag: \$this->base64UrlEncode(\$tag),
+                ciphertext: \$this->base64UrlEncode(\$ciphertext),
+                aad: \$this->base64UrlEncode(\$aad)
+            );
+            
+        } catch (AveroxCryptoException \$e) {
+            throw \$e;
+        } catch (\\Throwable \$e) {
+            self::\$failCounter?->add(1, [
+                'alg' => self::ALGORITHM,
+                'kid' => \$keyId ?? 'unknown',
+                'reason' => 'encryption_error'
+            ]);
+            throw new EncryptionFailedException('Encryption failed: ' . \$e->getMessage(), 0, \$e);
+        }
+    }
+    
+    /**
+     * Decrypt envelope with AES-256-GCM and mandatory AAD
+     * 
+     * @param AveroxEnvelope \$envelope Encrypted envelope
+     * @param string \$aad Additional Authenticated Data (required)
+     * @return string Decrypted plaintext
+     * @throws MissingAADException if AAD is empty
+     * @throws UnsupportedAlgorithmException if algorithm is not supported
+     * @throws InvalidTagException if authentication fails
+     * @throws DecryptionFailedException if decryption fails
+     */
+    public function decrypt(AveroxEnvelope \$envelope, string \$aad): string
+    {
+        // Validate AAD requirement
+        if (empty(\$aad)) {
+            self::\$failCounter?->add(1, [
+                'alg' => \$envelope->algorithm,
+                'kid' => \$envelope->keyId ?? 'unknown',
+                'reason' => 'missing_aad'
+            ]);
+            throw new MissingAADException('AAD (Additional Authenticated Data) is required and cannot be empty');
+        }
+        
+        // Validate algorithm
+        if (\$envelope->algorithm !== self::ALGORITHM) {
+            self::\$failCounter?->add(1, [
+                'alg' => \$envelope->algorithm,
+                'kid' => \$envelope->keyId ?? 'unknown',
+                'reason' => 'unsupported_algorithm'
+            ]);
+            throw new UnsupportedAlgorithmException(sprintf('Algorithm %s not supported', \$envelope->algorithm));
+        }
+        
+        try {
+            // Decode envelope components
+            \$iv = \$this->base64UrlDecode(\$envelope->iv);
+            \$tag = \$this->base64UrlDecode(\$envelope->tag);
+            \$ciphertext = \$this->base64UrlDecode(\$envelope->ciphertext);
+            
+            // Validate sizes
+            if (strlen(\$iv) !== self::IV_SIZE) {
+                throw new DecryptionFailedException(sprintf('IV must be exactly %d bytes', self::IV_SIZE));
+            }
+            
+            if (strlen(\$tag) !== self::TAG_SIZE) {
+                throw new DecryptionFailedException(sprintf('Tag must be exactly %d bytes', self::TAG_SIZE));
+            }
+            
+            // Decrypt
+            \$plaintext = openssl_decrypt(
+                \$ciphertext,
+                self::CIPHER_METHOD,
+                \$this->masterKey,
+                OPENSSL_RAW_DATA,
+                \$iv,
+                \$tag,
+                \$aad
+            );
+            
+            if (\$plaintext === false) {
+                self::\$failCounter?->add(1, [
+                    'alg' => \$envelope->algorithm,
+                    'kid' => \$envelope->keyId ?? 'unknown',
+                    'reason' => 'invalid_tag'
+                ]);
+                throw new InvalidTagException('Authentication failed - data may have been tampered with');
+            }
+            
+            self::\$decryptCounter?->add(1, [
+                'alg' => \$envelope->algorithm,
+                'kid' => \$envelope->keyId ?? 'unknown'
+            ]);
+            
+            return \$plaintext;
+            
+        } catch (AveroxCryptoException \$e) {
+            throw \$e;
+        } catch (\\Throwable \$e) {
+            self::\$failCounter?->add(1, [
+                'alg' => \$envelope->algorithm,
+                'kid' => \$envelope->keyId ?? 'unknown',
+                'reason' => 'decryption_error'
+            ]);
+            throw new DecryptionFailedException('Decryption failed: ' . \$e->getMessage(), 0, \$e);
+        }
+    }
+    
+    /**
+     * Initialize OpenTelemetry metrics
+     */
+    private function initMetrics(): void
+    {
+        if (self::\$meter === null) {
+            self::\$meter = Globals::meterProvider()->getMeter('averox-crypto');
+            self::\$encryptCounter = self::\$meter->createCounter('crypto_encrypt_total');
+            self::\$decryptCounter = self::\$meter->createCounter('crypto_decrypt_total');
+            self::\$failCounter = self::\$meter->createCounter('crypto_fail_total');
+        }
+    }
+    
+    /**
+     * Base64URL encode data without padding
+     */
+    private function base64UrlEncode(string \$data): string
+    {
+        return rtrim(strtr(base64_encode(\$data), '+/', '-_'), '=');
+    }
+    
+    /**
+     * Base64URL decode data
+     */
+    private function base64UrlDecode(string \$data): string
+    {
+        \$remainder = strlen(\$data) % 4;
+        if (\$remainder) {
+            \$data .= str_repeat('=', 4 - \$remainder);
+        }
+        
+        \$decoded = base64_decode(strtr(\$data, '-_', '+/'), true);
+        if (\$decoded === false) {
+            throw new DecryptionFailedException('Failed to decode base64url data');
+        }
+        
+        return \$decoded;
+    }
+    
+    /**
+     * Securely clear master key from memory
+     */
+    public function zeroize(): void
+    {
+        if (function_exists('sodium_memzero')) {
+            sodium_memzero(\$this->masterKey);
+        } else {
+            // Fallback for systems without sodium
+            \$this->masterKey = str_repeat("\\0", strlen(\$this->masterKey));
+        }
+    }
+    
+    /**
+     * Destructor to automatically clear sensitive data
+     */
+    public function __destruct()
+    {
+        \$this->zeroize();
+    }
+}`;
+
+    const envelopeClass = `<?php
+
+namespace Averox\\Crypto;
+
+use JsonSerializable;
+use InvalidArgumentException;
+
+/**
+ * Standardized envelope format for encrypted data
+ */
+class AveroxEnvelope implements JsonSerializable
+{
+    public function __construct(
+        public readonly string \$version,
+        public readonly string \$algorithm,
+        public readonly ?string \$keyId,
+        public readonly string \$iv,
+        public readonly string \$tag,
+        public readonly string \$ciphertext,
+        public readonly string \$aad
+    ) {}
+    
+    /**
+     * Serialize envelope to JSON
+     * 
+     * @return string JSON string
+     * @throws InvalidArgumentException if serialization fails
+     */
+    public function toJson(): string
+    {
+        \$json = json_encode(\$this, JSON_THROW_ON_ERROR);
+        if (\$json === false) {
+            throw new InvalidArgumentException('Failed to serialize envelope to JSON');
+        }
+        return \$json;
+    }
+    
+    /**
+     * Deserialize envelope from JSON
+     * 
+     * @param string \$json JSON string
+     * @return self Envelope object
+     * @throws InvalidArgumentException if deserialization fails
+     */
+    public static function fromJson(string \$json): self
+    {
+        \$data = json_decode(\$json, true, 512, JSON_THROW_ON_ERROR);
+        
+        if (!is_array(\$data)) {
+            throw new InvalidArgumentException('Invalid JSON format');
+        }
+        
+        return new self(
+            version: \$data['v'] ?? throw new InvalidArgumentException('Missing version'),
+            algorithm: \$data['alg'] ?? throw new InvalidArgumentException('Missing algorithm'),
+            keyId: \$data['kid'] ?? null,
+            iv: \$data['iv'] ?? throw new InvalidArgumentException('Missing IV'),
+            tag: \$data['tag'] ?? throw new InvalidArgumentException('Missing tag'),
+            ciphertext: \$data['ct'] ?? throw new InvalidArgumentException('Missing ciphertext'),
+            aad: \$data['aad'] ?? throw new InvalidArgumentException('Missing AAD')
+        );
+    }
+    
+    /**
+     * Specify data which should be serialized to JSON
+     */
+    public function jsonSerialize(): array
+    {
+        \$data = [
+            'v' => \$this->version,
+            'alg' => \$this->algorithm,
+            'iv' => \$this->iv,
+            'tag' => \$this->tag,
+            'ct' => \$this->ciphertext,
+            'aad' => \$this->aad
+        ];
+        
+        if (\$this->keyId !== null) {
+            \$data['kid'] = \$this->keyId;
+        }
+        
+        return \$data;
+    }
+}`;
+
+    const exceptionsFile = `<?php
+
+namespace Averox\\Crypto\\Exception;
+
+use Exception;
+
+/**
+ * Base exception for Averox cryptographic operations
+ */
+abstract class AveroxCryptoException extends Exception
+{
+}
+
+/**
+ * Exception raised when input validation fails
+ */
+class BadInputException extends AveroxCryptoException
+{
+}
+
+/**
+ * Exception raised when AAD is missing or empty
+ */
+class MissingAADException extends AveroxCryptoException
+{
+}
+
+/**
+ * Exception raised when authentication tag verification fails
+ */
+class InvalidTagException extends AveroxCryptoException
+{
+}
+
+/**
+ * Exception raised when an unsupported algorithm is used
+ */
+class UnsupportedAlgorithmException extends AveroxCryptoException
+{
+}
+
+/**
+ * Exception raised when encryption operations fail
+ */
+class EncryptionFailedException extends AveroxCryptoException
+{
+}
+
+/**
+ * Exception raised when decryption operations fail
+ */
+class DecryptionFailedException extends AveroxCryptoException
+{
+}`;
+
+    const testFile = `<?php
+
+namespace Averox\\Crypto\\Tests;
+
+use PHPUnit\\Framework\\TestCase;
+use Averox\\Crypto\\AveroxCrypto;
+use Averox\\Crypto\\AveroxEnvelope;
+use Averox\\Crypto\\Exception\\MissingAADException;
+use Averox\\Crypto\\Exception\\BadInputException;
+use Averox\\Crypto\\Exception\\UnsupportedAlgorithmException;
+
+class AveroxCryptoTest extends TestCase
+{
+    public function testEncryptionRoundTrip(): void
+    {
+        // Generate master key
+        \$masterKey = AveroxCrypto::generateMasterKey();
+        \$crypto = new AveroxCrypto(\$masterKey);
+        
+        // Test data
+        \$plaintext = 'Hello, World!';
+        \$aad = 'test-aad';
+        
+        // Encrypt
+        \$envelope = \$crypto->encrypt(\$plaintext, \$aad, 'test-key');
+        
+        // Verify envelope format
+        \$this->assertEquals('2.0', \$envelope->version);
+        \$this->assertEquals(AveroxCrypto::ALGORITHM, \$envelope->algorithm);
+        \$this->assertEquals('test-key', \$envelope->keyId);
+        \$this->assertNotEmpty(\$envelope->iv);
+        \$this->assertNotEmpty(\$envelope->tag);
+        \$this->assertNotEmpty(\$envelope->ciphertext);
+        \$this->assertNotEmpty(\$envelope->aad);
+        
+        // Decrypt
+        \$decrypted = \$crypto->decrypt(\$envelope, \$aad);
+        
+        \$this->assertEquals(\$plaintext, \$decrypted);
+    }
+    
+    public function testMissingAADFails(): void
+    {
+        \$masterKey = AveroxCrypto::generateMasterKey();
+        \$crypto = new AveroxCrypto(\$masterKey);
+        
+        \$plaintext = 'Hello, World!';
+        \$emptyAAD = '';
+        
+        \$this->expectException(MissingAADException::class);
+        \$crypto->encrypt(\$plaintext, \$emptyAAD);
+    }
+    
+    public function testInvalidKeySize(): void
+    {
+        \$shortKey = str_repeat("\\0", 16); // 16 bytes instead of 32
+        
+        \$this->expectException(BadInputException::class);
+        new AveroxCrypto(\$shortKey);
+    }
+    
+    public function testEnvelopeJsonSerialization(): void
+    {
+        \$envelope = new AveroxEnvelope(
+            version: '2.0',
+            algorithm: AveroxCrypto::ALGORITHM,
+            keyId: 'test',
+            iv: 'dGVzdC1pdg',
+            tag: 'dGVzdC10YWc',
+            ciphertext: 'dGVzdC1jdA',
+            aad: 'dGVzdC1hYWQ'
+        );
+        
+        \$json = \$envelope->toJson();
+        \$deserialized = AveroxEnvelope::fromJson(\$json);
+        
+        \$this->assertEquals(\$envelope->version, \$deserialized->version);
+        \$this->assertEquals(\$envelope->algorithm, \$deserialized->algorithm);
+        \$this->assertEquals(\$envelope->keyId, \$deserialized->keyId);
+        \$this->assertEquals(\$envelope->iv, \$deserialized->iv);
+        \$this->assertEquals(\$envelope->tag, \$deserialized->tag);
+        \$this->assertEquals(\$envelope->ciphertext, \$deserialized->ciphertext);
+        \$this->assertEquals(\$envelope->aad, \$deserialized->aad);
+    }
+    
+    public function testUnsupportedAlgorithm(): void
+    {
+        \$masterKey = AveroxCrypto::generateMasterKey();
+        \$crypto = new AveroxCrypto(\$masterKey);
+        \$aad = 'test-aad';
+        
+        \$invalidEnvelope = new AveroxEnvelope(
+            version: '2.0',
+            algorithm: 'INVALID-ALGORITHM',
+            keyId: null,
+            iv: 'dGVzdC1pdg',
+            tag: 'dGVzdC10YWc',
+            ciphertext: 'dGVzdC1jdA',
+            aad: 'dGVzdC1hYWQ'
+        );
+        
+        \$this->expectException(UnsupportedAlgorithmException::class);
+        \$crypto->decrypt(\$invalidEnvelope, \$aad);
+    }
+    
+    public function testMasterKeyGeneration(): void
+    {
+        \$key1 = AveroxCrypto::generateMasterKey();
+        \$key2 = AveroxCrypto::generateMasterKey();
+        
+        // Keys should be proper length
+        \$this->assertEquals(AveroxCrypto::KEY_SIZE, strlen(\$key1));
+        \$this->assertEquals(AveroxCrypto::KEY_SIZE, strlen(\$key2));
+        
+        // Keys should be different (astronomically unlikely to be same)
+        \$this->assertNotEquals(\$key1, \$key2);
+    }
+}`;
+
+    return {
+      'composer.json': composerJson,
+      'src/AveroxCrypto.php': coreImplementation,
+      'src/AveroxEnvelope.php': envelopeClass,
+      'src/Exception/Exceptions.php': exceptionsFile,
+      'tests/AveroxCryptoTest.php': testFile,
+      'README.md': this.getUniversalReadme('PHP', 'composer install && composer test'),
+      'SECURITY.md': this.getUniversalSecurityGuide(),
+      'TROUBLESHOOTING.md': this.getUniversalTroubleshootingGuide()
+    };
+  }
+
   static getFixedTypeDefinitions() {
     return `// REAL TypeScript definitions
 export interface AveroxEnvelope {
