@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { Save, Shield, Key, Bell, Palette } from "lucide-react";
+import { Save, Shield, Key, Bell, Palette, BookOpen, Download, ExternalLink } from "lucide-react";
 
 export default function Settings() {
   const { toast } = useToast();
@@ -333,6 +333,114 @@ export default function Settings() {
                   data-testid="input-allowed-origins"
                 />
                 <p className="text-slate-400 text-sm">Comma-separated list of allowed CORS origins</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Documentation & Training */}
+          <Card className="bg-slate-800 border-slate-700">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center">
+                <BookOpen className="w-5 h-5 mr-2" />
+                Documentation & Training
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <Label className="text-white font-medium">SDK Installation Guides</Label>
+                <p className="text-slate-400 text-sm">Comprehensive installation and deployment guides for all supported languages</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Button 
+                    variant="outline" 
+                    className="border-slate-600 text-slate-300 hover:bg-slate-700 justify-start"
+                    data-testid="button-js-installation-guide"
+                    onClick={() => window.open('/docs/javascript-installation-guide.md', '_blank')}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    JavaScript/TypeScript Guide
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border-slate-600 text-slate-300 hover:bg-slate-700 justify-start"
+                    data-testid="button-python-installation-guide"
+                    onClick={() => window.open('/docs/python-installation-guide.md', '_blank')}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Python Installation Guide
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border-slate-600 text-slate-300 hover:bg-slate-700 justify-start"
+                    data-testid="button-java-installation-guide"
+                    onClick={() => window.open('/docs/java-installation-guide.md', '_blank')}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Java Installation Guide
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border-slate-600 text-slate-300 hover:bg-slate-700 justify-start"
+                    data-testid="button-c-installation-guide"
+                    onClick={() => window.open('/docs/c-cpp-installation-guide.md', '_blank')}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    C/C++ Installation Guide
+                  </Button>
+                </div>
+              </div>
+
+              <Separator className="bg-slate-700" />
+
+              <div className="space-y-4">
+                <Label className="text-white font-medium">Troubleshooting & Support</Label>
+                <p className="text-slate-400 text-sm">Error resolution guides and debugging resources</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Button 
+                    variant="outline" 
+                    className="border-slate-600 text-slate-300 hover:bg-slate-700 justify-start"
+                    data-testid="button-universal-troubleshooting"
+                    onClick={() => window.open('/docs/universal-troubleshooting-guide.md', '_blank')}
+                  >
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    Universal Troubleshooting
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border-slate-600 text-slate-300 hover:bg-slate-700 justify-start"
+                    data-testid="button-encryption-failure-guide"
+                    onClick={() => window.open('/docs/encryption-failure-debugging.md', '_blank')}
+                  >
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    Encryption Failure Guide
+                  </Button>
+                </div>
+              </div>
+
+              <Separator className="bg-slate-700" />
+
+              <div className="space-y-4">
+                <Label className="text-white font-medium">Platform-Specific Resources</Label>
+                <p className="text-slate-400 text-sm">Installation guides for placeholder implementations</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Button 
+                    variant="outline" 
+                    className="border-slate-600 text-slate-300 hover:bg-slate-700 justify-start"
+                    data-testid="button-csharp-installation-guide"
+                    onClick={() => window.open('/docs/csharp-installation-guide.md', '_blank')}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    C# Installation Guide
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="border-slate-600 text-slate-300 hover:bg-slate-700 justify-start"
+                    data-testid="button-swift-installation-guide"
+                    onClick={() => window.open('/docs/swift-installation-guide.md', '_blank')}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Swift Installation Guide
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
