@@ -3590,6 +3590,576 @@ final class AveroxCryptoSDKTests: XCTestCase {
     };
   }
 
+  // Kotlin SDK with real javax.crypto implementation
+  static generateKotlinSDK(sdk, algorithms) {
+    console.log('🟣 Generating real Kotlin SDK with javax.crypto...');
+    
+    const buildGradle = `plugins {
+    kotlin("jvm") version "1.9.10"
+    kotlin("plugin.serialization") version "1.9.10"
+    id("maven-publish")
+}
+
+group = "com.averox"
+version = "${sdk.version || "2.0.0"}"
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation(kotlin("stdlib"))
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
+    implementation("io.opentelemetry:opentelemetry-api:1.29.0")
+    implementation("io.opentelemetry:opentelemetry-api-metrics:1.29.0-alpha")
+    
+    testImplementation(kotlin("test"))
+    testImplementation("org.junit.jupiter:junit-jupiter:5.9.2")
+}
+
+tasks.test {
+    useJUnitPlatform()
+}
+
+kotlin {
+    jvmToolchain(11)
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("maven") {
+            from(components["java"])
+            
+            pom {
+                name.set("Averox Crypto SDK")
+                description.set("Enterprise-grade AES-256-GCM cryptographic SDK with AAD enforcement")
+                url.set("https://github.com/averox/crypto-sdk")
+                
+                licenses {
+                    license {
+                        name.set("MIT License")
+                        url.set("https://opensource.org/licenses/MIT")
+                    }
+                }
+                
+                developers {
+                    developer {
+                        id.set("averox")
+                        name.set("Averox Ltd")
+                        email.set("info@averox.com")
+                    }
+                }
+            }
+        }
+    }
+}`;
+
+    const coreImplementation = `package com.averox.crypto
+
+import io.opentelemetry.api.OpenTelemetry
+import io.opentelemetry.api.common.AttributeKey
+import io.opentelemetry.api.metrics.LongCounter
+import io.opentelemetry.api.metrics.Meter
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import java.security.SecureRandom
+import java.util.Base64
+import javax.crypto.Cipher
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
+import javax.crypto.spec.GCMParameterSpec
+import javax.crypto.spec.SecretKeySpec
+
+/**
+ * Averox Crypto SDK for Kotlin - Real AES-256-GCM Implementation
+ * Enterprise-grade cryptographic SDK with mandatory AAD enforcement
+ */
+class AveroxCrypto private constructor(private val masterKey: SecretKey) {
+    
+    companion object {
+        /** Algorithm identifier */
+        const val ALGORITHM = "AES-256-GCM"
+        
+        /** AES algorithm name for Java Crypto */
+        private const val AES_ALGORITHM = "AES"
+        
+        /** Full transformation string for AES-GCM */
+        private const val TRANSFORMATION = "AES/GCM/NoPadding"
+        
+        /** Key size in bytes (32 bytes for AES-256) */
+        const val KEY_SIZE = 32
+        
+        /** IV size in bytes (12 bytes for GCM) */
+        const val IV_SIZE = 12
+        
+        /** Authentication tag size in bits (128 bits = 16 bytes for GCM) */
+        private const val TAG_SIZE_BITS = 128
+        
+        /** Tag size in bytes */
+        const val TAG_SIZE = TAG_SIZE_BITS / 8
+        
+        // OpenTelemetry metrics
+        private val meter: Meter = OpenTelemetry.noop().getMeter("averox-crypto")
+        private val encryptCounter: LongCounter = meter.counterBuilder("crypto_encrypt_total").build()
+        private val decryptCounter: LongCounter = meter.counterBuilder("crypto_decrypt_total").build()
+        private val failCounter: LongCounter = meter.counterBuilder("crypto_fail_total").build()
+        
+        // Attribute keys for metrics
+        private val ALG_KEY = AttributeKey.stringKey("alg")
+        private val KID_KEY = AttributeKey.stringKey("kid")
+        private val REASON_KEY = AttributeKey.stringKey("reason")
+        
+        /**
+         * Create new crypto context with master key
+         * @param masterKey 32-byte master key
+         * @throws AveroxCryptoException if master key is invalid
+         */
+        @JvmStatic
+        fun create(masterKey: ByteArray): AveroxCrypto {
+            if (masterKey.size != KEY_SIZE) {
+                throw AveroxCryptoException.BadInput("Master key must be exactly $KEY_SIZE bytes")
+            }
+            
+            val secretKey = SecretKeySpec(masterKey, AES_ALGORITHM)
+            return AveroxCrypto(secretKey)
+        }
+        
+        /**
+         * Generate cryptographically secure 32-byte master key
+         * @return 32-byte master key
+         */
+        @JvmStatic
+        fun generateMasterKey(): ByteArray {
+            val keyGenerator = KeyGenerator.getInstance(AES_ALGORITHM)
+            keyGenerator.init(256) // 256 bits = 32 bytes
+            return keyGenerator.generateKey().encoded
+        }
+    }
+    
+    /**
+     * Encrypt data with AES-256-GCM and mandatory AAD
+     * @param plaintext Data to encrypt
+     * @param aad Additional Authenticated Data (required)
+     * @param keyId Optional key identifier
+     * @return Encrypted envelope
+     * @throws AveroxCryptoException for various failure conditions
+     */
+    fun encrypt(plaintext: ByteArray, aad: ByteArray, keyId: String? = null): AveroxEnvelope {
+        // Validate AAD requirement
+        if (aad.isEmpty()) {
+            failCounter.add(
+                1,
+                io.opentelemetry.api.common.Attributes.of(
+                    ALG_KEY, ALGORITHM,
+                    KID_KEY, keyId ?: "unknown",
+                    REASON_KEY, "missing_aad"
+                )
+            )
+            throw AveroxCryptoException.MissingAAD("AAD (Additional Authenticated Data) is required and cannot be empty")
+        }
+        
+        try {
+            // Generate random 12-byte IV
+            val iv = ByteArray(IV_SIZE)
+            SecureRandom().nextBytes(iv)
+            
+            // Initialize cipher for encryption
+            val cipher = Cipher.getInstance(TRANSFORMATION)
+            val gcmParameterSpec = GCMParameterSpec(TAG_SIZE_BITS, iv)
+            cipher.init(Cipher.ENCRYPT_MODE, masterKey, gcmParameterSpec)
+            
+            // Add AAD
+            cipher.updateAAD(aad)
+            
+            // Encrypt
+            val ciphertext = cipher.doFinal(plaintext)
+            
+            encryptCounter.add(
+                1,
+                io.opentelemetry.api.common.Attributes.of(
+                    ALG_KEY, ALGORITHM,
+                    KID_KEY, keyId ?: "unknown"
+                )
+            )
+            
+            return AveroxEnvelope(
+                version = "2.0",
+                algorithm = ALGORITHM,
+                keyId = keyId,
+                iv = iv.toBase64URL(),
+                tag = ciphertext.takeLast(TAG_SIZE).toByteArray().toBase64URL(),
+                ciphertext = ciphertext.dropLast(TAG_SIZE).toByteArray().toBase64URL(),
+                aad = aad.toBase64URL()
+            )
+            
+        } catch (e: Exception) {
+            failCounter.add(
+                1,
+                io.opentelemetry.api.common.Attributes.of(
+                    ALG_KEY, ALGORITHM,
+                    KID_KEY, keyId ?: "unknown",
+                    REASON_KEY, "encryption_error"
+                )
+            )
+            throw AveroxCryptoException.EncryptionFailed("Encryption failed: \${e.message}", e)
+        }
+    }
+    
+    /**
+     * Encrypt string data with AES-256-GCM and mandatory AAD
+     * @param plaintext String data to encrypt
+     * @param aad Additional Authenticated Data (required)
+     * @param keyId Optional key identifier
+     * @return Encrypted envelope
+     * @throws AveroxCryptoException for various failure conditions
+     */
+    fun encrypt(plaintext: String, aad: String, keyId: String? = null): AveroxEnvelope {
+        return encrypt(plaintext.toByteArray(Charsets.UTF_8), aad.toByteArray(Charsets.UTF_8), keyId)
+    }
+    
+    /**
+     * Decrypt envelope with AES-256-GCM and mandatory AAD
+     * @param envelope Encrypted envelope
+     * @param aad Additional Authenticated Data (required)
+     * @return Decrypted plaintext
+     * @throws AveroxCryptoException for various failure conditions
+     */
+    fun decrypt(envelope: AveroxEnvelope, aad: ByteArray): ByteArray {
+        // Validate AAD requirement
+        if (aad.isEmpty()) {
+            failCounter.add(
+                1,
+                io.opentelemetry.api.common.Attributes.of(
+                    ALG_KEY, envelope.algorithm,
+                    KID_KEY, envelope.keyId ?: "unknown",
+                    REASON_KEY, "missing_aad"
+                )
+            )
+            throw AveroxCryptoException.MissingAAD("AAD (Additional Authenticated Data) is required and cannot be empty")
+        }
+        
+        // Validate algorithm
+        if (envelope.algorithm != ALGORITHM) {
+            failCounter.add(
+                1,
+                io.opentelemetry.api.common.Attributes.of(
+                    ALG_KEY, envelope.algorithm,
+                    KID_KEY, envelope.keyId ?: "unknown",
+                    REASON_KEY, "unsupported_algorithm"
+                )
+            )
+            throw AveroxCryptoException.UnsupportedAlgorithm("Algorithm \${envelope.algorithm} not supported")
+        }
+        
+        try {
+            // Decode envelope components
+            val iv = envelope.iv.fromBase64URL()
+            val tag = envelope.tag.fromBase64URL()
+            val ciphertext = envelope.ciphertext.fromBase64URL()
+            
+            // Validate sizes
+            if (iv.size != IV_SIZE) {
+                throw AveroxCryptoException.InvalidIV("IV must be exactly $IV_SIZE bytes")
+            }
+            
+            if (tag.size != TAG_SIZE) {
+                throw AveroxCryptoException.InvalidTag("Tag must be exactly $TAG_SIZE bytes")
+            }
+            
+            // Reconstruct full ciphertext with tag (GCM appends tag)
+            val fullCiphertext = ciphertext + tag
+            
+            // Initialize cipher for decryption
+            val cipher = Cipher.getInstance(TRANSFORMATION)
+            val gcmParameterSpec = GCMParameterSpec(TAG_SIZE_BITS, iv)
+            cipher.init(Cipher.DECRYPT_MODE, masterKey, gcmParameterSpec)
+            
+            // Add AAD
+            cipher.updateAAD(aad)
+            
+            // Decrypt
+            val plaintext = cipher.doFinal(fullCiphertext)
+            
+            decryptCounter.add(
+                1,
+                io.opentelemetry.api.common.Attributes.of(
+                    ALG_KEY, envelope.algorithm,
+                    KID_KEY, envelope.keyId ?: "unknown"
+                )
+            )
+            
+            return plaintext
+            
+        } catch (e: javax.crypto.AEADBadTagException) {
+            failCounter.add(
+                1,
+                io.opentelemetry.api.common.Attributes.of(
+                    ALG_KEY, envelope.algorithm,
+                    KID_KEY, envelope.keyId ?: "unknown",
+                    REASON_KEY, "invalid_tag"
+                )
+            )
+            throw AveroxCryptoException.InvalidTag("Authentication failed - data may have been tampered with", e)
+        } catch (e: Exception) {
+            failCounter.add(
+                1,
+                io.opentelemetry.api.common.Attributes.of(
+                    ALG_KEY, envelope.algorithm,
+                    KID_KEY, envelope.keyId ?: "unknown",
+                    REASON_KEY, "decryption_error"
+                )
+            )
+            throw AveroxCryptoException.DecryptionFailed("Decryption failed: \${e.message}", e)
+        }
+    }
+    
+    /**
+     * Decrypt envelope to string with AES-256-GCM and mandatory AAD
+     * @param envelope Encrypted envelope
+     * @param aad Additional Authenticated Data (required)
+     * @return Decrypted plaintext as string
+     * @throws AveroxCryptoException for various failure conditions
+     */
+    fun decrypt(envelope: AveroxEnvelope, aad: String): String {
+        val plaintext = decrypt(envelope, aad.toByteArray(Charsets.UTF_8))
+        return plaintext.toString(Charsets.UTF_8)
+    }
+}
+
+/**
+ * Standardized envelope format for encrypted data
+ */
+@Serializable
+data class AveroxEnvelope(
+    /** Version of the envelope format */
+    @SerialName("v") val version: String,
+    
+    /** Encryption algorithm used */
+    @SerialName("alg") val algorithm: String,
+    
+    /** Optional key identifier */
+    @SerialName("kid") val keyId: String? = null,
+    
+    /** Base64URL encoded initialization vector */
+    @SerialName("iv") val iv: String,
+    
+    /** Base64URL encoded authentication tag */
+    @SerialName("tag") val tag: String,
+    
+    /** Base64URL encoded ciphertext */
+    @SerialName("ct") val ciphertext: String,
+    
+    /** Base64URL encoded additional authenticated data */
+    @SerialName("aad") val aad: String
+) {
+    /**
+     * Serialize envelope to JSON
+     * @return JSON string
+     * @throws AveroxCryptoException.JsonError if serialization fails
+     */
+    fun toJson(): String {
+        return try {
+            Json.encodeToString(this)
+        } catch (e: Exception) {
+            throw AveroxCryptoException.JsonError("Failed to serialize envelope: \${e.message}", e)
+        }
+    }
+    
+    companion object {
+        /**
+         * Deserialize envelope from JSON
+         * @param json JSON string
+         * @return Envelope object
+         * @throws AveroxCryptoException.JsonError if deserialization fails
+         */
+        @JvmStatic
+        fun fromJson(json: String): AveroxEnvelope {
+            return try {
+                Json.decodeFromString<AveroxEnvelope>(json)
+            } catch (e: Exception) {
+                throw AveroxCryptoException.JsonError("Failed to deserialize envelope: \${e.message}", e)
+            }
+        }
+    }
+}
+
+/**
+ * Errors that can occur during cryptographic operations
+ */
+sealed class AveroxCryptoException(message: String, cause: Throwable? = null) : Exception(message, cause) {
+    
+    class BadInput(message: String, cause: Throwable? = null) : AveroxCryptoException("Invalid input: $message", cause)
+    
+    class MissingAAD(message: String, cause: Throwable? = null) : AveroxCryptoException(message, cause)
+    
+    class InvalidTag(message: String, cause: Throwable? = null) : AveroxCryptoException(message, cause)
+    
+    class UnsupportedAlgorithm(message: String, cause: Throwable? = null) : AveroxCryptoException(message, cause)
+    
+    class InvalidIV(message: String, cause: Throwable? = null) : AveroxCryptoException(message, cause)
+    
+    class EncryptionFailed(message: String, cause: Throwable? = null) : AveroxCryptoException(message, cause)
+    
+    class DecryptionFailed(message: String, cause: Throwable? = null) : AveroxCryptoException(message, cause)
+    
+    class JsonError(message: String, cause: Throwable? = null) : AveroxCryptoException(message, cause)
+}
+
+/**
+ * Extension functions for Base64URL encoding/decoding
+ */
+private fun ByteArray.toBase64URL(): String {
+    return Base64.getUrlEncoder().withoutPadding().encodeToString(this)
+}
+
+private fun String.fromBase64URL(): ByteArray {
+    return Base64.getUrlDecoder().decode(this)
+}`;
+
+    const testImplementation = `package com.averox.crypto
+
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+
+class AveroxCryptoTest {
+    
+    @Test
+    fun testEncryptionRoundTrip() {
+        // Generate master key
+        val masterKey = AveroxCrypto.generateMasterKey()
+        val crypto = AveroxCrypto.create(masterKey)
+        
+        // Test data
+        val plaintext = "Hello, World!".toByteArray(Charsets.UTF_8)
+        val aad = "test-aad".toByteArray(Charsets.UTF_8)
+        
+        // Encrypt
+        val envelope = crypto.encrypt(plaintext, aad, "test-key")
+        
+        // Verify envelope format
+        assertEquals("2.0", envelope.version)
+        assertEquals(AveroxCrypto.ALGORITHM, envelope.algorithm)
+        assertEquals("test-key", envelope.keyId)
+        assertFalse(envelope.iv.isEmpty())
+        assertFalse(envelope.tag.isEmpty())
+        assertFalse(envelope.ciphertext.isEmpty())
+        assertFalse(envelope.aad.isEmpty())
+        
+        // Decrypt
+        val decrypted = crypto.decrypt(envelope, aad)
+        
+        assertTrue(plaintext.contentEquals(decrypted))
+    }
+    
+    @Test
+    fun testStringEncryptionRoundTrip() {
+        // Generate master key
+        val masterKey = AveroxCrypto.generateMasterKey()
+        val crypto = AveroxCrypto.create(masterKey)
+        
+        // Test data
+        val plaintext = "Hello, World!"
+        val aad = "test-aad"
+        
+        // Encrypt
+        val envelope = crypto.encrypt(plaintext, aad, "test-key")
+        
+        // Decrypt
+        val decrypted = crypto.decrypt(envelope, aad)
+        
+        assertEquals(plaintext, decrypted)
+    }
+    
+    @Test
+    fun testMissingAADFails() {
+        val masterKey = AveroxCrypto.generateMasterKey()
+        val crypto = AveroxCrypto.create(masterKey)
+        
+        val plaintext = "Hello, World!".toByteArray(Charsets.UTF_8)
+        val emptyAAD = ByteArray(0)
+        
+        assertThrows<AveroxCryptoException.MissingAAD> {
+            crypto.encrypt(plaintext, emptyAAD)
+        }
+    }
+    
+    @Test
+    fun testInvalidKeySize() {
+        val shortKey = ByteArray(16) // 16 bytes instead of 32
+        
+        assertThrows<AveroxCryptoException.BadInput> {
+            AveroxCrypto.create(shortKey)
+        }
+    }
+    
+    @Test
+    fun testEnvelopeJsonSerialization() {
+        val envelope = AveroxEnvelope(
+            version = "2.0",
+            algorithm = AveroxCrypto.ALGORITHM,
+            keyId = "test",
+            iv = "dGVzdC1pdg",
+            tag = "dGVzdC10YWc",
+            ciphertext = "dGVzdC1jdA",
+            aad = "dGVzdC1hYWQ"
+        )
+        
+        val json = envelope.toJson()
+        val deserialized = AveroxEnvelope.fromJson(json)
+        
+        assertEquals(envelope, deserialized)
+    }
+    
+    @Test
+    fun testUnsupportedAlgorithm() {
+        val masterKey = AveroxCrypto.generateMasterKey()
+        val crypto = AveroxCrypto.create(masterKey)
+        val aad = "test-aad".toByteArray(Charsets.UTF_8)
+        
+        val invalidEnvelope = AveroxEnvelope(
+            version = "2.0",
+            algorithm = "INVALID-ALGORITHM",
+            keyId = null,
+            iv = "dGVzdC1pdg",
+            tag = "dGVzdC10YWc",
+            ciphertext = "dGVzdC1jdA",
+            aad = "dGVzdC1hYWQ"
+        )
+        
+        assertThrows<AveroxCryptoException.UnsupportedAlgorithm> {
+            crypto.decrypt(invalidEnvelope, aad)
+        }
+    }
+    
+    @Test
+    fun testMasterKeyGeneration() {
+        val key1 = AveroxCrypto.generateMasterKey()
+        val key2 = AveroxCrypto.generateMasterKey()
+        
+        // Keys should be proper length
+        assertEquals(AveroxCrypto.KEY_SIZE, key1.size)
+        assertEquals(AveroxCrypto.KEY_SIZE, key2.size)
+        
+        // Keys should be different (astronomically unlikely to be same)
+        assertFalse(key1.contentEquals(key2))
+    }
+}`;
+
+    return {
+      'build.gradle.kts': buildGradle,
+      'src/main/kotlin/com/averox/crypto/AveroxCrypto.kt': coreImplementation,
+      'src/test/kotlin/com/averox/crypto/AveroxCryptoTest.kt': testImplementation,
+      'README.md': this.getUniversalReadme('Kotlin', './gradlew build'),
+      'SECURITY.md': this.getUniversalSecurityGuide(),
+      'TROUBLESHOOTING.md': this.getUniversalTroubleshootingGuide()
+    };
+  }
+
   static getFixedTypeDefinitions() {
     return `// REAL TypeScript definitions
 export interface AveroxEnvelope {
