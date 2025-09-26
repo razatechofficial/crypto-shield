@@ -2110,15 +2110,519 @@ MIT License - see LICENSE file for details.
     };
   }
 
+  // Swift SDK with complete enterprise implementation
   static generateSwiftSDK(sdk, algorithms) {
-    console.log('🍎 Generating Swift SDK placeholder...');
-    const jsSDK = this.generateJavaScriptSDK(sdk, algorithms);
+    console.log('🍎 Generating complete enterprise Swift SDK...');
     
-    // Add Swift specific guides to the JavaScript SDK return
-    jsSDK['SWIFT-INSTALLATION-GUIDE.md'] = this.getSwiftInstallationGuide(sdk);
-    jsSDK['ENCRYPTION-FAILURE-GUIDE.md'] = this.getEncryptionFailureGuide();
+    const packageFile = `// swift-tools-version: 5.7
+import PackageDescription
+
+let package = Package(
+    name: "AveroxCryptoSDK",
+    platforms: [
+        .iOS(.v13),
+        .macOS(.v10_15),
+        .watchOS(.v6),
+        .tvOS(.v13)
+    ],
+    products: [
+        .library(
+            name: "AveroxCryptoSDK",
+            targets: ["AveroxCryptoSDK"]),
+    ],
+    dependencies: [
+        .package(url: "https://github.com/apple/swift-crypto.git", from: "3.0.0"),
+        .package(url: "https://github.com/apple/swift-log.git", from: "1.0.0")
+    ],
+    targets: [
+        .target(
+            name: "AveroxCryptoSDK",
+            dependencies: [
+                .product(name: "Crypto", package: "swift-crypto"),
+                .product(name: "Logging", package: "swift-log")
+            ]),
+        .testTarget(
+            name: "AveroxCryptoSDKTests",
+            dependencies: ["AveroxCryptoSDK"]),
+    ]
+)`;
+
+    const coreImplementation = `import Foundation
+import Crypto
+import Logging
+import OSLog
+
+/// Enterprise-grade AES-256-GCM cryptographic SDK with AAD enforcement
+public final class AveroxCrypto {
+    private let masterKey: SymmetricKey
+    private let logger: Logger?
+    private static let osLog = OSLog(subsystem: "com.averox.crypto", category: "encryption")
     
-    return jsSDK;
+    // Enterprise metrics tracking
+    private static var encryptionCount: Int64 = 0
+    private static var decryptionCount: Int64 = 0
+    private static var errorCount: Int64 = 0
+    private static let metricsQueue = DispatchQueue(label: "com.averox.metrics")
+    
+    public static var encryptionCountValue: Int64 {
+        metricsQueue.sync { encryptionCount }
+    }
+    
+    public static var decryptionCountValue: Int64 {
+        metricsQueue.sync { decryptionCount }
+    }
+    
+    public static var errorCountValue: Int64 {
+        metricsQueue.sync { errorCount }
+    }
+    
+    /// Initialize with 32-byte master key
+    public init(masterKey: Data, logger: Logger? = nil) throws {
+        guard masterKey.count == 32 else {
+            throw AveroxCryptoError.invalidKeySize("Master key must be exactly 32 bytes")
+        }
+        
+        self.masterKey = SymmetricKey(data: masterKey)
+        self.logger = logger
+        
+        os_log("AveroxCrypto initialized", log: Self.osLog, type: .info)
+    }
+    
+    /// Generate cryptographically secure 32-byte master key
+    public static func generateMasterKey() -> Data {
+        return SymmetricKey(size: .bits256).withUnsafeBytes { Data($0) }
+    }
+    
+    /// Encrypt data with AES-256-GCM and mandatory AAD
+    public func encrypt(_ plaintext: Data, aad: Data) throws -> EnvelopeV2 {
+        guard !aad.isEmpty else {
+            Self.incrementError()
+            throw AveroxCryptoError.aadRequired("AAD (Additional Authenticated Data) is required and cannot be empty")
+        }
+        
+        os_log("Starting encryption operation", log: Self.osLog, type: .debug)
+        
+        do {
+            // Generate random 12-byte nonce
+            let nonce = AES.GCM.Nonce()
+            
+            // Perform AES-256-GCM encryption
+            let sealedBox = try AES.GCM.seal(plaintext, using: masterKey, nonce: nonce, additionalData: aad)
+            
+            guard let ciphertext = sealedBox.ciphertext,
+                  let tag = sealedBox.tag else {
+                Self.incrementError()
+                throw AveroxCryptoError.encryptionFailed("Failed to extract ciphertext or tag")
+            }
+            
+            let envelope = EnvelopeV2(
+                algorithm: "AES-256-GCM",
+                version: "v2",
+                ciphertext: ciphertext.base64EncodedString(),
+                tag: tag.base64EncodedString(),
+                iv: Data(nonce).base64EncodedString(),
+                timestamp: Int64(Date().timeIntervalSince1970)
+            )
+            
+            Self.incrementEncryption()
+            logger?.info("Encryption completed successfully")
+            os_log("Encryption operation completed", log: Self.osLog, type: .info)
+            
+            return envelope
+            
+        } catch {
+            Self.incrementError()
+            logger?.error("Encryption failed: \\(error)")
+            os_log("Encryption failed: %@", log: Self.osLog, type: .error, error.localizedDescription)
+            throw AveroxCryptoError.encryptionFailed("Failed to encrypt data: \\(error)")
+        }
+    }
+    
+    /// Decrypt envelope with AES-256-GCM and mandatory AAD
+    public func decrypt(_ envelope: EnvelopeV2, aad: Data) throws -> Data {
+        guard !aad.isEmpty else {
+            Self.incrementError()
+            throw AveroxCryptoError.aadRequired("AAD (Additional Authenticated Data) is required and cannot be empty")
+        }
+        
+        guard envelope.algorithm == "AES-256-GCM" else {
+            Self.incrementError()
+            throw AveroxCryptoError.unsupportedAlgorithm("Algorithm \\(envelope.algorithm) not supported")
+        }
+        
+        os_log("Starting decryption operation", log: Self.osLog, type: .debug)
+        
+        do {
+            guard let ciphertext = Data(base64Encoded: envelope.ciphertext),
+                  let tag = Data(base64Encoded: envelope.tag),
+                  let ivData = Data(base64Encoded: envelope.iv) else {
+                Self.incrementError()
+                throw AveroxCryptoError.invalidEnvelope("Invalid base64 encoding in envelope")
+            }
+            
+            guard ivData.count == 12 else {
+                Self.incrementError()
+                throw AveroxCryptoError.invalidIV("IV must be exactly 12 bytes")
+            }
+            
+            guard tag.count == 16 else {
+                Self.incrementError()
+                throw AveroxCryptoError.invalidTag("Tag must be exactly 16 bytes")
+            }
+            
+            let nonce = try AES.GCM.Nonce(data: ivData)
+            let sealedBox = try AES.GCM.SealedBox(nonce: nonce, ciphertext: ciphertext, tag: tag)
+            
+            let plaintext = try AES.GCM.open(sealedBox, using: masterKey, additionalData: aad)
+            
+            Self.incrementDecryption()
+            logger?.info("Decryption completed successfully")
+            os_log("Decryption operation completed", log: Self.osLog, type: .info)
+            
+            return plaintext
+            
+        } catch CryptoKitError.authenticationFailure {
+            Self.incrementError()
+            logger?.error("Authentication failed during decryption")
+            os_log("Authentication failed during decryption", log: Self.osLog, type: .error)
+            throw AveroxCryptoError.authenticationFailed("Authentication failed - data may have been tampered with")
+        } catch {
+            Self.incrementError()
+            logger?.error("Decryption failed: \\(error)")
+            os_log("Decryption failed: %@", log: Self.osLog, type: .error, error.localizedDescription)
+            throw AveroxCryptoError.decryptionFailed("Failed to decrypt data: \\(error)")
+        }
+    }
+    
+    /// Get SDK diagnostics for monitoring
+    public static func getDiagnostics() -> DiagnosticInfo {
+        return metricsQueue.sync {
+            DiagnosticInfo(
+                encryptionCount: encryptionCount,
+                decryptionCount: decryptionCount,
+                errorCount: errorCount,
+                version: "2.0.0"
+            )
+        }
+    }
+    
+    // MARK: - Private Methods
+    
+    private static func incrementEncryption() {
+        metricsQueue.async {
+            encryptionCount += 1
+        }
+    }
+    
+    private static func incrementDecryption() {
+        metricsQueue.async {
+            decryptionCount += 1
+        }
+    }
+    
+    private static func incrementError() {
+        metricsQueue.async {
+            errorCount += 1
+        }
+    }
+}
+
+/// Envelope format for encrypted data (v2)
+public struct EnvelopeV2: Codable {
+    public let algorithm: String
+    public let version: String
+    public let ciphertext: String
+    public let tag: String
+    public let iv: String
+    public let timestamp: Int64
+    
+    public init(algorithm: String, version: String, ciphertext: String, tag: String, iv: String, timestamp: Int64) {
+        self.algorithm = algorithm
+        self.version = version
+        self.ciphertext = ciphertext
+        self.tag = tag
+        self.iv = iv
+        self.timestamp = timestamp
+    }
+    
+    public func toJSON() throws -> String {
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(self)
+        return String(data: data, encoding: .utf8) ?? ""
+    }
+    
+    public static func fromJSON(_ json: String) throws -> EnvelopeV2 {
+        guard let data = json.data(using: .utf8) else {
+            throw AveroxCryptoError.invalidEnvelope("Invalid JSON string")
+        }
+        let decoder = JSONDecoder()
+        return try decoder.decode(EnvelopeV2.self, from: data)
+    }
+}
+
+/// SDK diagnostic information
+public struct DiagnosticInfo {
+    public let encryptionCount: Int64
+    public let decryptionCount: Int64
+    public let errorCount: Int64
+    public let version: String
+}
+
+/// Averox cryptography errors
+public enum AveroxCryptoError: Error, LocalizedError {
+    case invalidKeySize(String)
+    case aadRequired(String)
+    case encryptionFailed(String)
+    case decryptionFailed(String)
+    case authenticationFailed(String)
+    case unsupportedAlgorithm(String)
+    case invalidEnvelope(String)
+    case invalidIV(String)
+    case invalidTag(String)
+    
+    public var errorDescription: String? {
+        switch self {
+        case .invalidKeySize(let message),
+             .aadRequired(let message),
+             .encryptionFailed(let message),
+             .decryptionFailed(let message),
+             .authenticationFailed(let message),
+             .unsupportedAlgorithm(let message),
+             .invalidEnvelope(let message),
+             .invalidIV(let message),
+             .invalidTag(let message):
+            return message
+        }
+    }
+    
+    public var errorCode: String {
+        switch self {
+        case .invalidKeySize: return "INVALID_KEY_SIZE"
+        case .aadRequired: return "AAD_REQUIRED"
+        case .encryptionFailed: return "ENCRYPTION_FAILED"
+        case .decryptionFailed: return "DECRYPTION_FAILED"
+        case .authenticationFailed: return "AUTHENTICATION_FAILED"
+        case .unsupportedAlgorithm: return "UNSUPPORTED_ALGORITHM"
+        case .invalidEnvelope: return "INVALID_ENVELOPE"
+        case .invalidIV: return "INVALID_IV"
+        case .invalidTag: return "INVALID_TAG"
+        }
+    }
+}`;
+
+    const testFile = `import XCTest
+@testable import AveroxCryptoSDK
+
+final class AveroxCryptoSDKTests: XCTestCase {
+    var crypto: AveroxCrypto!
+    var masterKey: Data!
+    
+    override func setUpWithError() throws {
+        masterKey = AveroxCrypto.generateMasterKey()
+        crypto = try AveroxCrypto(masterKey: masterKey)
+    }
+    
+    override func tearDownWithError() throws {
+        crypto = nil
+        masterKey = nil
+    }
+    
+    func testGenerateMasterKey() throws {
+        let key = AveroxCrypto.generateMasterKey()
+        XCTAssertEqual(key.count, 32)
+    }
+    
+    func testInitWithInvalidKeySize() throws {
+        let invalidKey = Data(repeating: 0, count: 16) // Too short
+        XCTAssertThrowsError(try AveroxCrypto(masterKey: invalidKey)) { error in
+            guard case AveroxCryptoError.invalidKeySize = error else {
+                XCTFail("Expected invalidKeySize error")
+                return
+            }
+        }
+    }
+    
+    func testEncryptWithValidData() throws {
+        let plaintext = "Hello, World!".data(using: .utf8)!
+        let aad = "user-session-123".data(using: .utf8)!
+        
+        let envelope = try crypto.encrypt(plaintext, aad: aad)
+        
+        XCTAssertEqual(envelope.algorithm, "AES-256-GCM")
+        XCTAssertEqual(envelope.version, "v2")
+        XCTAssertFalse(envelope.ciphertext.isEmpty)
+        XCTAssertFalse(envelope.tag.isEmpty)
+        XCTAssertFalse(envelope.iv.isEmpty)
+        XCTAssertGreaterThan(envelope.timestamp, 0)
+    }
+    
+    func testEncryptWithoutAAD() throws {
+        let plaintext = "Hello, World!".data(using: .utf8)!
+        let emptyAAD = Data()
+        
+        XCTAssertThrowsError(try crypto.encrypt(plaintext, aad: emptyAAD)) { error in
+            guard case AveroxCryptoError.aadRequired = error else {
+                XCTFail("Expected aadRequired error")
+                return
+            }
+        }
+    }
+    
+    func testEncryptDecryptRoundTrip() throws {
+        let originalText = "Sensitive enterprise data 🔒"
+        let plaintext = originalText.data(using: .utf8)!
+        let aad = "enterprise-context".data(using: .utf8)!
+        
+        let envelope = try crypto.encrypt(plaintext, aad: aad)
+        let decrypted = try crypto.decrypt(envelope, aad: aad)
+        let decryptedText = String(data: decrypted, encoding: .utf8)
+        
+        XCTAssertEqual(decryptedText, originalText)
+    }
+    
+    func testDecryptWithWrongAAD() throws {
+        let plaintext = "Hello, World!".data(using: .utf8)!
+        let correctAAD = "correct-context".data(using: .utf8)!
+        let wrongAAD = "wrong-context".data(using: .utf8)!
+        
+        let envelope = try crypto.encrypt(plaintext, aad: correctAAD)
+        
+        XCTAssertThrowsError(try crypto.decrypt(envelope, aad: wrongAAD)) { error in
+            guard case AveroxCryptoError.authenticationFailed = error else {
+                XCTFail("Expected authenticationFailed error")
+                return
+            }
+        }
+    }
+    
+    func testDecryptWithTamperedData() throws {
+        let plaintext = "Hello, World!".data(using: .utf8)!
+        let aad = "user-context".data(using: .utf8)!
+        
+        let envelope = try crypto.encrypt(plaintext, aad: aad)
+        
+        // Tamper with ciphertext
+        let tamperedEnvelope = EnvelopeV2(
+            algorithm: envelope.algorithm,
+            version: envelope.version,
+            ciphertext: "dGFtcGVyZWQ=", // "tampered" in base64
+            tag: envelope.tag,
+            iv: envelope.iv,
+            timestamp: envelope.timestamp
+        )
+        
+        XCTAssertThrowsError(try crypto.decrypt(tamperedEnvelope, aad: aad)) { error in
+            guard case AveroxCryptoError.authenticationFailed = error else {
+                XCTFail("Expected authenticationFailed error")
+                return
+            }
+        }
+    }
+    
+    func testGetDiagnostics() throws {
+        let info = AveroxCrypto.getDiagnostics()
+        
+        XCTAssertEqual(info.version, "2.0.0")
+        XCTAssertGreaterThanOrEqual(info.encryptionCount, 0)
+        XCTAssertGreaterThanOrEqual(info.decryptionCount, 0)
+        XCTAssertGreaterThanOrEqual(info.errorCount, 0)
+    }
+    
+    func testEnvelopeJSONSerialization() throws {
+        let envelope = EnvelopeV2(
+            algorithm: "AES-256-GCM",
+            version: "v2",
+            ciphertext: "test-ciphertext",
+            tag: "test-tag",
+            iv: "test-iv",
+            timestamp: 1234567890
+        )
+        
+        let json = try envelope.toJSON()
+        let decoded = try EnvelopeV2.fromJSON(json)
+        
+        XCTAssertEqual(decoded.algorithm, envelope.algorithm)
+        XCTAssertEqual(decoded.version, envelope.version)
+        XCTAssertEqual(decoded.ciphertext, envelope.ciphertext)
+        XCTAssertEqual(decoded.tag, envelope.tag)
+        XCTAssertEqual(decoded.iv, envelope.iv)
+        XCTAssertEqual(decoded.timestamp, envelope.timestamp)
+    }
+}`;
+
+    const readmeFile = `# Averox Swift Crypto SDK
+
+Enterprise-grade AES-256-GCM cryptographic library with mandatory AAD enforcement for iOS, macOS, watchOS, and tvOS.
+
+## Features
+
+✅ **AES-256-GCM**: Industry-standard authenticated encryption  
+✅ **AAD Enforcement**: Mandatory Additional Authenticated Data  
+✅ **Enterprise Telemetry**: Built-in metrics and logging  
+✅ **Memory Security**: Secure key handling with CryptoKit  
+✅ **Cross-Platform**: iOS 13+, macOS 10.15+, watchOS 6+, tvOS 13+  
+
+## Installation
+
+### Swift Package Manager
+
+Add to your \`Package.swift\`:
+
+\`\`\`swift
+dependencies: [
+    .package(url: "https://github.com/averox/averox-crypto-swift.git", from: "2.0.0")
+]
+\`\`\`
+
+### Xcode
+
+1. File → Add Package Dependencies
+2. Enter: \`https://github.com/averox/averox-crypto-swift.git\`
+3. Select version \`2.0.0\` or later
+
+## Quick Start
+
+\`\`\`swift
+import AveroxCryptoSDK
+
+// Generate a master key
+let masterKey = AveroxCrypto.generateMasterKey()
+
+// Initialize the crypto instance
+let crypto = try AveroxCrypto(masterKey: masterKey)
+
+// Encrypt with AAD
+let plaintext = "Sensitive data".data(using: .utf8)!
+let aad = "user-session-123".data(using: .utf8)!
+let envelope = try crypto.encrypt(plaintext, aad: aad)
+
+// Decrypt 
+let decrypted = try crypto.decrypt(envelope, aad: aad)
+let result = String(data: decrypted, encoding: .utf8)!
+\`\`\`
+
+## Security Features
+
+🔒 **AAD ENFORCEMENT**: This library REQUIRES Additional Authenticated Data for all encrypt/decrypt operations.
+
+🔒 **IV Policy**: 12-byte nonces are automatically generated using CryptoKit's secure random generator.
+
+🔒 **Memory Security**: Keys are handled securely using CryptoKit's SymmetricKey.
+
+## License
+
+MIT License - see LICENSE file for details.
+`;
+
+    return {
+      'Package.swift': packageFile,
+      'Sources/AveroxCryptoSDK/AveroxCrypto.swift': coreImplementation,
+      'Tests/AveroxCryptoSDKTests/AveroxCryptoSDKTests.swift': testFile,
+      'README.md': readmeFile,
+      'LICENSE': this.getMITLicense(),
+      'INSTALLATION-GUIDE.md': this.getSwiftInstallationGuide(sdk),
+      'TROUBLESHOOTING.md': this.getUniversalTroubleshootingGuide()
+    };
   }
 
   // Enterprise CI workflow with sanitizer builds
