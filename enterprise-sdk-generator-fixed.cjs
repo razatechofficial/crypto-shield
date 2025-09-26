@@ -1682,6 +1682,472 @@ void averox_crypto_destroy(averox_crypto_ctx_t* ctx) {
     };
   }
 
+  // C# SDK with real .NET cryptographic implementation
+  static generateCSharpSDK(sdk, algorithms) {
+    console.log('🔷 Generating real C# SDK with .NET System.Security.Cryptography...');
+    
+    const csprojFile = `<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <PackageId>Averox.Crypto.SDK</PackageId>
+    <Version>${sdk.version || "2.0.0"}</Version>
+    <Authors>Averox Ltd</Authors>
+    <Company>Averox Ltd</Company>
+    <Product>Averox Crypto SDK</Product>
+    <Description>Enterprise-grade AES-256-GCM cryptographic SDK with AAD enforcement</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://docs.averox.com</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/averox/crypto-sdk</RepositoryUrl>
+    <PackageTags>cryptography;encryption;security;enterprise</PackageTags>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Text.Json" Version="7.0.3" />
+    <PackageReference Include="OpenTelemetry.Api" Version="1.6.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.7.2" />
+    <PackageReference Include="xunit" Version="2.4.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.4.5" />
+  </ItemGroup>
+
+</Project>`;
+
+    const coreImplementation = `using System;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Diagnostics.Metrics;
+
+namespace Averox.Crypto;
+
+/// <summary>
+/// Averox Crypto SDK for C# - Real AES-256-GCM Implementation
+/// Enterprise-grade cryptographic SDK with mandatory AAD enforcement
+/// </summary>
+public sealed class AveroxCrypto : IDisposable
+{
+    private const string Algorithm = "AES-256-GCM";
+    private const int KeySize = 32;
+    private const int IvSize = 12;
+    private const int TagSize = 16;
+    
+    private readonly byte[] _masterKey;
+    private readonly AesGcm _aesGcm;
+    private bool _disposed;
+    
+    // OpenTelemetry metrics
+    private static readonly Meter Meter = new("Averox.Crypto");
+    private static readonly Counter<long> EncryptCounter = Meter.CreateCounter<long>("crypto_encrypt_total");
+    private static readonly Counter<long> DecryptCounter = Meter.CreateCounter<long>("crypto_decrypt_total");
+    private static readonly Counter<long> FailCounter = Meter.CreateCounter<long>("crypto_fail_total");
+    
+    /// <summary>
+    /// Initialize crypto context with master key
+    /// </summary>
+    /// <param name="masterKey">32-byte master key</param>
+    /// <exception cref="ArgumentException">If master key is invalid</exception>
+    public AveroxCrypto(byte[] masterKey)
+    {
+        if (masterKey == null || masterKey.Length != KeySize)
+        {
+            throw new ArgumentException($"Master key must be exactly {KeySize} bytes", nameof(masterKey));
+        }
+        
+        _masterKey = new byte[KeySize];
+        Array.Copy(masterKey, _masterKey, KeySize);
+        _aesGcm = new AesGcm(_masterKey);
+    }
+    
+    /// <summary>
+    /// Generate cryptographically secure 32-byte master key
+    /// </summary>
+    /// <returns>32-byte master key</returns>
+    public static byte[] GenerateMasterKey()
+    {
+        using var rng = RandomNumberGenerator.Create();
+        var key = new byte[KeySize];
+        rng.GetBytes(key);
+        return key;
+    }
+    
+    /// <summary>
+    /// Encrypt data with AES-256-GCM and mandatory AAD
+    /// </summary>
+    /// <param name="plaintext">Data to encrypt</param>
+    /// <param name="aad">Additional Authenticated Data (required)</param>
+    /// <param name="keyId">Optional key identifier</param>
+    /// <returns>Encrypted envelope</returns>
+    /// <exception cref="ArgumentNullException">If plaintext or AAD is null</exception>
+    /// <exception cref="BadInputException">If AAD is empty</exception>
+    /// <exception cref="AveroxCryptoException">If encryption fails</exception>
+    public AveroxEnvelope Encrypt(byte[] plaintext, byte[] aad, string? keyId = null)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        
+        var tags = new KeyValuePair<string, object?>[]
+        {
+            new("alg", Algorithm),
+            new("kid", keyId ?? "unknown")
+        };
+        
+        try
+        {
+            // Validate inputs
+            ArgumentNullException.ThrowIfNull(plaintext);
+            ArgumentNullException.ThrowIfNull(aad);
+            
+            if (aad.Length == 0)
+            {
+                FailCounter.Add(1, tags.Append(new("reason", "missing_aad")).ToArray());
+                throw new BadInputException("AAD (Additional Authenticated Data) is required and cannot be empty");
+            }
+            
+            // Generate random 12-byte IV
+            var iv = new byte[IvSize];
+            using (var rng = RandomNumberGenerator.Create())
+            {
+                rng.GetBytes(iv);
+            }
+            
+            // Prepare buffers
+            var ciphertext = new byte[plaintext.Length];
+            var tag = new byte[TagSize];
+            
+            // Encrypt with AAD
+            _aesGcm.Encrypt(iv, plaintext, ciphertext, tag, aad);
+            
+            EncryptCounter.Add(1, tags);
+            
+            return new AveroxEnvelope
+            {
+                Version = "2.0",
+                Algorithm = Algorithm,
+                KeyId = keyId,
+                Iv = Convert.ToBase64String(iv).TrimEnd('=').Replace('+', '-').Replace('/', '_'),
+                Tag = Convert.ToBase64String(tag).TrimEnd('=').Replace('+', '-').Replace('/', '_'),
+                Ciphertext = Convert.ToBase64String(ciphertext).TrimEnd('=').Replace('+', '-').Replace('/', '_'),
+                Aad = Convert.ToBase64String(aad).TrimEnd('=').Replace('+', '-').Replace('/', '_')
+            };
+        }
+        catch (Exception ex) when (!(ex is AveroxCryptoException))
+        {
+            FailCounter.Add(1, tags.Append(new("reason", "encryption_error")).ToArray());
+            throw new AveroxCryptoException("ENCRYPTION_FAILED", $"Encryption failed: {ex.Message}", ex);
+        }
+    }
+    
+    /// <summary>
+    /// Encrypt string data with AES-256-GCM and mandatory AAD
+    /// </summary>
+    /// <param name="plaintext">String data to encrypt</param>
+    /// <param name="aad">Additional Authenticated Data (required)</param>
+    /// <param name="keyId">Optional key identifier</param>
+    /// <returns>Encrypted envelope</returns>
+    public AveroxEnvelope Encrypt(string plaintext, string aad, string? keyId = null)
+    {
+        ArgumentNullException.ThrowIfNull(plaintext);
+        ArgumentNullException.ThrowIfNull(aad);
+        
+        return Encrypt(
+            Encoding.UTF8.GetBytes(plaintext),
+            Encoding.UTF8.GetBytes(aad),
+            keyId
+        );
+    }
+    
+    /// <summary>
+    /// Decrypt envelope with AES-256-GCM and mandatory AAD
+    /// </summary>
+    /// <param name="envelope">Encrypted envelope</param>
+    /// <param name="aad">Additional Authenticated Data (required)</param>
+    /// <returns>Decrypted plaintext</returns>
+    /// <exception cref="ArgumentNullException">If envelope or AAD is null</exception>
+    /// <exception cref="BadInputException">If AAD is empty or algorithm unsupported</exception>
+    /// <exception cref="InvalidTagException">If authentication fails</exception>
+    /// <exception cref="AveroxCryptoException">If decryption fails</exception>
+    public byte[] Decrypt(AveroxEnvelope envelope, byte[] aad)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        
+        ArgumentNullException.ThrowIfNull(envelope);
+        ArgumentNullException.ThrowIfNull(aad);
+        
+        var tags = new KeyValuePair<string, object?>[]
+        {
+            new("alg", envelope.Algorithm ?? Algorithm),
+            new("kid", envelope.KeyId ?? "unknown")
+        };
+        
+        try
+        {
+            // Validate AAD requirement
+            if (aad.Length == 0)
+            {
+                FailCounter.Add(1, tags.Append(new("reason", "missing_aad")).ToArray());
+                throw new BadInputException("AAD (Additional Authenticated Data) is required and cannot be empty");
+            }
+            
+            // Validate algorithm
+            if (envelope.Algorithm != Algorithm)
+            {
+                FailCounter.Add(1, tags.Append(new("reason", "unsupported_algorithm")).ToArray());
+                throw new BadInputException($"Algorithm {envelope.Algorithm} not supported");
+            }
+            
+            // Decode envelope components (add padding if needed)
+            var iv = DecodeBase64Url(envelope.Iv ?? throw new BadInputException("Missing IV"));
+            var tag = DecodeBase64Url(envelope.Tag ?? throw new BadInputException("Missing tag"));
+            var ciphertext = DecodeBase64Url(envelope.Ciphertext ?? throw new BadInputException("Missing ciphertext"));
+            
+            // Validate sizes
+            if (iv.Length != IvSize)
+            {
+                throw new AveroxCryptoException("INVALID_IV", $"IV must be exactly {IvSize} bytes");
+            }
+            
+            if (tag.Length != TagSize)
+            {
+                throw new AveroxCryptoException("INVALID_TAG", $"Tag must be exactly {TagSize} bytes");
+            }
+            
+            // Decrypt
+            var plaintext = new byte[ciphertext.Length];
+            _aesGcm.Decrypt(iv, ciphertext, tag, plaintext, aad);
+            
+            DecryptCounter.Add(1, tags);
+            return plaintext;
+        }
+        catch (CryptographicException ex)
+        {
+            FailCounter.Add(1, tags.Append(new("reason", "decryption_error")).ToArray());
+            throw new InvalidTagException("Authentication failed - data may have been tampered with", ex);
+        }
+        catch (Exception ex) when (!(ex is AveroxCryptoException))
+        {
+            FailCounter.Add(1, tags.Append(new("reason", "general_error")).ToArray());
+            throw new AveroxCryptoException("DECRYPTION_FAILED", $"Decryption failed: {ex.Message}", ex);
+        }
+    }
+    
+    /// <summary>
+    /// Decrypt envelope to string with AES-256-GCM and mandatory AAD
+    /// </summary>
+    /// <param name="envelope">Encrypted envelope</param>
+    /// <param name="aad">Additional Authenticated Data (required)</param>
+    /// <returns>Decrypted plaintext as string</returns>
+    public string DecryptToString(AveroxEnvelope envelope, string aad)
+    {
+        ArgumentNullException.ThrowIfNull(aad);
+        
+        var plaintext = Decrypt(envelope, Encoding.UTF8.GetBytes(aad));
+        return Encoding.UTF8.GetString(plaintext);
+    }
+    
+    /// <summary>
+    /// Decode Base64URL string
+    /// </summary>
+    private static byte[] DecodeBase64Url(string input)
+    {
+        // Convert base64url to base64
+        var base64 = input.Replace('-', '+').Replace('_', '/');
+        
+        // Add padding if needed
+        var padding = (4 - (base64.Length % 4)) % 4;
+        if (padding > 0)
+        {
+            base64 += new string('=', padding);
+        }
+        
+        return Convert.FromBase64String(base64);
+    }
+    
+    /// <summary>
+    /// Securely dispose of cryptographic resources
+    /// </summary>
+    public void Dispose()
+    {
+        if (!_disposed)
+        {
+            // Clear master key
+            Array.Clear(_masterKey, 0, _masterKey.Length);
+            
+            // Dispose AES-GCM
+            _aesGcm?.Dispose();
+            
+            _disposed = true;
+        }
+    }
+}
+
+/// <summary>
+/// Standardized envelope format for encrypted data
+/// </summary>
+public sealed class AveroxEnvelope
+{
+    /// <summary>Version of the envelope format</summary>
+    [JsonPropertyName("v")]
+    public string? Version { get; set; }
+    
+    /// <summary>Encryption algorithm used</summary>
+    [JsonPropertyName("alg")]
+    public string? Algorithm { get; set; }
+    
+    /// <summary>Optional key identifier</summary>
+    [JsonPropertyName("kid")]
+    public string? KeyId { get; set; }
+    
+    /// <summary>Base64URL encoded initialization vector</summary>
+    [JsonPropertyName("iv")]
+    public string? Iv { get; set; }
+    
+    /// <summary>Base64URL encoded authentication tag</summary>
+    [JsonPropertyName("tag")]
+    public string? Tag { get; set; }
+    
+    /// <summary>Base64URL encoded ciphertext</summary>
+    [JsonPropertyName("ct")]
+    public string? Ciphertext { get; set; }
+    
+    /// <summary>Base64URL encoded additional authenticated data</summary>
+    [JsonPropertyName("aad")]
+    public string? Aad { get; set; }
+    
+    /// <summary>
+    /// Serialize envelope to JSON
+    /// </summary>
+    /// <returns>JSON string</returns>
+    public string ToJson()
+    {
+        return JsonSerializer.Serialize(this, new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            WriteIndented = false
+        });
+    }
+    
+    /// <summary>
+    /// Deserialize envelope from JSON
+    /// </summary>
+    /// <param name="json">JSON string</param>
+    /// <returns>Envelope object</returns>
+    /// <exception cref="AveroxCryptoException">If deserialization fails</exception>
+    public static AveroxEnvelope FromJson(string json)
+    {
+        try
+        {
+            ArgumentNullException.ThrowIfNull(json);
+            return JsonSerializer.Deserialize<AveroxEnvelope>(json, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            }) ?? throw new AveroxCryptoException("JSON_ERROR", "Failed to deserialize envelope");
+        }
+        catch (JsonException ex)
+        {
+            throw new AveroxCryptoException("JSON_ERROR", $"Failed to deserialize envelope: {ex.Message}", ex);
+        }
+    }
+}
+
+/// <summary>
+/// Base exception for Averox cryptographic operations
+/// </summary>
+public class AveroxCryptoException : Exception
+{
+    /// <summary>Error code</summary>
+    public string Code { get; }
+    
+    /// <summary>
+    /// Initialize exception with code and message
+    /// </summary>
+    /// <param name="code">Error code</param>
+    /// <param name="message">Error message</param>
+    public AveroxCryptoException(string code, string message) : base(message)
+    {
+        Code = code;
+    }
+    
+    /// <summary>
+    /// Initialize exception with code, message, and inner exception
+    /// </summary>
+    /// <param name="code">Error code</param>
+    /// <param name="message">Error message</param>
+    /// <param name="innerException">Inner exception</param>
+    public AveroxCryptoException(string code, string message, Exception innerException) : base(message, innerException)
+    {
+        Code = code;
+    }
+}
+
+/// <summary>
+/// Exception raised when authentication tag verification fails
+/// </summary>
+public sealed class InvalidTagException : AveroxCryptoException
+{
+    /// <summary>
+    /// Initialize with default message
+    /// </summary>
+    public InvalidTagException() : base("INVALID_TAG", "Authentication tag verification failed")
+    {
+    }
+    
+    /// <summary>
+    /// Initialize with custom message
+    /// </summary>
+    /// <param name="message">Error message</param>
+    public InvalidTagException(string message) : base("INVALID_TAG", message)
+    {
+    }
+    
+    /// <summary>
+    /// Initialize with custom message and inner exception
+    /// </summary>
+    /// <param name="message">Error message</param>
+    /// <param name="innerException">Inner exception</param>
+    public InvalidTagException(string message, Exception innerException) : base("INVALID_TAG", message, innerException)
+    {
+    }
+}
+
+/// <summary>
+/// Exception raised when input validation fails
+/// </summary>
+public sealed class BadInputException : AveroxCryptoException
+{
+    /// <summary>
+    /// Initialize with message
+    /// </summary>
+    /// <param name="message">Error message</param>
+    public BadInputException(string message) : base("BAD_INPUT", message)
+    {
+    }
+    
+    /// <summary>
+    /// Initialize with message and inner exception
+    /// </summary>
+    /// <param name="message">Error message</param>
+    /// <param name="innerException">Inner exception</param>
+    public BadInputException(string message, Exception innerException) : base("BAD_INPUT", message, innerException)
+    {
+    }
+}`;
+
+    return {
+      'Averox.Crypto.SDK.csproj': csprojFile,
+      'AveroxCrypto.cs': coreImplementation,
+      'README.md': this.getUniversalReadme('C#', 'dotnet build'),
+      'Tests/AveroxCryptoTests.cs': this.getNISTTestSuite('csharp'),
+      'SECURITY.md': this.getUniversalSecurityGuide(),
+      'TROUBLESHOOTING.md': this.getUniversalTroubleshootingGuide()
+    };
+  }
+
   static getFixedTypeDefinitions() {
     return `// REAL TypeScript definitions
 export interface AveroxEnvelope {
