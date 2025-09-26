@@ -235,8 +235,8 @@ export class AveroxCrypto {
       // Generate random 12-byte IV
       const iv = crypto.randomBytes(AveroxCrypto.IV_SIZE);
       
-      // Create cipher
-      const cipher = crypto.createCipher('aes-256-gcm', this.masterKey);
+      // Create cipher with IV (REQUIRED for AES-GCM)
+      const cipher = crypto.createCipheriv('aes-256-gcm', this.masterKey, iv);
       cipher.setAAD(aadBuffer);
       
       // Encrypt
@@ -302,8 +302,8 @@ export class AveroxCrypto {
         throw new AveroxCryptoError('INVALID_TAG', 'Tag must be exactly 16 bytes');
       }
       
-      // Create decipher
-      const decipher = crypto.createDecipher('aes-256-gcm', this.masterKey);
+      // Create decipher with IV (REQUIRED for AES-GCM)
+      const decipher = crypto.createDecipheriv('aes-256-gcm', this.masterKey, iv);
       decipher.setAuthTag(tag);
       decipher.setAAD(aadBuffer);
       
