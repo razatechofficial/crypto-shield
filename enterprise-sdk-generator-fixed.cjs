@@ -2625,6 +2625,632 @@ MIT License - see LICENSE file for details.
     };
   }
 
+  // Go SDK with complete enterprise implementation
+  static generateGoSDK(sdk, algorithms) {
+    console.log('🐹 Generating complete enterprise Go SDK...');
+    
+    const goModFile = `module github.com/averox/crypto-sdk-go
+
+go 1.21
+
+require (
+    go.opentelemetry.io/otel v1.21.0
+    go.opentelemetry.io/otel/metric v1.21.0
+    golang.org/x/crypto v0.17.0
+)
+
+require (
+    go.opentelemetry.io/otel/trace v1.21.0 // indirect
+    golang.org/x/sys v0.15.0 // indirect
+)`;
+
+    const coreImplementation = `package averox
+
+import (
+    "context"
+    "crypto/aes"
+    "crypto/cipher"
+    "crypto/rand"
+    "encoding/base64"
+    "encoding/json"
+    "fmt"
+    "runtime"
+    "sync/atomic"
+    "time"
+
+    "go.opentelemetry.io/otel"
+    "go.opentelemetry.io/otel/attribute"
+    "go.opentelemetry.io/otel/metric"
+    "go.opentelemetry.io/otel/trace"
+)
+
+var (
+    // Enterprise metrics tracking
+    encryptionCount int64
+    decryptionCount int64
+    errorCount      int64
+    
+    // OpenTelemetry metrics
+    meter         = otel.Meter("github.com/averox/crypto-sdk-go")
+    encryptCounter, _ = meter.Int64Counter("crypto_encrypt_total", metric.WithDescription("Total encryption operations"))
+    decryptCounter, _ = meter.Int64Counter("crypto_decrypt_total", metric.WithDescription("Total decryption operations"))
+    errorCounter, _   = meter.Int64Counter("crypto_error_total", metric.WithDescription("Total error operations"))
+)
+
+// AveroxCrypto represents the main cryptographic instance
+type AveroxCrypto struct {
+    masterKey [32]byte
+}
+
+// NewAveroxCrypto creates a new cryptographic instance with a 32-byte master key
+func NewAveroxCrypto(masterKey []byte) (*AveroxCrypto, error) {
+    if len(masterKey) != 32 {
+        return nil, &AveroxCryptoError{
+            Code:    "INVALID_KEY_SIZE",
+            Message: "Master key must be exactly 32 bytes",
+        }
+    }
+    
+    crypto := &AveroxCrypto{}
+    copy(crypto.masterKey[:], masterKey)
+    
+    return crypto, nil
+}
+
+// GenerateMasterKey generates a cryptographically secure 32-byte master key
+func GenerateMasterKey() ([]byte, error) {
+    key := make([]byte, 32)
+    if _, err := rand.Read(key); err != nil {
+        return nil, fmt.Errorf("failed to generate master key: %w", err)
+    }
+    return key, nil
+}
+
+// Encrypt encrypts data with AES-256-GCM and mandatory AAD
+func (c *AveroxCrypto) Encrypt(plaintext, aad []byte) (*EnvelopeV2, error) {
+    if len(aad) == 0 {
+        incrementError()
+        return nil, &AveroxCryptoError{
+            Code:    "AAD_REQUIRED",
+            Message: "AAD (Additional Authenticated Data) is required and cannot be empty",
+        }
+    }
+    
+    ctx := context.Background()
+    span := trace.SpanFromContext(ctx)
+    span.SetAttributes(
+        attribute.Int("plaintext.length", len(plaintext)),
+        attribute.Int("aad.length", len(aad)),
+    )
+    
+    // Create AES cipher
+    block, err := aes.NewCipher(c.masterKey[:])
+    if err != nil {
+        incrementError()
+        span.RecordError(err)
+        return nil, &AveroxCryptoError{
+            Code:    "ENCRYPTION_FAILED",
+            Message: fmt.Sprintf("Failed to create cipher: %v", err),
+        }
+    }
+    
+    // Create GCM mode
+    gcm, err := cipher.NewGCM(block)
+    if err != nil {
+        incrementError()
+        span.RecordError(err)
+        return nil, &AveroxCryptoError{
+            Code:    "ENCRYPTION_FAILED",
+            Message: fmt.Sprintf("Failed to create GCM: %v", err),
+        }
+    }
+    
+    // Generate random 12-byte nonce
+    nonce := make([]byte, 12)
+    if _, err := rand.Read(nonce); err != nil {
+        incrementError()
+        span.RecordError(err)
+        return nil, &AveroxCryptoError{
+            Code:    "ENCRYPTION_FAILED",
+            Message: fmt.Sprintf("Failed to generate nonce: %v", err),
+        }
+    }
+    
+    // Encrypt with AAD
+    ciphertext := gcm.Seal(nil, nonce, plaintext, aad)
+    
+    // Split ciphertext and tag (last 16 bytes)
+    if len(ciphertext) < 16 {
+        incrementError()
+        return nil, &AveroxCryptoError{
+            Code:    "ENCRYPTION_FAILED",
+            Message: "Ciphertext too short",
+        }
+    }
+    
+    actualCiphertext := ciphertext[:len(ciphertext)-16]
+    tag := ciphertext[len(ciphertext)-16:]
+    
+    envelope := &EnvelopeV2{
+        Algorithm:  "AES-256-GCM",
+        Version:    "v2",
+        Ciphertext: base64.StdEncoding.EncodeToString(actualCiphertext),
+        Tag:        base64.StdEncoding.EncodeToString(tag),
+        IV:         base64.StdEncoding.EncodeToString(nonce),
+        Timestamp:  time.Now().Unix(),
+    }
+    
+    incrementEncryption()
+    encryptCounter.Add(ctx, 1)
+    span.SetAttributes(attribute.String("operation.status", "success"))
+    
+    return envelope, nil
+}
+
+// Decrypt decrypts an envelope with AES-256-GCM and mandatory AAD
+func (c *AveroxCrypto) Decrypt(envelope *EnvelopeV2, aad []byte) ([]byte, error) {
+    if len(aad) == 0 {
+        incrementError()
+        return nil, &AveroxCryptoError{
+            Code:    "AAD_REQUIRED",
+            Message: "AAD (Additional Authenticated Data) is required and cannot be empty",
+        }
+    }
+    
+    if envelope.Algorithm != "AES-256-GCM" {
+        incrementError()
+        return nil, &AveroxCryptoError{
+            Code:    "UNSUPPORTED_ALGORITHM",
+            Message: fmt.Sprintf("Algorithm %s not supported", envelope.Algorithm),
+        }
+    }
+    
+    ctx := context.Background()
+    span := trace.SpanFromContext(ctx)
+    span.SetAttributes(
+        attribute.String("envelope.algorithm", envelope.Algorithm),
+        attribute.Int("aad.length", len(aad)),
+    )
+    
+    // Decode base64 components
+    ciphertext, err := base64.StdEncoding.DecodeString(envelope.Ciphertext)
+    if err != nil {
+        incrementError()
+        span.RecordError(err)
+        return nil, &AveroxCryptoError{
+            Code:    "INVALID_ENVELOPE",
+            Message: fmt.Sprintf("Invalid ciphertext encoding: %v", err),
+        }
+    }
+    
+    tag, err := base64.StdEncoding.DecodeString(envelope.Tag)
+    if err != nil {
+        incrementError()
+        span.RecordError(err)
+        return nil, &AveroxCryptoError{
+            Code:    "INVALID_ENVELOPE",
+            Message: fmt.Sprintf("Invalid tag encoding: %v", err),
+        }
+    }
+    
+    nonce, err := base64.StdEncoding.DecodeString(envelope.IV)
+    if err != nil {
+        incrementError()
+        span.RecordError(err)
+        return nil, &AveroxCryptoError{
+            Code:    "INVALID_ENVELOPE",
+            Message: fmt.Sprintf("Invalid IV encoding: %v", err),
+        }
+    }
+    
+    // Validate sizes
+    if len(nonce) != 12 {
+        incrementError()
+        return nil, &AveroxCryptoError{
+            Code:    "INVALID_IV",
+            Message: "IV must be exactly 12 bytes",
+        }
+    }
+    
+    if len(tag) != 16 {
+        incrementError()
+        return nil, &AveroxCryptoError{
+            Code:    "INVALID_TAG",
+            Message: "Tag must be exactly 16 bytes",
+        }
+    }
+    
+    // Create AES cipher
+    block, err := aes.NewCipher(c.masterKey[:])
+    if err != nil {
+        incrementError()
+        span.RecordError(err)
+        return nil, &AveroxCryptoError{
+            Code:    "DECRYPTION_FAILED",
+            Message: fmt.Sprintf("Failed to create cipher: %v", err),
+        }
+    }
+    
+    // Create GCM mode
+    gcm, err := cipher.NewGCM(block)
+    if err != nil {
+        incrementError()
+        span.RecordError(err)
+        return nil, &AveroxCryptoError{
+            Code:    "DECRYPTION_FAILED",
+            Message: fmt.Sprintf("Failed to create GCM: %v", err),
+        }
+    }
+    
+    // Reconstruct full ciphertext with tag
+    fullCiphertext := append(ciphertext, tag...)
+    
+    // Decrypt with AAD
+    plaintext, err := gcm.Open(nil, nonce, fullCiphertext, aad)
+    if err != nil {
+        incrementError()
+        span.RecordError(err)
+        return nil, &AveroxCryptoError{
+            Code:    "AUTHENTICATION_FAILED",
+            Message: "Authentication failed - data may have been tampered with",
+        }
+    }
+    
+    incrementDecryption()
+    decryptCounter.Add(ctx, 1)
+    span.SetAttributes(attribute.String("operation.status", "success"))
+    
+    return plaintext, nil
+}
+
+// Zeroize securely clears the master key from memory
+func (c *AveroxCrypto) Zeroize() {
+    for i := range c.masterKey {
+        c.masterKey[i] = 0
+    }
+    runtime.GC() // Force garbage collection
+}
+
+// GetDiagnostics returns SDK diagnostic information
+func GetDiagnostics() *DiagnosticInfo {
+    return &DiagnosticInfo{
+        EncryptionCount: atomic.LoadInt64(&encryptionCount),
+        DecryptionCount: atomic.LoadInt64(&decryptionCount),
+        ErrorCount:      atomic.LoadInt64(&errorCount),
+        Version:         "2.0.0",
+    }
+}
+
+// EnvelopeV2 represents the encrypted data envelope format
+type EnvelopeV2 struct {
+    Algorithm  string \`json:"algorithm"\`
+    Version    string \`json:"version"\`
+    Ciphertext string \`json:"ciphertext"\`
+    Tag        string \`json:"tag"\`
+    IV         string \`json:"iv"\`
+    Timestamp  int64  \`json:"timestamp"\`
+}
+
+// ToJSON serializes the envelope to JSON
+func (e *EnvelopeV2) ToJSON() (string, error) {
+    data, err := json.Marshal(e)
+    if err != nil {
+        return "", err
+    }
+    return string(data), nil
+}
+
+// FromJSON deserializes an envelope from JSON
+func EnvelopeFromJSON(jsonData string) (*EnvelopeV2, error) {
+    var envelope EnvelopeV2
+    if err := json.Unmarshal([]byte(jsonData), &envelope); err != nil {
+        return nil, err
+    }
+    return &envelope, nil
+}
+
+// DiagnosticInfo contains SDK diagnostic information
+type DiagnosticInfo struct {
+    EncryptionCount int64  \`json:"encryption_count"\`
+    DecryptionCount int64  \`json:"decryption_count"\`
+    ErrorCount      int64  \`json:"error_count"\`
+    Version         string \`json:"version"\`
+}
+
+// AveroxCryptoError represents cryptographic errors
+type AveroxCryptoError struct {
+    Code    string
+    Message string
+}
+
+func (e *AveroxCryptoError) Error() string {
+    return fmt.Sprintf("%s: %s", e.Code, e.Message)
+}
+
+// Private helper functions
+func incrementEncryption() {
+    atomic.AddInt64(&encryptionCount, 1)
+}
+
+func incrementDecryption() {
+    atomic.AddInt64(&decryptionCount, 1)
+}
+
+func incrementError() {
+    atomic.AddInt64(&errorCount, 1)
+}`;
+
+    const testFile = `package averox
+
+import (
+    "bytes"
+    "testing"
+)
+
+func TestGenerateMasterKey(t *testing.T) {
+    key, err := GenerateMasterKey()
+    if err != nil {
+        t.Fatalf("Failed to generate master key: %v", err)
+    }
+    
+    if len(key) != 32 {
+        t.Errorf("Expected key length 32, got %d", len(key))
+    }
+}
+
+func TestNewAveroxCrypto(t *testing.T) {
+    key, _ := GenerateMasterKey()
+    
+    crypto, err := NewAveroxCrypto(key)
+    if err != nil {
+        t.Fatalf("Failed to create AveroxCrypto: %v", err)
+    }
+    
+    if crypto == nil {
+        t.Error("Expected non-nil crypto instance")
+    }
+}
+
+func TestNewAveroxCryptoInvalidKey(t *testing.T) {
+    invalidKey := make([]byte, 16) // Too short
+    
+    _, err := NewAveroxCrypto(invalidKey)
+    if err == nil {
+        t.Error("Expected error for invalid key size")
+    }
+    
+    cryptoErr, ok := err.(*AveroxCryptoError)
+    if !ok {
+        t.Error("Expected AveroxCryptoError")
+    }
+    
+    if cryptoErr.Code != "INVALID_KEY_SIZE" {
+        t.Errorf("Expected error code INVALID_KEY_SIZE, got %s", cryptoErr.Code)
+    }
+}
+
+func TestEncryptDecryptRoundTrip(t *testing.T) {
+    key, _ := GenerateMasterKey()
+    crypto, _ := NewAveroxCrypto(key)
+    defer crypto.Zeroize()
+    
+    plaintext := []byte("Sensitive enterprise data 🔒")
+    aad := []byte("enterprise-context")
+    
+    envelope, err := crypto.Encrypt(plaintext, aad)
+    if err != nil {
+        t.Fatalf("Encryption failed: %v", err)
+    }
+    
+    if envelope.Algorithm != "AES-256-GCM" {
+        t.Errorf("Expected algorithm AES-256-GCM, got %s", envelope.Algorithm)
+    }
+    
+    if envelope.Version != "v2" {
+        t.Errorf("Expected version v2, got %s", envelope.Version)
+    }
+    
+    decrypted, err := crypto.Decrypt(envelope, aad)
+    if err != nil {
+        t.Fatalf("Decryption failed: %v", err)
+    }
+    
+    if !bytes.Equal(plaintext, decrypted) {
+        t.Error("Decrypted data does not match original")
+    }
+}
+
+func TestEncryptWithoutAAD(t *testing.T) {
+    key, _ := GenerateMasterKey()
+    crypto, _ := NewAveroxCrypto(key)
+    defer crypto.Zeroize()
+    
+    plaintext := []byte("Hello, World!")
+    emptyAAD := []byte{}
+    
+    _, err := crypto.Encrypt(plaintext, emptyAAD)
+    if err == nil {
+        t.Error("Expected error for empty AAD")
+    }
+    
+    cryptoErr, ok := err.(*AveroxCryptoError)
+    if !ok {
+        t.Error("Expected AveroxCryptoError")
+    }
+    
+    if cryptoErr.Code != "AAD_REQUIRED" {
+        t.Errorf("Expected error code AAD_REQUIRED, got %s", cryptoErr.Code)
+    }
+}
+
+func TestDecryptWithWrongAAD(t *testing.T) {
+    key, _ := GenerateMasterKey()
+    crypto, _ := NewAveroxCrypto(key)
+    defer crypto.Zeroize()
+    
+    plaintext := []byte("Hello, World!")
+    correctAAD := []byte("correct-context")
+    wrongAAD := []byte("wrong-context")
+    
+    envelope, err := crypto.Encrypt(plaintext, correctAAD)
+    if err != nil {
+        t.Fatalf("Encryption failed: %v", err)
+    }
+    
+    _, err = crypto.Decrypt(envelope, wrongAAD)
+    if err == nil {
+        t.Error("Expected error for wrong AAD")
+    }
+    
+    cryptoErr, ok := err.(*AveroxCryptoError)
+    if !ok {
+        t.Error("Expected AveroxCryptoError")
+    }
+    
+    if cryptoErr.Code != "AUTHENTICATION_FAILED" {
+        t.Errorf("Expected error code AUTHENTICATION_FAILED, got %s", cryptoErr.Code)
+    }
+}
+
+func TestGetDiagnostics(t *testing.T) {
+    info := GetDiagnostics()
+    
+    if info.Version != "2.0.0" {
+        t.Errorf("Expected version 2.0.0, got %s", info.Version)
+    }
+    
+    if info.EncryptionCount < 0 {
+        t.Error("Expected non-negative encryption count")
+    }
+    
+    if info.DecryptionCount < 0 {
+        t.Error("Expected non-negative decryption count")
+    }
+    
+    if info.ErrorCount < 0 {
+        t.Error("Expected non-negative error count")
+    }
+}
+
+func TestEnvelopeJSONSerialization(t *testing.T) {
+    envelope := &EnvelopeV2{
+        Algorithm:  "AES-256-GCM",
+        Version:    "v2",
+        Ciphertext: "test-ciphertext",
+        Tag:        "test-tag",
+        IV:         "test-iv",
+        Timestamp:  1234567890,
+    }
+    
+    jsonData, err := envelope.ToJSON()
+    if err != nil {
+        t.Fatalf("Failed to serialize envelope: %v", err)
+    }
+    
+    decoded, err := EnvelopeFromJSON(jsonData)
+    if err != nil {
+        t.Fatalf("Failed to deserialize envelope: %v", err)
+    }
+    
+    if decoded.Algorithm != envelope.Algorithm {
+        t.Error("Algorithm mismatch after JSON round trip")
+    }
+    
+    if decoded.Version != envelope.Version {
+        t.Error("Version mismatch after JSON round trip")
+    }
+    
+    if decoded.Ciphertext != envelope.Ciphertext {
+        t.Error("Ciphertext mismatch after JSON round trip")
+    }
+}`;
+
+    const readmeFile = `# Averox Go Crypto SDK
+
+Enterprise-grade AES-256-GCM cryptographic library with mandatory AAD enforcement for Go applications.
+
+## Features
+
+✅ **AES-256-GCM**: Industry-standard authenticated encryption  
+✅ **AAD Enforcement**: Mandatory Additional Authenticated Data  
+✅ **Enterprise Telemetry**: Built-in OpenTelemetry metrics  
+✅ **Memory Security**: Secure key zeroization  
+✅ **Thread-Safe**: Concurrent-safe operations  
+
+## Installation
+
+\`\`\`bash
+go get github.com/averox/crypto-sdk-go
+\`\`\`
+
+## Quick Start
+
+\`\`\`go
+package main
+
+import (
+    "fmt"
+    "log"
+    
+    "github.com/averox/crypto-sdk-go"
+)
+
+func main() {
+    // Generate a master key
+    masterKey, err := averox.GenerateMasterKey()
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    // Initialize the crypto instance
+    crypto, err := averox.NewAveroxCrypto(masterKey)
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer crypto.Zeroize() // Securely clear key from memory
+    
+    // Encrypt with AAD
+    plaintext := []byte("Sensitive data")
+    aad := []byte("user-session-123")
+    envelope, err := crypto.Encrypt(plaintext, aad)
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    // Decrypt
+    decrypted, err := crypto.Decrypt(envelope, aad)
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    fmt.Printf("Decrypted: %s\\n", string(decrypted))
+}
+\`\`\`
+
+## Security Features
+
+🔒 **AAD ENFORCEMENT**: This library REQUIRES Additional Authenticated Data for all encrypt/decrypt operations.
+
+🔒 **IV Policy**: 12-byte nonces are automatically generated using crypto/rand.
+
+🔒 **Memory Security**: Use \`Zeroize()\` to securely clear keys from memory.
+
+## License
+
+MIT License - see LICENSE file for details.
+`;
+
+    return {
+      'go.mod': goModFile,
+      'averox.go': coreImplementation,
+      'averox_test.go': testFile,
+      'README.md': readmeFile,
+      'LICENSE': this.getMITLicense(),
+      'INSTALLATION-GUIDE.md': this.getGoInstallationGuide(sdk),
+      'TROUBLESHOOTING.md': this.getUniversalTroubleshootingGuide()
+    };
+  }
+
   // Enterprise CI workflow with sanitizer builds
   static getEnterpriseCI() {
     return `name: Enterprise Security CI
