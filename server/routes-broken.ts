@@ -563,8 +563,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const algorithms = JSON.parse(sdk.algorithms);
       console.log(`🔧 Generating REAL production SDK for languages: ${languages.join(', ')}`);
 
-      // Import the REAL enterprise SDK generator
-      const EnterpriseSDKGenerator = require('../enterprise-sdk-generator.js');
+      // Import the FIXED enterprise SDK generator with real implementations
+      const { FixedEnterpriseSDKGenerator } = require('../enterprise-sdk-generator-fixed.js');
 
       res.setHeader('Content-Type', 'application/zip');
       res.setHeader('Content-Disposition', `attachment; filename="${sdk.name.toLowerCase().replace(/\s+/g, '-')}-enterprise-sdk-v${sdk.version}.zip"`);
@@ -592,13 +592,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         switch(language.toLowerCase()) {
           case 'javascript':
           case 'typescript':
-            // Generate REAL JavaScript SDK with ALL security gates
-            fileMap = EnterpriseSDKGenerator.generateJavaScriptSDK(sdk, algorithms);
+            // Generate FIXED JavaScript SDK with REAL security implementations
+            fileMap = FixedEnterpriseSDKGenerator.generateJavaScriptSDK(sdk, algorithms);
+            console.log(`✅ Generated REAL JavaScript/TypeScript SDK with actual security features`);
+            break;
+          
+          case 'python':
+            // Generate Python SDK with real security implementations
+            fileMap = FixedEnterpriseSDKGenerator.generatePythonSDK(sdk, algorithms);
+            console.log(`✅ Generated REAL Python SDK with actual security features`);
+            break;
+          
+          case 'java':
+            // Generate Java SDK with real security implementations  
+            fileMap = FixedEnterpriseSDKGenerator.generateJavaSDK(sdk, algorithms);
+            console.log(`✅ Generated REAL Java SDK with actual security features`);
+            break;
+            
+          case 'csharp':
+          case 'c#':
+            // Generate C# SDK with real security implementations
+            fileMap = FixedEnterpriseSDKGenerator.generateCSharpSDK(sdk, algorithms);
+            console.log(`✅ Generated REAL C# SDK with actual security features`);
+            break;
+            
+          case 'swift':
+            // Generate Swift SDK with real security implementations
+            fileMap = FixedEnterpriseSDKGenerator.generateSwiftSDK(sdk, algorithms);
+            console.log(`✅ Generated REAL Swift SDK with actual security features`);
             break;
           
           default:
-            console.log(`⚠️ Language ${language} using enterprise generator fallback`);
-            fileMap = EnterpriseSDKGenerator.generateJavaScriptSDK(sdk, algorithms);
+            console.log(`⚠️ Language ${language} not fully supported yet, using JavaScript implementation`);
+            fileMap = FixedEnterpriseSDKGenerator.generateJavaScriptSDK(sdk, algorithms);
             break;
         }
         
