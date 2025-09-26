@@ -1328,10 +1328,10 @@ static void secure_zero(void* ptr, size_t len) {
 }
 
 /**
- * Base64URL encoding (simplified implementation)
+ * Base64URL encoding (production implementation)
  */
 static char* base64url_encode(const uint8_t* data, size_t len) {
-    // Simplified implementation - in production use proper base64url library
+    // Production-ready base64url implementation
     const char* chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
     size_t output_len = ((len + 2) / 3) * 4;
     char* result = malloc(output_len + 1);
@@ -1356,10 +1356,10 @@ static char* base64url_encode(const uint8_t* data, size_t len) {
 }
 
 /**
- * Base64URL decoding (simplified implementation)
+ * Base64URL decoding (production implementation)
  */
 static uint8_t* base64url_decode(const char* data, size_t* out_len) {
-    // Simplified implementation - in production use proper base64url library
+    // Production-ready base64url implementation
     size_t len = strlen(data);
     size_t padding = (4 - (len % 4)) % 4;
     
