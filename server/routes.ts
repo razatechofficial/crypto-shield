@@ -3057,6 +3057,334 @@ cryptoHealthCheck()
     res.send(guide);
   });
 
+  // Java Installation Guide
+  app.get('/api/docs/java-installation-guide', isAuthenticated, async (req, res) => {
+    const guide = `# Java SDK - Installation Guide
+
+## System Requirements
+- **Java**: 11+ (17+ recommended)
+- **Maven**: 3.6+ or **Gradle**: 7.0+
+- **Operating System**: Windows 10+, macOS 10.15+, Linux
+- **Memory**: 512MB+ heap space
+- **JCE**: Unlimited strength jurisdiction policy files
+
+## Installation
+
+### Maven
+\`\`\`xml
+<dependency>
+    <groupId>com.averox</groupId>
+    <artifactId>crypto-sdk</artifactId>
+    <version>2.0.0</version>
+</dependency>
+\`\`\`
+
+### Gradle
+\`\`\`gradle
+implementation 'com.averox:crypto-sdk:2.0.0'
+\`\`\`
+
+## Quick Start
+
+\`\`\`java
+import com.averox.crypto.AveroxCrypto;
+import com.averox.crypto.AveroxEnvelope;
+
+public class CryptoExample {
+    public static void main(String[] args) {
+        try {
+            // Generate master key
+            byte[] masterKey = AveroxCrypto.generateMasterKey();
+            AveroxCrypto crypto = new AveroxCrypto(masterKey);
+            
+            // Encrypt with AAD
+            byte[] plaintext = "Sensitive data".getBytes();
+            byte[] aad = "context-data".getBytes();
+            AveroxEnvelope envelope = crypto.encrypt(plaintext, aad);
+            
+            System.out.println("Encrypted successfully");
+            
+            // Decrypt
+            byte[] decrypted = crypto.decrypt(envelope, aad);
+            System.out.println("Decrypted: " + new String(decrypted));
+            
+        } catch (Exception e) {
+            System.err.println("Encryption failed: " + e.getMessage());
+        }
+    }
+}
+\`\`\`
+
+## Troubleshooting
+
+### ClassNotFoundException
+\`\`\`bash
+# Verify Maven/Gradle installation
+mvn dependency:tree | grep averox
+# or
+./gradlew dependencies | grep averox
+\`\`\`
+
+### Security Policy Issues
+Check JCE policy - Java 8u161+ or Java 11+ have unlimited crypto by default.
+
+---
+*Java SDK Installation Guide*
+`;
+
+    res.setHeader('Content-Type', 'text/markdown');
+    res.setHeader('Content-Disposition', 'attachment; filename="java-installation-guide.md"');
+    res.send(guide);
+  });
+
+  // C/C++ Installation Guide
+  app.get('/api/docs/c-cpp-installation-guide', isAuthenticated, async (req, res) => {
+    const guide = `# C/C++ SDK - Installation Guide
+
+## System Requirements
+- **CMake**: 3.10+
+- **Compiler**: GCC 7+, Clang 10+, MSVC 2019+
+- **OpenSSL**: 1.1.0+
+- **pkg-config**: For integration
+- **Operating System**: Windows 10+, macOS 10.15+, Linux
+
+## Installation
+
+### From Source (Recommended)
+\`\`\`bash
+# Download and extract SDK
+git clone https://github.com/averox/c-sdk.git
+cd averox-c-sdk
+
+# Build and install
+mkdir build && cd build
+cmake ..
+make -j$(nproc)
+sudo make install
+\`\`\`
+
+### Using Package Manager
+
+#### Ubuntu/Debian
+\`\`\`bash
+sudo apt update
+sudo apt install libaverox-crypto-dev
+\`\`\`
+
+#### macOS (Homebrew)
+\`\`\`bash
+brew install averox/crypto
+\`\`\`
+
+## Quick Start
+
+### Basic Usage
+\`\`\`c
+#include <averox_crypto.h>
+#include <stdio.h>
+#include <string.h>
+
+int main() {
+    // Generate master key
+    uint8_t master_key[AVEROX_KEY_SIZE];
+    averox_generate_key(master_key);
+    
+    // Setup encryption
+    const char* plaintext = "Sensitive data";
+    const char* aad = "context-info";
+    
+    averox_envelope_t envelope;
+    averox_envelope_init(&envelope);
+    
+    // Encrypt (AAD required)
+    averox_error_t result = averox_encrypt(
+        master_key,
+        (uint8_t*)plaintext, strlen(plaintext),
+        (uint8_t*)aad, strlen(aad),
+        &envelope
+    );
+    
+    if (result != AVEROX_SUCCESS) {
+        printf("Encryption failed: %d\\n", result);
+        return 1;
+    }
+    
+    printf("✅ Encryption successful\\n");
+    
+    // Cleanup
+    averox_envelope_free(&envelope);
+    averox_secure_zero(master_key, AVEROX_KEY_SIZE);
+    
+    return 0;
+}
+\`\`\`
+
+## Integration with pkg-config
+
+After installation:
+
+\`\`\`bash
+# Check if the library is available
+pkg-config --exists sdkcrypto
+
+# Get compiler flags
+pkg-config --cflags sdkcrypto
+
+# Get linker flags  
+pkg-config --libs sdkcrypto
+
+# Compile your application
+gcc myapp.c $(pkg-config --cflags --libs sdkcrypto) -o myapp
+\`\`\`
+
+## Troubleshooting
+
+### Build Errors
+\`\`\`bash
+# Missing OpenSSL
+sudo apt install libssl-dev  # Ubuntu
+brew install openssl         # macOS
+
+# Missing CMake
+sudo apt install cmake       # Ubuntu
+brew install cmake          # macOS
+\`\`\`
+
+### Runtime Errors
+\`\`\`bash
+# Library not found
+export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+
+# Check installation
+pkg-config --exists sdkcrypto && echo "✅ SDK found" || echo "❌ SDK not found"
+\`\`\`
+
+---
+*C/C++ SDK Installation Guide*
+`;
+
+    res.setHeader('Content-Type', 'text/markdown');
+    res.setHeader('Content-Disposition', 'attachment; filename="c-cpp-installation-guide.md"');
+    res.send(guide);
+  });
+
+  // C# Installation Guide (Placeholder)
+  app.get('/api/docs/csharp-installation-guide', isAuthenticated, async (req, res) => {
+    const guide = `# C# SDK - Installation Guide
+
+## ⚠️ Current Status: Placeholder Implementation
+
+**Important Notice**: The C# SDK is currently a placeholder implementation that returns the JavaScript/TypeScript SDK. Full native C# implementation is planned for future releases.
+
+## Recommended Approach
+
+### Option 1: Use JavaScript SDK via Node.js Integration
+\`\`\`csharp
+// Use Process to call Node.js SDK
+using System.Diagnostics;
+
+public class AveroxCryptoWrapper 
+{
+    public string Encrypt(string data, string aad) 
+    {
+        var process = new Process();
+        process.StartInfo.FileName = "node";
+        process.StartInfo.Arguments = $"-e \\"const crypto = require('@averox/crypto-sdk'); console.log(crypto.encrypt('{data}', '{aad}'));\\"";
+        process.StartInfo.RedirectStandardOutput = true;
+        process.Start();
+        return process.StandardOutput.ReadToEnd();
+    }
+}
+\`\`\`
+
+### Option 2: Wait for Native C# Implementation
+The native C# SDK is planned with these features:
+- ✅ Native .NET 6+ support
+- ✅ NuGet package distribution
+- ✅ Enterprise security compliance
+- ✅ OpenTelemetry integration
+- ✅ Async/await patterns
+
+## Migration Path
+
+When the native C# SDK becomes available:
+1. Uninstall current workaround solutions
+2. Install Averox.Crypto.SDK NuGet package
+3. Update using statements
+4. Replace wrapper calls with native SDK methods
+5. Test thoroughly in your environment
+
+---
+*This is a placeholder guide. Native C# implementation coming soon.*
+`;
+
+    res.setHeader('Content-Type', 'text/markdown');
+    res.setHeader('Content-Disposition', 'attachment; filename="csharp-installation-guide.md"');
+    res.send(guide);
+  });
+
+  // Swift Installation Guide (Placeholder)
+  app.get('/api/docs/swift-installation-guide', isAuthenticated, async (req, res) => {
+    const guide = `# Swift SDK - Installation Guide
+
+## ⚠️ Current Status: Placeholder Implementation
+
+**Important Notice**: The Swift SDK is currently a placeholder implementation that returns the JavaScript/TypeScript SDK. Full native Swift implementation is planned for future releases.
+
+## Recommended Approach
+
+### Option 1: Use JavaScript SDK via JavaScriptCore
+\`\`\`swift
+import JavaScriptCore
+
+class AveroxCryptoWrapper {
+    private let context = JSContext()!
+    
+    init() {
+        // Load the JavaScript SDK
+        if let jsPath = Bundle.main.path(forResource: "averox-crypto", ofType: "js") {
+            let jsSource = try! String(contentsOfFile: jsPath)
+            context.evaluateScript(jsSource)
+        }
+    }
+    
+    func encrypt(data: String, aad: String) -> String? {
+        let script = """
+        const crypto = require('@averox/crypto-sdk');
+        crypto.encrypt('\\(data)', '\\(aad)');
+        """
+        return context.evaluateScript(script)?.toString()
+    }
+}
+\`\`\`
+
+### Option 2: Wait for Native Swift Implementation
+The native Swift SDK is planned with these features:
+- ✅ Native Swift 5.7+ support
+- ✅ Swift Package Manager distribution
+- ✅ iOS 15+ and macOS 12+ support
+- ✅ Enterprise security compliance
+- ✅ async/await patterns
+- ✅ Combine publisher support
+
+## Migration Path
+
+When the native Swift SDK becomes available:
+1. Remove current workaround implementations
+2. Add Swift Package Manager dependency
+3. Update import statements
+4. Replace wrapper calls with native SDK methods
+5. Test on all target platforms (iOS, macOS, watchOS)
+
+---
+*This is a placeholder guide. Native Swift implementation coming soon.*
+`;
+
+    res.setHeader('Content-Type', 'text/markdown');
+    res.setHeader('Content-Disposition', 'attachment; filename="swift-installation-guide.md"');
+    res.send(guide);
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
