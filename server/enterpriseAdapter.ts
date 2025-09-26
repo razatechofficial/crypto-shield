@@ -66,6 +66,11 @@ export class EnterpriseAdapter {
           case 'swift':
             fileMap = FixedEnterpriseSDKGenerator.generateSwiftSDK(sdk, algorithms);
             break;
+            
+          case 'android':
+          case 'kotlin':
+            fileMap = FixedEnterpriseSDKGenerator.generateAndroidSDK(sdk, algorithms);
+            break;
           
           default:
             console.log(`⚠️ Language ${language} not yet implemented, using JavaScript SDK`);
