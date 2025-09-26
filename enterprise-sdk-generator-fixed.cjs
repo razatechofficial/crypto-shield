@@ -10362,6 +10362,7 @@ dependencies:
   crypto: ^3.0.3
   convert: ^3.1.1
   opentelemetry: ^0.19.0
+  pointycastle: ^3.7.3
 
 dev_dependencies:
   test: ^1.24.3
@@ -10540,44 +10541,55 @@ class AveroxCrypto {
     return iv;
   }
 
-  // Simplified AES-GCM implementation (in production, use proper crypto library)
+  // Real AES-256-GCM implementation using PointyCastle
   Future<_EncryptionResult> _encryptAESGCM(
       Uint8List plaintext, Uint8List key, Uint8List iv, Uint8List aad) async {
-    // This is a simplified implementation for demonstration
-    // In production, use a proper AES-GCM implementation
-    final hmacKey = Hmac(sha256, key);
-    final combined = Uint8List.fromList([...plaintext, ...aad, ...iv]);
-    final tag = Uint8List.fromList(hmacKey.convert(combined).bytes.take(_tagSize).toList());
+    // Import statement should be: import 'package:pointycastle/export.dart';
+    // This implements REAL AES-256-GCM encryption with authenticated encryption
     
-    // Simple XOR encryption (NOT secure - for demo only)
-    final ciphertext = Uint8List(plaintext.length);
-    for (int i = 0; i < plaintext.length; i++) {
-      ciphertext[i] = plaintext[i] ^ key[i % key.length];
-    }
+    // Create GCM cipher with AES engine
+    final cipher = GCMBlockCipher(AESEngine());
+    final keyParam = KeyParameter(key);
+    final params = AEADParameters(keyParam, _tagSize * 8, iv, aad);
+    
+    // Initialize for encryption
+    cipher.init(true, params);
+    
+    // Encrypt plaintext with AAD authentication
+    final ciphertextWithTag = cipher.process(plaintext);
+    
+    // Split ciphertext and authentication tag
+    final ciphertextLength = ciphertextWithTag.length - _tagSize;
+    final ciphertext = ciphertextWithTag.sublist(0, ciphertextLength);
+    final tag = ciphertextWithTag.sublist(ciphertextLength);
     
     return _EncryptionResult(ciphertext: ciphertext, tag: tag);
   }
 
   Future<Uint8List> _decryptAESGCM(
       Uint8List ciphertext, Uint8List key, Uint8List iv, Uint8List tag, Uint8List aad) async {
-    // Verify tag first
-    final hmacKey = Hmac(sha256, key);
+    // Real AES-256-GCM decryption using PointyCastle
+    // This implements REAL AES-256-GCM decryption with authenticated decryption
     
-    // Simple XOR decryption (NOT secure - for demo only)
-    final plaintext = Uint8List(ciphertext.length);
-    for (int i = 0; i < ciphertext.length; i++) {
-      plaintext[i] = ciphertext[i] ^ key[i % key.length];
+    // Create GCM cipher with AES engine
+    final cipher = GCMBlockCipher(AESEngine());
+    final keyParam = KeyParameter(key);
+    final params = AEADParameters(keyParam, _tagSize * 8, iv, aad);
+    
+    // Initialize for decryption
+    cipher.init(false, params);
+    
+    // Reconstruct ciphertext with tag for GCM verification
+    final ciphertextWithTag = Uint8List.fromList([...ciphertext, ...tag]);
+    
+    try {
+      // Decrypt and verify authentication tag
+      final plaintext = cipher.process(ciphertextWithTag);
+      return plaintext;
+    } catch (e) {
+      // GCM cipher throws exception on authentication failure
+      throw Exception('Authentication failed - data may have been tampered with');
     }
-    
-    // Verify authentication tag
-    final combined = Uint8List.fromList([...plaintext, ...aad, ...iv]);
-    final expectedTag = Uint8List.fromList(hmacKey.convert(combined).bytes.take(_tagSize).toList());
-    
-    if (!_constantTimeEquals(tag, expectedTag)) {
-      throw Exception('Authentication failed');
-    }
-    
-    return plaintext;
   }
 
   bool _constantTimeEquals(Uint8List a, Uint8List b) {
