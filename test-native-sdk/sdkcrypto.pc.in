@@ -1,0 +1,11 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: sdkcrypto
+Description: TestNativeSDK Cryptographic SDK - Enterprise encryption library
+Version: @PROJECT_VERSION@
+Requires: openssl >= 1.1.0
+Libs: -L${libdir} -ltestnativesdk_crypto
+Cflags: -I${includedir}
