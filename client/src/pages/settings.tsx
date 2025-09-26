@@ -122,10 +122,10 @@ export default function Settings() {
   };
 
   return (
-    <div className="p-6 bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 min-h-screen">
+    <div className="p-6 bg-white min-h-screen">
       <div className="max-w-4xl">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-2xl font-bold text-white">Settings</h3>
+          <h3 className="text-2xl font-bold text-gray-900">Settings</h3>
           <Button 
             onClick={handleSaveSettings}
             disabled={saveSettingsMutation.isPending}
@@ -139,9 +139,9 @@ export default function Settings() {
         
         <div className="space-y-6">
           {/* Security Settings */}
-          <Card className="bg-slate-800 border-slate-700">
+          <Card className="bg-white border-gray-200 shadow-sm">
             <CardHeader>
-              <CardTitle className="text-white flex items-center">
+              <CardTitle className="text-gray-900 flex items-center">
                 <Shield className="w-5 h-5 mr-2" />
                 Security Settings
               </CardTitle>
@@ -149,8 +149,8 @@ export default function Settings() {
             <CardContent className="space-y-6">
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
-                  <Label className="text-white font-medium">Auto Key Rotation</Label>
-                  <p className="text-slate-400 text-sm">Automatically rotate encryption keys at specified intervals</p>
+                  <Label className="text-gray-900 font-medium">Auto Key Rotation</Label>
+                  <p className="text-gray-600 text-sm">Automatically rotate encryption keys at specified intervals</p>
                 </div>
                 <Switch
                   checked={autoKeyRotation}
@@ -159,12 +159,12 @@ export default function Settings() {
                 />
               </div>
 
-              <Separator className="bg-slate-700" />
+              <Separator className="bg-gray-100" />
 
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
-                  <Label className="text-white font-medium">Threat Detection</Label>
-                  <p className="text-slate-400 text-sm">Real-time monitoring for security threats and anomalies</p>
+                  <Label className="text-gray-900 font-medium">Threat Detection</Label>
+                  <p className="text-gray-600 text-sm">Real-time monitoring for security threats and anomalies</p>
                 </div>
                 <Switch
                   checked={threatDetection}
@@ -173,13 +173,13 @@ export default function Settings() {
                 />
               </div>
 
-              <Separator className="bg-slate-700" />
+              <Separator className="bg-gray-100" />
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label className="text-white font-medium">Default Encryption Algorithm</Label>
+                  <Label className="text-gray-900 font-medium">Default Encryption Algorithm</Label>
                   <Select value={defaultAlgorithm} onValueChange={setDefaultAlgorithm}>
-                    <SelectTrigger className="bg-slate-700 border-slate-600 text-white" data-testid="select-default-algorithm">
+                    <SelectTrigger className="bg-white border-gray-300 text-gray-900" data-testid="select-default-algorithm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -197,9 +197,9 @@ export default function Settings() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-white font-medium">Key Rotation Interval (days)</Label>
+                  <Label className="text-gray-900 font-medium">Key Rotation Interval (days)</Label>
                   <Select value={keyRotationInterval} onValueChange={setKeyRotationInterval}>
-                    <SelectTrigger className="bg-slate-700 border-slate-600 text-white" data-testid="select-rotation-interval">
+                    <SelectTrigger className="bg-white border-gray-300 text-gray-900" data-testid="select-rotation-interval">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -214,27 +214,27 @@ export default function Settings() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label className="text-white font-medium">Session Timeout (hours)</Label>
+                  <Label className="text-gray-900 font-medium">Session Timeout (hours)</Label>
                   <Input
                     type="number"
                     value={sessionTimeout}
                     onChange={(e) => setSessionTimeout(e.target.value)}
                     min="1"
                     max="24"
-                    className="bg-slate-700 border-slate-600 text-white"
+                    className="bg-white border-gray-300 text-gray-900"
                     data-testid="input-session-timeout"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-white font-medium">Max Failed Login Attempts</Label>
+                  <Label className="text-gray-900 font-medium">Max Failed Login Attempts</Label>
                   <Input
                     type="number"
                     value={maxFailedAttempts}
                     onChange={(e) => setMaxFailedAttempts(e.target.value)}
                     min="3"
                     max="10"
-                    className="bg-slate-700 border-slate-600 text-white"
+                    className="bg-white border-gray-300 text-gray-900"
                     data-testid="input-max-failed-attempts"
                   />
                 </div>
@@ -243,9 +243,9 @@ export default function Settings() {
           </Card>
 
           {/* Notification Settings */}
-          <Card className="bg-slate-800 border-slate-700">
+          <Card className="bg-white border-gray-200 shadow-sm">
             <CardHeader>
-              <CardTitle className="text-white flex items-center">
+              <CardTitle className="text-gray-900 flex items-center">
                 <Bell className="w-5 h-5 mr-2" />
                 Notification Settings
               </CardTitle>
@@ -253,8 +253,8 @@ export default function Settings() {
             <CardContent className="space-y-6">
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
-                  <Label className="text-white font-medium">Email Notifications</Label>
-                  <p className="text-slate-400 text-sm">Receive security alerts and system updates via email</p>
+                  <Label className="text-gray-900 font-medium">Email Notifications</Label>
+                  <p className="text-gray-600 text-sm">Receive security alerts and system updates via email</p>
                 </div>
                 <Switch
                   checked={emailNotifications}
@@ -263,12 +263,12 @@ export default function Settings() {
                 />
               </div>
 
-              <Separator className="bg-slate-700" />
+              <Separator className="bg-gray-100" />
 
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
-                  <Label className="text-white font-medium">Browser Notifications</Label>
-                  <p className="text-slate-400 text-sm">Show real-time alerts in your browser</p>
+                  <Label className="text-gray-900 font-medium">Browser Notifications</Label>
+                  <p className="text-gray-600 text-sm">Show real-time alerts in your browser</p>
                 </div>
                 <Switch
                   checked={browserNotifications}
@@ -280,27 +280,27 @@ export default function Settings() {
           </Card>
 
           {/* API & Integration Settings */}
-          <Card className="bg-slate-800 border-slate-700">
+          <Card className="bg-white border-gray-200 shadow-sm">
             <CardHeader>
-              <CardTitle className="text-white flex items-center">
+              <CardTitle className="text-gray-900 flex items-center">
                 <Key className="w-5 h-5 mr-2" />
                 API & Integration
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
-                <Label className="text-white font-medium">API Key</Label>
+                <Label className="text-gray-900 font-medium">API Key</Label>
                 <div className="flex space-x-2">
                   <Input
                     type="password"
                     value={apiKeyLoading ? "Loading..." : ((apiKeyData as any)?.fullApiKey || "No API key found")}
                     readOnly
-                    className="bg-slate-700 border-slate-600 text-white font-mono"
+                    className="bg-gray-100 border-gray-300 text-gray-900 font-mono"
                     data-testid="input-api-key"
                   />
                   <Button 
                     variant="outline" 
-                    className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                    className="border-gray-300 text-gray-700 hover:bg-gray-50"
                     onClick={handleRegenerateApiKey}
                     disabled={regenerateApiKeyMutation.isPending}
                     data-testid="button-regenerate-api-key"
@@ -308,51 +308,51 @@ export default function Settings() {
                     {regenerateApiKeyMutation.isPending ? 'Regenerating...' : 'Regenerate'}
                   </Button>
                 </div>
-                <p className="text-slate-400 text-sm">Use this API key to authenticate requests to the Averox API</p>
+                <p className="text-gray-600 text-sm">Use this API key to authenticate requests to the Averox API</p>
               </div>
 
-              <Separator className="bg-slate-700" />
+              <Separator className="bg-gray-100" />
 
               <div className="space-y-2">
-                <Label className="text-white font-medium">Webhook URL</Label>
+                <Label className="text-gray-900 font-medium">Webhook URL</Label>
                 <Input
                   type="url"
                   placeholder="https://your-app.com/webhooks/averox"
-                  className="bg-slate-700 border-slate-600 text-white"
+                  className="bg-gray-100 border-gray-300 text-gray-900"
                   data-testid="input-webhook-url"
                 />
-                <p className="text-slate-400 text-sm">Receive real-time security events at this endpoint</p>
+                <p className="text-gray-600 text-sm">Receive real-time security events at this endpoint</p>
               </div>
 
               <div className="space-y-2">
-                <Label className="text-white font-medium">Allowed Origins</Label>
+                <Label className="text-gray-900 font-medium">Allowed Origins</Label>
                 <Input
                   type="text"
                   placeholder="https://yourdomain.com, https://app.yourdomain.com"
-                  className="bg-slate-700 border-slate-600 text-white"
+                  className="bg-gray-100 border-gray-300 text-gray-900"
                   data-testid="input-allowed-origins"
                 />
-                <p className="text-slate-400 text-sm">Comma-separated list of allowed CORS origins</p>
+                <p className="text-gray-600 text-sm">Comma-separated list of allowed CORS origins</p>
               </div>
             </CardContent>
           </Card>
 
           {/* Documentation & Training */}
-          <Card className="bg-slate-800 border-slate-700">
+          <Card className="bg-white border-gray-200 shadow-sm">
             <CardHeader>
-              <CardTitle className="text-white flex items-center">
+              <CardTitle className="text-gray-900 flex items-center">
                 <BookOpen className="w-5 h-5 mr-2" />
                 Documentation & Training
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-4">
-                <Label className="text-white font-medium">SDK Installation Guides</Label>
-                <p className="text-slate-400 text-sm">Comprehensive installation and deployment guides for all supported languages</p>
+                <Label className="text-gray-900 font-medium">SDK Installation Guides</Label>
+                <p className="text-gray-600 text-sm">Comprehensive installation and deployment guides for all supported languages</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Button 
                     variant="outline" 
-                    className="border-slate-600 text-slate-300 hover:bg-slate-700 justify-start"
+                    className="border-gray-300 text-gray-700 hover:bg-gray-100 justify-start"
                     data-testid="button-js-installation-guide"
                     onClick={() => window.open('/api/docs/javascript-installation-guide', '_blank')}
                   >
@@ -361,7 +361,7 @@ export default function Settings() {
                   </Button>
                   <Button 
                     variant="outline" 
-                    className="border-slate-600 text-slate-300 hover:bg-slate-700 justify-start"
+                    className="border-gray-300 text-gray-700 hover:bg-gray-100 justify-start"
                     data-testid="button-python-installation-guide"
                     onClick={() => window.open('/api/docs/python-installation-guide', '_blank')}
                   >
@@ -370,7 +370,7 @@ export default function Settings() {
                   </Button>
                   <Button 
                     variant="outline" 
-                    className="border-slate-600 text-slate-300 hover:bg-slate-700 justify-start"
+                    className="border-gray-300 text-gray-700 hover:bg-gray-100 justify-start"
                     data-testid="button-java-installation-guide"
                     onClick={() => window.open('/api/docs/java-installation-guide', '_blank')}
                   >
@@ -379,7 +379,7 @@ export default function Settings() {
                   </Button>
                   <Button 
                     variant="outline" 
-                    className="border-slate-600 text-slate-300 hover:bg-slate-700 justify-start"
+                    className="border-gray-300 text-gray-700 hover:bg-gray-100 justify-start"
                     data-testid="button-c-installation-guide"
                     onClick={() => window.open('/api/docs/c-cpp-installation-guide', '_blank')}
                   >
@@ -389,15 +389,15 @@ export default function Settings() {
                 </div>
               </div>
 
-              <Separator className="bg-slate-700" />
+              <Separator className="bg-gray-100" />
 
               <div className="space-y-4">
-                <Label className="text-white font-medium">Troubleshooting & Support</Label>
-                <p className="text-slate-400 text-sm">Error resolution guides and debugging resources</p>
+                <Label className="text-gray-900 font-medium">Troubleshooting & Support</Label>
+                <p className="text-gray-600 text-sm">Error resolution guides and debugging resources</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Button 
                     variant="outline" 
-                    className="border-slate-600 text-slate-300 hover:bg-slate-700 justify-start"
+                    className="border-gray-300 text-gray-700 hover:bg-gray-100 justify-start"
                     data-testid="button-universal-troubleshooting"
                     onClick={() => window.open('/api/docs/universal-troubleshooting-guide', '_blank')}
                   >
@@ -406,7 +406,7 @@ export default function Settings() {
                   </Button>
                   <Button 
                     variant="outline" 
-                    className="border-slate-600 text-slate-300 hover:bg-slate-700 justify-start"
+                    className="border-gray-300 text-gray-700 hover:bg-gray-100 justify-start"
                     data-testid="button-encryption-failure-guide"
                     onClick={() => window.open('/api/docs/encryption-failure-debugging', '_blank')}
                   >
@@ -416,15 +416,15 @@ export default function Settings() {
                 </div>
               </div>
 
-              <Separator className="bg-slate-700" />
+              <Separator className="bg-gray-100" />
 
               <div className="space-y-4">
-                <Label className="text-white font-medium">Platform-Specific Resources</Label>
-                <p className="text-slate-400 text-sm">Installation guides for placeholder implementations</p>
+                <Label className="text-gray-900 font-medium">Platform-Specific Resources</Label>
+                <p className="text-gray-600 text-sm">Installation guides for placeholder implementations</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Button 
                     variant="outline" 
-                    className="border-slate-600 text-slate-300 hover:bg-slate-700 justify-start"
+                    className="border-gray-300 text-gray-700 hover:bg-gray-100 justify-start"
                     data-testid="button-csharp-installation-guide"
                     onClick={() => window.open('/api/docs/csharp-installation-guide', '_blank')}
                   >
@@ -433,7 +433,7 @@ export default function Settings() {
                   </Button>
                   <Button 
                     variant="outline" 
-                    className="border-slate-600 text-slate-300 hover:bg-slate-700 justify-start"
+                    className="border-gray-300 text-gray-700 hover:bg-gray-100 justify-start"
                     data-testid="button-swift-installation-guide"
                     onClick={() => window.open('/api/docs/swift-installation-guide', '_blank')}
                   >
@@ -446,9 +446,9 @@ export default function Settings() {
           </Card>
 
           {/* Compliance & Auditing */}
-          <Card className="bg-slate-800 border-slate-700">
+          <Card className="bg-white border-gray-200 shadow-sm">
             <CardHeader>
-              <CardTitle className="text-white flex items-center">
+              <CardTitle className="text-gray-900 flex items-center">
                 <Palette className="w-5 h-5 mr-2" />
                 Compliance & Auditing
               </CardTitle>
@@ -456,8 +456,8 @@ export default function Settings() {
             <CardContent className="space-y-6">
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
-                  <Label className="text-white font-medium">Audit Logging</Label>
-                  <p className="text-slate-400 text-sm">Log all security events and API access for compliance</p>
+                  <Label className="text-gray-900 font-medium">Audit Logging</Label>
+                  <p className="text-gray-600 text-sm">Log all security events and API access for compliance</p>
                 </div>
                 <Switch
                   checked={true}
@@ -466,15 +466,15 @@ export default function Settings() {
                 />
               </div>
 
-              <Separator className="bg-slate-700" />
+              <Separator className="bg-gray-100" />
 
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
-                  <Label className="text-white font-medium">Data Retention</Label>
-                  <p className="text-slate-400 text-sm">Automatically delete audit logs after specified period</p>
+                  <Label className="text-gray-900 font-medium">Data Retention</Label>
+                  <p className="text-gray-600 text-sm">Automatically delete audit logs after specified period</p>
                 </div>
                 <Select defaultValue="365">
-                  <SelectTrigger className="w-32 bg-slate-700 border-slate-600 text-white">
+                  <SelectTrigger className="w-32 bg-white border-gray-300 text-gray-900">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -486,21 +486,21 @@ export default function Settings() {
                 </Select>
               </div>
 
-              <Separator className="bg-slate-700" />
+              <Separator className="bg-gray-100" />
 
               <div className="space-y-4">
-                <Label className="text-white font-medium">Compliance Reports</Label>
+                <Label className="text-gray-900 font-medium">Compliance Reports</Label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Button 
                     variant="outline" 
-                    className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                    className="border-gray-300 text-gray-700 hover:bg-gray-50"
                     data-testid="button-download-soc2-report"
                   >
                     Download SOC 2 Report
                   </Button>
                   <Button 
                     variant="outline" 
-                    className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                    className="border-gray-300 text-gray-700 hover:bg-gray-50"
                     data-testid="button-download-iso27001-report"
                   >
                     Download ISO 27001 Report
