@@ -1037,6 +1037,651 @@ public class AveroxEnvelope {
     };
   }
 
+  // C/C++ SDK with real OpenSSL implementation  
+  static generateCCppSDK(sdk, algorithms) {
+    console.log('🔧 Generating real C/C++ SDK with OpenSSL...');
+    
+    const cmakeFile = `cmake_minimum_required(VERSION 3.16)
+project(averox-crypto-sdk VERSION ${sdk.version || "2.0.0"})
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_C_STANDARD 99)
+
+# Find required packages
+find_package(OpenSSL REQUIRED)
+find_package(PkgConfig REQUIRED)
+
+# Optional: OpenTelemetry
+pkg_check_modules(OTEL opentelemetry-cpp)
+
+# Include directories
+include_directories(include)
+
+# Source files
+set(SOURCES
+    src/averox_crypto.c
+    src/averox_envelope.c
+    src/averox_utils.c
+)
+
+# Create static library
+add_library(averox-crypto STATIC \${SOURCES})
+target_link_libraries(averox-crypto OpenSSL::SSL OpenSSL::Crypto)
+
+if(OTEL_FOUND)
+    target_link_libraries(averox-crypto \${OTEL_LIBRARIES})
+    target_include_directories(averox-crypto PRIVATE \${OTEL_INCLUDE_DIRS})
+    target_compile_definitions(averox-crypto PRIVATE AVEROX_OTEL_ENABLED)
+endif()
+
+# Headers
+set(HEADERS
+    include/averox_crypto.h
+    include/averox_envelope.h
+    include/averox_types.h
+)
+
+# Install rules
+install(TARGETS averox-crypto DESTINATION lib)
+install(FILES \${HEADERS} DESTINATION include)
+
+# Test executable
+add_executable(averox-test tests/test_main.c)
+target_link_libraries(averox-test averox-crypto)
+
+# Enable testing
+enable_testing()
+add_test(NAME AveroxCryptoTests COMMAND averox-test)`;
+
+    const headerFile = `#ifndef AVEROX_CRYPTO_H
+#define AVEROX_CRYPTO_H
+
+#include <stdint.h>
+#include <stddef.h>
+#include "averox_types.h"
+#include "averox_envelope.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/**
+ * Averox Crypto SDK for C/C++ - Real AES-256-GCM Implementation
+ * Enterprise-grade cryptographic SDK with mandatory AAD enforcement
+ */
+
+// Constants
+#define AVEROX_KEY_SIZE 32
+#define AVEROX_IV_SIZE 12
+#define AVEROX_TAG_SIZE 16
+#define AVEROX_ALGORITHM "AES-256-GCM"
+
+// Forward declarations
+typedef struct averox_crypto_ctx averox_crypto_ctx_t;
+
+/**
+ * Create new crypto context with master key
+ * @param master_key 32-byte master key
+ * @param ctx Output context pointer
+ * @return AVEROX_SUCCESS or error code
+ */
+averox_result_t averox_crypto_init(const uint8_t* master_key, averox_crypto_ctx_t** ctx);
+
+/**
+ * Generate cryptographically secure 32-byte master key
+ * @param key_out Output buffer (must be 32 bytes)
+ * @return AVEROX_SUCCESS or error code
+ */
+averox_result_t averox_crypto_generate_key(uint8_t* key_out);
+
+/**
+ * Encrypt data with AES-256-GCM and mandatory AAD
+ * @param ctx Crypto context
+ * @param plaintext Data to encrypt
+ * @param plaintext_len Length of plaintext
+ * @param aad Additional Authenticated Data (required)
+ * @param aad_len Length of AAD
+ * @param key_id Optional key identifier
+ * @param envelope Output envelope
+ * @return AVEROX_SUCCESS or error code
+ */
+averox_result_t averox_crypto_encrypt(
+    averox_crypto_ctx_t* ctx,
+    const uint8_t* plaintext,
+    size_t plaintext_len,
+    const uint8_t* aad,
+    size_t aad_len,
+    const char* key_id,
+    averox_envelope_t** envelope
+);
+
+/**
+ * Decrypt envelope with AES-256-GCM and mandatory AAD
+ * @param ctx Crypto context
+ * @param envelope Encrypted envelope
+ * @param aad Additional Authenticated Data (required)
+ * @param aad_len Length of AAD
+ * @param plaintext_out Output buffer (allocated by function)
+ * @param plaintext_len_out Length of decrypted data
+ * @return AVEROX_SUCCESS or error code
+ */
+averox_result_t averox_crypto_decrypt(
+    averox_crypto_ctx_t* ctx,
+    const averox_envelope_t* envelope,
+    const uint8_t* aad,
+    size_t aad_len,
+    uint8_t** plaintext_out,
+    size_t* plaintext_len_out
+);
+
+/**
+ * Securely destroy crypto context and clear memory
+ * @param ctx Context to destroy
+ */
+void averox_crypto_destroy(averox_crypto_ctx_t* ctx);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif // AVEROX_CRYPTO_H`;
+
+    const typesHeader = `#ifndef AVEROX_TYPES_H
+#define AVEROX_TYPES_H
+
+#include <stdint.h>
+#include <stddef.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/**
+ * Result codes for Averox operations
+ */
+typedef enum {
+    AVEROX_SUCCESS = 0,
+    AVEROX_ERROR_INVALID_INPUT = -1,
+    AVEROX_ERROR_MISSING_AAD = -2,
+    AVEROX_ERROR_INVALID_TAG = -3,
+    AVEROX_ERROR_MEMORY = -4,
+    AVEROX_ERROR_CRYPTO = -5,
+    AVEROX_ERROR_UNSUPPORTED_ALGORITHM = -6,
+    AVEROX_ERROR_INVALID_IV = -7,
+    AVEROX_ERROR_ENCRYPTION_FAILED = -8,
+    AVEROX_ERROR_DECRYPTION_FAILED = -9
+} averox_result_t;
+
+/**
+ * Get human-readable error message
+ * @param result Error code
+ * @return Error message string
+ */
+const char* averox_get_error_message(averox_result_t result);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif // AVEROX_TYPES_H`;
+
+    const envelopeHeader = `#ifndef AVEROX_ENVELOPE_H
+#define AVEROX_ENVELOPE_H
+
+#include <stdint.h>
+#include <stddef.h>
+#include "averox_types.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/**
+ * Standardized envelope format for encrypted data
+ */
+typedef struct {
+    char* version;
+    char* algorithm;
+    char* key_id;
+    char* iv;
+    char* tag;
+    char* ciphertext;
+    char* aad;
+} averox_envelope_t;
+
+/**
+ * Create new envelope
+ * @param envelope Output envelope pointer
+ * @return AVEROX_SUCCESS or error code
+ */
+averox_result_t averox_envelope_create(averox_envelope_t** envelope);
+
+/**
+ * Set envelope fields
+ */
+averox_result_t averox_envelope_set_version(averox_envelope_t* envelope, const char* version);
+averox_result_t averox_envelope_set_algorithm(averox_envelope_t* envelope, const char* algorithm);
+averox_result_t averox_envelope_set_key_id(averox_envelope_t* envelope, const char* key_id);
+averox_result_t averox_envelope_set_iv(averox_envelope_t* envelope, const char* iv);
+averox_result_t averox_envelope_set_tag(averox_envelope_t* envelope, const char* tag);
+averox_result_t averox_envelope_set_ciphertext(averox_envelope_t* envelope, const char* ciphertext);
+averox_result_t averox_envelope_set_aad(averox_envelope_t* envelope, const char* aad);
+
+/**
+ * Serialize envelope to JSON
+ * @param envelope Envelope to serialize
+ * @param json_out Output JSON string (allocated by function)
+ * @return AVEROX_SUCCESS or error code
+ */
+averox_result_t averox_envelope_to_json(const averox_envelope_t* envelope, char** json_out);
+
+/**
+ * Deserialize envelope from JSON
+ * @param json JSON string
+ * @param envelope Output envelope
+ * @return AVEROX_SUCCESS or error code
+ */
+averox_result_t averox_envelope_from_json(const char* json, averox_envelope_t** envelope);
+
+/**
+ * Destroy envelope and free memory
+ * @param envelope Envelope to destroy
+ */
+void averox_envelope_destroy(averox_envelope_t* envelope);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif // AVEROX_ENVELOPE_H`;
+
+    const coreImplementation = `#include "averox_crypto.h"
+#include "averox_envelope.h"
+#include <openssl/evp.h>
+#include <openssl/rand.h>
+#include <openssl/err.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+
+#ifdef AVEROX_OTEL_ENABLED
+#include <opentelemetry/metrics/provider.h>
+static void* metrics_provider = NULL;
+#endif
+
+/**
+ * Internal crypto context structure
+ */
+struct averox_crypto_ctx {
+    uint8_t master_key[AVEROX_KEY_SIZE];
+    EVP_CIPHER_CTX* encrypt_ctx;
+    EVP_CIPHER_CTX* decrypt_ctx;
+};
+
+/**
+ * Secure memory clearing
+ */
+static void secure_zero(void* ptr, size_t len) {
+    volatile uint8_t* p = (volatile uint8_t*)ptr;
+    while (len--) *p++ = 0;
+}
+
+/**
+ * Base64URL encoding (simplified implementation)
+ */
+static char* base64url_encode(const uint8_t* data, size_t len) {
+    // Simplified implementation - in production use proper base64url library
+    const char* chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    size_t output_len = ((len + 2) / 3) * 4;
+    char* result = malloc(output_len + 1);
+    if (!result) return NULL;
+    
+    size_t i, j = 0;
+    for (i = 0; i < len; i += 3) {
+        uint32_t n = data[i] << 16;
+        if (i + 1 < len) n |= data[i + 1] << 8;
+        if (i + 2 < len) n |= data[i + 2];
+        
+        result[j++] = chars[(n >> 18) & 63];
+        result[j++] = chars[(n >> 12) & 63];
+        result[j++] = (i + 1 < len) ? chars[(n >> 6) & 63] : '=';
+        result[j++] = (i + 2 < len) ? chars[n & 63] : '=';
+    }
+    
+    // Remove padding for base64url
+    while (j > 0 && result[j-1] == '=') j--;
+    result[j] = '\\0';
+    return result;
+}
+
+/**
+ * Base64URL decoding (simplified implementation)
+ */
+static uint8_t* base64url_decode(const char* data, size_t* out_len) {
+    // Simplified implementation - in production use proper base64url library
+    size_t len = strlen(data);
+    size_t padding = (4 - (len % 4)) % 4;
+    
+    // Add padding
+    char* padded = malloc(len + padding + 1);
+    if (!padded) return NULL;
+    strcpy(padded, data);
+    for (size_t i = 0; i < padding; i++) {
+        strcat(padded, "=");
+    }
+    
+    // Convert base64url to base64
+    for (size_t i = 0; i < strlen(padded); i++) {
+        if (padded[i] == '-') padded[i] = '+';
+        if (padded[i] == '_') padded[i] = '/';
+    }
+    
+    // Decode base64
+    BIO* bio = BIO_new_mem_buf(padded, -1);
+    BIO* b64 = BIO_new(BIO_f_base64());
+    BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
+    BIO_push(b64, bio);
+    
+    uint8_t* result = malloc(len * 3 / 4 + 1);
+    if (!result) {
+        BIO_free_all(b64);
+        free(padded);
+        return NULL;
+    }
+    
+    *out_len = BIO_read(b64, result, len * 3 / 4 + 1);
+    BIO_free_all(b64);
+    free(padded);
+    
+    return result;
+}
+
+const char* averox_get_error_message(averox_result_t result) {
+    switch (result) {
+        case AVEROX_SUCCESS: return "Success";
+        case AVEROX_ERROR_INVALID_INPUT: return "Invalid input parameter";
+        case AVEROX_ERROR_MISSING_AAD: return "AAD (Additional Authenticated Data) is required";
+        case AVEROX_ERROR_INVALID_TAG: return "Authentication tag verification failed";
+        case AVEROX_ERROR_MEMORY: return "Memory allocation failed";
+        case AVEROX_ERROR_CRYPTO: return "Cryptographic operation failed";
+        case AVEROX_ERROR_UNSUPPORTED_ALGORITHM: return "Unsupported algorithm";
+        case AVEROX_ERROR_INVALID_IV: return "Invalid IV size";
+        case AVEROX_ERROR_ENCRYPTION_FAILED: return "Encryption failed";
+        case AVEROX_ERROR_DECRYPTION_FAILED: return "Decryption failed";
+        default: return "Unknown error";
+    }
+}
+
+averox_result_t averox_crypto_init(const uint8_t* master_key, averox_crypto_ctx_t** ctx) {
+    if (!master_key || !ctx) {
+        return AVEROX_ERROR_INVALID_INPUT;
+    }
+    
+    *ctx = malloc(sizeof(averox_crypto_ctx_t));
+    if (!*ctx) {
+        return AVEROX_ERROR_MEMORY;
+    }
+    
+    // Copy master key
+    memcpy((*ctx)->master_key, master_key, AVEROX_KEY_SIZE);
+    
+    // Initialize OpenSSL contexts
+    (*ctx)->encrypt_ctx = EVP_CIPHER_CTX_new();
+    (*ctx)->decrypt_ctx = EVP_CIPHER_CTX_new();
+    
+    if (!(*ctx)->encrypt_ctx || !(*ctx)->decrypt_ctx) {
+        averox_crypto_destroy(*ctx);
+        return AVEROX_ERROR_CRYPTO;
+    }
+    
+    return AVEROX_SUCCESS;
+}
+
+averox_result_t averox_crypto_generate_key(uint8_t* key_out) {
+    if (!key_out) {
+        return AVEROX_ERROR_INVALID_INPUT;
+    }
+    
+    if (RAND_bytes(key_out, AVEROX_KEY_SIZE) != 1) {
+        return AVEROX_ERROR_CRYPTO;
+    }
+    
+    return AVEROX_SUCCESS;
+}
+
+averox_result_t averox_crypto_encrypt(
+    averox_crypto_ctx_t* ctx,
+    const uint8_t* plaintext,
+    size_t plaintext_len,
+    const uint8_t* aad,
+    size_t aad_len,
+    const char* key_id,
+    averox_envelope_t** envelope
+) {
+    if (!ctx || !plaintext || !envelope) {
+        return AVEROX_ERROR_INVALID_INPUT;
+    }
+    
+    // Validate AAD requirement
+    if (!aad || aad_len == 0) {
+        return AVEROX_ERROR_MISSING_AAD;
+    }
+    
+    // Generate random IV
+    uint8_t iv[AVEROX_IV_SIZE];
+    if (RAND_bytes(iv, AVEROX_IV_SIZE) != 1) {
+        return AVEROX_ERROR_CRYPTO;
+    }
+    
+    // Initialize encryption
+    if (EVP_EncryptInit_ex(ctx->encrypt_ctx, EVP_aes_256_gcm(), NULL, ctx->master_key, iv) != 1) {
+        return AVEROX_ERROR_CRYPTO;
+    }
+    
+    // Set AAD
+    int aad_len_int;
+    if (EVP_EncryptUpdate(ctx->encrypt_ctx, NULL, &aad_len_int, aad, aad_len) != 1) {
+        return AVEROX_ERROR_CRYPTO;
+    }
+    
+    // Encrypt plaintext
+    uint8_t* ciphertext = malloc(plaintext_len);
+    if (!ciphertext) {
+        return AVEROX_ERROR_MEMORY;
+    }
+    
+    int ciphertext_len;
+    if (EVP_EncryptUpdate(ctx->encrypt_ctx, ciphertext, &ciphertext_len, plaintext, plaintext_len) != 1) {
+        free(ciphertext);
+        return AVEROX_ERROR_CRYPTO;
+    }
+    
+    int final_len;
+    if (EVP_EncryptFinal_ex(ctx->encrypt_ctx, ciphertext + ciphertext_len, &final_len) != 1) {
+        free(ciphertext);
+        return AVEROX_ERROR_CRYPTO;
+    }
+    ciphertext_len += final_len;
+    
+    // Get authentication tag
+    uint8_t tag[AVEROX_TAG_SIZE];
+    if (EVP_CIPHER_CTX_ctrl(ctx->encrypt_ctx, EVP_CTRL_AEAD_GET_TAG, AVEROX_TAG_SIZE, tag) != 1) {
+        free(ciphertext);
+        return AVEROX_ERROR_CRYPTO;
+    }
+    
+    // Create envelope
+    averox_result_t result = averox_envelope_create(envelope);
+    if (result != AVEROX_SUCCESS) {
+        free(ciphertext);
+        return result;
+    }
+    
+    // Encode components to base64url
+    char* iv_b64 = base64url_encode(iv, AVEROX_IV_SIZE);
+    char* tag_b64 = base64url_encode(tag, AVEROX_TAG_SIZE);
+    char* ct_b64 = base64url_encode(ciphertext, ciphertext_len);
+    char* aad_b64 = base64url_encode(aad, aad_len);
+    
+    if (!iv_b64 || !tag_b64 || !ct_b64 || !aad_b64) {
+        free(ciphertext);
+        free(iv_b64);
+        free(tag_b64);
+        free(ct_b64);
+        free(aad_b64);
+        averox_envelope_destroy(*envelope);
+        return AVEROX_ERROR_MEMORY;
+    }
+    
+    // Set envelope fields
+    averox_envelope_set_version(*envelope, "2.0");
+    averox_envelope_set_algorithm(*envelope, AVEROX_ALGORITHM);
+    averox_envelope_set_key_id(*envelope, key_id);
+    averox_envelope_set_iv(*envelope, iv_b64);
+    averox_envelope_set_tag(*envelope, tag_b64);
+    averox_envelope_set_ciphertext(*envelope, ct_b64);
+    averox_envelope_set_aad(*envelope, aad_b64);
+    
+    // Cleanup
+    free(ciphertext);
+    free(iv_b64);
+    free(tag_b64);
+    free(ct_b64);
+    free(aad_b64);
+    
+    return AVEROX_SUCCESS;
+}
+
+averox_result_t averox_crypto_decrypt(
+    averox_crypto_ctx_t* ctx,
+    const averox_envelope_t* envelope,
+    const uint8_t* aad,
+    size_t aad_len,
+    uint8_t** plaintext_out,
+    size_t* plaintext_len_out
+) {
+    if (!ctx || !envelope || !plaintext_out || !plaintext_len_out) {
+        return AVEROX_ERROR_INVALID_INPUT;
+    }
+    
+    // Validate AAD requirement
+    if (!aad || aad_len == 0) {
+        return AVEROX_ERROR_MISSING_AAD;
+    }
+    
+    // Validate algorithm
+    if (!envelope->algorithm || strcmp(envelope->algorithm, AVEROX_ALGORITHM) != 0) {
+        return AVEROX_ERROR_UNSUPPORTED_ALGORITHM;
+    }
+    
+    // Decode envelope components
+    size_t iv_len, tag_len, ct_len;
+    uint8_t* iv = base64url_decode(envelope->iv, &iv_len);
+    uint8_t* tag = base64url_decode(envelope->tag, &tag_len);
+    uint8_t* ciphertext = base64url_decode(envelope->ciphertext, &ct_len);
+    
+    if (!iv || !tag || !ciphertext || iv_len != AVEROX_IV_SIZE || tag_len != AVEROX_TAG_SIZE) {
+        free(iv);
+        free(tag);
+        free(ciphertext);
+        return AVEROX_ERROR_INVALID_INPUT;
+    }
+    
+    // Initialize decryption
+    if (EVP_DecryptInit_ex(ctx->decrypt_ctx, EVP_aes_256_gcm(), NULL, ctx->master_key, iv) != 1) {
+        free(iv);
+        free(tag);
+        free(ciphertext);
+        return AVEROX_ERROR_CRYPTO;
+    }
+    
+    // Set AAD
+    int aad_len_int;
+    if (EVP_DecryptUpdate(ctx->decrypt_ctx, NULL, &aad_len_int, aad, aad_len) != 1) {
+        free(iv);
+        free(tag);
+        free(ciphertext);
+        return AVEROX_ERROR_CRYPTO;
+    }
+    
+    // Decrypt ciphertext
+    *plaintext_out = malloc(ct_len);
+    if (!*plaintext_out) {
+        free(iv);
+        free(tag);
+        free(ciphertext);
+        return AVEROX_ERROR_MEMORY;
+    }
+    
+    int plaintext_len;
+    if (EVP_DecryptUpdate(ctx->decrypt_ctx, *plaintext_out, &plaintext_len, ciphertext, ct_len) != 1) {
+        free(iv);
+        free(tag);
+        free(ciphertext);
+        free(*plaintext_out);
+        return AVEROX_ERROR_CRYPTO;
+    }
+    
+    // Set expected tag
+    if (EVP_CIPHER_CTX_ctrl(ctx->decrypt_ctx, EVP_CTRL_AEAD_SET_TAG, AVEROX_TAG_SIZE, tag) != 1) {
+        free(iv);
+        free(tag);
+        free(ciphertext);
+        free(*plaintext_out);
+        return AVEROX_ERROR_CRYPTO;
+    }
+    
+    // Finalize decryption and verify tag
+    int final_len;
+    if (EVP_DecryptFinal_ex(ctx->decrypt_ctx, *plaintext_out + plaintext_len, &final_len) != 1) {
+        free(iv);
+        free(tag);
+        free(ciphertext);
+        free(*plaintext_out);
+        return AVEROX_ERROR_INVALID_TAG;
+    }
+    
+    *plaintext_len_out = plaintext_len + final_len;
+    
+    // Cleanup
+    free(iv);
+    free(tag);
+    free(ciphertext);
+    
+    return AVEROX_SUCCESS;
+}
+
+void averox_crypto_destroy(averox_crypto_ctx_t* ctx) {
+    if (ctx) {
+        // Securely clear master key
+        secure_zero(ctx->master_key, AVEROX_KEY_SIZE);
+        
+        // Free OpenSSL contexts
+        if (ctx->encrypt_ctx) {
+            EVP_CIPHER_CTX_free(ctx->encrypt_ctx);
+        }
+        if (ctx->decrypt_ctx) {
+            EVP_CIPHER_CTX_free(ctx->decrypt_ctx);
+        }
+        
+        free(ctx);
+    }
+}`;
+
+    return {
+      'CMakeLists.txt': cmakeFile,
+      'include/averox_crypto.h': headerFile,
+      'include/averox_types.h': typesHeader,
+      'include/averox_envelope.h': envelopeHeader,
+      'src/averox_crypto.c': coreImplementation,
+      'README.md': this.getUniversalReadme('C/C++', 'mkdir build && cd build && cmake .. && make'),
+      'tests/test_main.c': this.getNISTTestSuite('c'),
+      'SECURITY.md': this.getUniversalSecurityGuide(),
+      'TROUBLESHOOTING.md': this.getUniversalTroubleshootingGuide()
+    };
+  }
+
   static getFixedTypeDefinitions() {
     return `// REAL TypeScript definitions
 export interface AveroxEnvelope {
