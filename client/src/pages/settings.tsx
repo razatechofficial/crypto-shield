@@ -122,7 +122,7 @@ export default function Settings() {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-6 bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 min-h-screen">
       <div className="max-w-4xl">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-2xl font-bold text-white">Settings</h3>
