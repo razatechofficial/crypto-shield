@@ -1654,7 +1654,13 @@ MIT License - see LICENSE file for details.
 
   static generateSwiftSDK(sdk, algorithms) {
     console.log('🍎 Generating Swift SDK placeholder...');
-    return this.generateJavaScriptSDK(sdk, algorithms);
+    const jsSDK = this.generateJavaScriptSDK(sdk, algorithms);
+    
+    // Add Swift specific guides to the JavaScript SDK return
+    jsSDK['SWIFT-INSTALLATION-GUIDE.md'] = this.getSwiftInstallationGuide(sdk);
+    jsSDK['ENCRYPTION-FAILURE-GUIDE.md'] = this.getEncryptionFailureGuide();
+    
+    return jsSDK;
   }
 
   // Enterprise CI workflow with sanitizer builds
@@ -3080,10 +3086,591 @@ valgrind --tool=memcheck --leak-check=full ./myapp
 `;
   }
 
+  // C# Installation Guide (Currently Placeholder)
+  static getCSharpInstallationGuide(sdk) {
+    return `# ${sdk.name} SDK - C# Installation Guide
+
+## ⚠️ Current Status: Placeholder Implementation
+
+**Important Notice**: The C# SDK is currently a placeholder implementation that returns the JavaScript/TypeScript SDK. Full native C# implementation is planned for future releases.
+
+## Recommended Approach
+
+### Option 1: Use JavaScript SDK via Node.js Integration
+\`\`\`csharp
+// Use Process to call Node.js SDK
+using System.Diagnostics;
+
+public class AveroxCryptoWrapper 
+{
+    public string Encrypt(string data, string aad) 
+    {
+        var process = new Process();
+        process.StartInfo.FileName = "node";
+        process.StartInfo.Arguments = $"-e \\"const crypto = require('@averox/${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto-sdk'); console.log(crypto.encrypt('{data}', '{aad}'));\\"";
+        process.StartInfo.RedirectStandardOutput = true;
+        process.Start();
+        return process.StandardOutput.ReadToEnd();
+    }
+}
+\`\`\`
+
+### Option 2: Wait for Native C# Implementation
+The native C# SDK is planned with these features:
+- ✅ Native .NET 6+ support
+- ✅ NuGet package distribution
+- ✅ Enterprise security compliance
+- ✅ OpenTelemetry integration
+- ✅ Async/await patterns
+
+## Expected Native Implementation (Future)
+
+### System Requirements (Planned)
+- **.NET**: 6.0+ (.NET 8+ recommended)
+- **NuGet**: Latest version
+- **Operating System**: Windows 10+, macOS 10.15+, Linux
+- **Memory**: 256MB+ available
+
+### Installation (Future)
+\`\`\`bash
+# Install via NuGet (when available)
+dotnet add package Averox.Crypto.SDK
+
+# Or via Package Manager Console
+Install-Package Averox.Crypto.SDK
+\`\`\`
+
+### Expected Usage (Future)
+\`\`\`csharp
+using Averox.Crypto;
+
+// Generate master key
+var masterKey = AveroxCrypto.GenerateMasterKey();
+var crypto = new AveroxCrypto(masterKey);
+
+// Encrypt with required AAD
+var plaintext = "Sensitive data";
+var aad = Encoding.UTF8.GetBytes("context-info");
+var envelope = await crypto.EncryptAsync(plaintext, aad);
+
+Console.WriteLine($"Encrypted: {envelope}");
+
+// Decrypt
+var decrypted = await crypto.DecryptAsync(envelope, aad);
+Console.WriteLine($"Decrypted: {Encoding.UTF8.GetString(decrypted)}");
+\`\`\`
+
+## Current Workarounds
+
+### Using JavaScript SDK with Edge WebView2
+\`\`\`csharp
+// Install Microsoft.Web.WebView2
+var webView = new WebView2();
+await webView.EnsureCoreWebView2Async();
+
+var js = $@"
+const crypto = require('@averox/${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto-sdk');
+const result = crypto.encrypt('{data}', '{aad}');
+result;
+";
+
+var result = await webView.CoreWebView2.ExecuteScriptAsync(js);
+\`\`\`
+
+### Using P/Invoke to C SDK
+\`\`\`csharp
+[DllImport("averox_crypto")]
+public static extern int averox_encrypt(
+    byte[] key,
+    byte[] plaintext, int plaintext_len,
+    byte[] aad, int aad_len,
+    ref AveroxEnvelope envelope);
+\`\`\`
+
+## Troubleshooting Current Setup
+
+### Node.js Integration Issues
+1. Ensure Node.js is installed and accessible
+2. Verify the JavaScript SDK is properly installed
+3. Check PATH environment variable includes Node.js
+
+### Performance Considerations
+- Process spawning has overhead - consider long-running Node.js process
+- Use IPC for better performance than command-line calls
+- Consider in-memory caching for repeated operations
+
+## Migration Path
+
+When the native C# SDK becomes available:
+1. Uninstall current workaround solutions
+2. Install Averox.Crypto.SDK NuGet package
+3. Update using statements
+4. Replace wrapper calls with native SDK methods
+5. Test thoroughly in your environment
+
+---
+*This is a placeholder guide. Native C# implementation coming soon.*
+`;
+  }
+
+  // Swift Installation Guide (Currently Placeholder)  
+  static getSwiftInstallationGuide(sdk) {
+    return `# ${sdk.name} SDK - Swift Installation Guide
+
+## ⚠️ Current Status: Placeholder Implementation
+
+**Important Notice**: The Swift SDK is currently a placeholder implementation that returns the JavaScript/TypeScript SDK. Full native Swift implementation is planned for future releases.
+
+## Recommended Approach
+
+### Option 1: Use JavaScript SDK via JavaScriptCore
+\`\`\`swift
+import JavaScriptCore
+
+class AveroxCryptoWrapper {
+    private let context = JSContext()!
+    
+    init() {
+        // Load the JavaScript SDK
+        if let jsPath = Bundle.main.path(forResource: "averox-crypto", ofType: "js") {
+            let jsSource = try! String(contentsOfFile: jsPath)
+            context.evaluateScript(jsSource)
+        }
+    }
+    
+    func encrypt(data: String, aad: String) -> String? {
+        let script = """
+        const crypto = require('@averox/${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto-sdk');
+        crypto.encrypt('\(data)', '\(aad)');
+        """
+        return context.evaluateScript(script)?.toString()
+    }
+}
+\`\`\`
+
+### Option 2: Wait for Native Swift Implementation
+The native Swift SDK is planned with these features:
+- ✅ Native Swift 5.7+ support
+- ✅ Swift Package Manager distribution
+- ✅ iOS 15+ and macOS 12+ support
+- ✅ Enterprise security compliance
+- ✅ async/await patterns
+- ✅ Combine publisher support
+
+## Expected Native Implementation (Future)
+
+### System Requirements (Planned)
+- **Swift**: 5.7+ (Swift 5.9+ recommended)
+- **Xcode**: 14.0+ (Xcode 15+ recommended)
+- **iOS**: 15.0+ / **macOS**: 12.0+ / **watchOS**: 8.0+
+- **Package Manager**: Swift Package Manager
+
+### Installation (Future)
+\`\`\`swift
+// Package.swift
+dependencies: [
+    .package(url: "https://github.com/averox/swift-crypto-sdk.git", from: "2.0.0")
+]
+\`\`\`
+
+### Expected Usage (Future)
+\`\`\`swift
+import AveroxCrypto
+
+// Generate master key
+let masterKey = AveroxCrypto.generateMasterKey()
+let crypto = AveroxCrypto(masterKey: masterKey)
+
+// Encrypt with required AAD
+let plaintext = "Sensitive data"
+let aad = "context-info".data(using: .utf8)!
+
+Task {
+    do {
+        let envelope = try await crypto.encrypt(plaintext, aad: aad)
+        print("Encrypted: \\(envelope)")
+        
+        // Decrypt
+        let decrypted = try await crypto.decrypt(envelope, aad: aad)
+        print("Decrypted: \\(String(data: decrypted, encoding: .utf8)!)")
+    } catch {
+        print("Encryption failed: \\(error)")
+    }
+}
+\`\`\`
+
+## Current Workarounds
+
+### Using C SDK with Swift Bridging
+\`\`\`swift
+// Create a bridging header
+#import "averox_crypto.h"
+
+// Swift wrapper
+class AveroxBridge {
+    func encrypt(data: Data, aad: Data, key: Data) throws -> AveroxEnvelope {
+        var envelope = averox_envelope_t()
+        averox_envelope_init(&envelope)
+        
+        let result = averox_encrypt(
+            key.withUnsafeBytes { $0.baseAddress!.assumingMemoryBound(to: UInt8.self) },
+            data.withUnsafeBytes { $0.baseAddress!.assumingMemoryBound(to: UInt8.self) },
+            data.count,
+            aad.withUnsafeBytes { $0.baseAddress!.assumingMemoryBound(to: UInt8.self) },
+            aad.count,
+            &envelope
+        )
+        
+        guard result == AVEROX_SUCCESS else {
+            throw AveroxError.encryptionFailed
+        }
+        
+        // Convert to Swift types
+        return AveroxEnvelope(from: envelope)
+    }
+}
+\`\`\`
+
+### Using Node.js Process (macOS only)
+\`\`\`swift
+import Foundation
+
+class NodeJSCrypto {
+    func encrypt(data: String, aad: String) -> String? {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/local/bin/node")
+        process.arguments = [
+            "-e",
+            "const crypto = require('@averox/${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto-sdk'); console.log(crypto.encrypt('\\(data)', '\\(aad)'));"
+        ]
+        
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        
+        try? process.run()
+        process.waitUntilExit()
+        
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        return String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+\`\`\`
+
+## Troubleshooting Current Setup
+
+### JavaScriptCore Issues
+1. Ensure JavaScript SDK files are bundled in app
+2. Check bundle resource paths
+3. Verify JavaScript syntax compatibility
+
+### C SDK Integration Issues
+1. Ensure bridging header is properly configured
+2. Link against OpenSSL framework
+3. Set proper library search paths
+
+### Performance Considerations
+- JavaScriptCore has better performance than process spawning
+- C SDK bridge offers best performance
+- Consider caching for repeated operations
+
+## Migration Path
+
+When the native Swift SDK becomes available:
+1. Remove current workaround implementations
+2. Add Swift Package Manager dependency
+3. Update import statements
+4. Replace wrapper calls with native SDK methods
+5. Test on all target platforms (iOS, macOS, watchOS)
+
+---
+*This is a placeholder guide. Native Swift implementation coming soon.*
+`;
+  }
+
+  // Encryption Failure Debugging Guide
+  static getEncryptionFailureGuide() {
+    return `# Encryption Failure Debugging Guide
+
+## Common Encryption Failure Scenarios
+
+### 1. AAD (Additional Authenticated Data) Issues
+
+#### Missing AAD
+\`\`\`
+❌ Error: AAD_REQUIRED
+✅ Solution: Always provide AAD parameter
+
+// Wrong
+crypto.encrypt("data", null)
+
+// Correct  
+crypto.encrypt("data", Buffer.from("context"))
+\`\`\`
+
+#### Empty AAD
+\`\`\`
+❌ Error: AAD_REQUIRED  
+✅ Solution: Provide non-empty AAD
+
+// Wrong
+crypto.encrypt("data", Buffer.from(""))
+
+// Correct
+crypto.encrypt("data", Buffer.from("user-session-123"))
+\`\`\`
+
+#### AAD Mismatch During Decryption
+\`\`\`
+❌ Error: AUTHENTICATION_FAILED
+✅ Solution: Use identical AAD for encrypt/decrypt
+
+// Wrong
+const envelope = crypto.encrypt("data", Buffer.from("context1"))
+crypto.decrypt(envelope, Buffer.from("context2"))  // Different AAD!
+
+// Correct
+const aad = Buffer.from("context1")
+const envelope = crypto.encrypt("data", aad)
+const decrypted = crypto.decrypt(envelope, aad)  // Same AAD
+\`\`\`
+
+### 2. Key Management Issues
+
+#### Invalid Key Size
+\`\`\`
+❌ Error: INVALID_KEY_SIZE
+✅ Solution: Use exactly 32 bytes (256 bits)
+
+// Wrong
+const key = Buffer.from("short")  // Too short
+
+// Correct
+const key = AveroxCrypto.generateMasterKey()  // Always 32 bytes
+\`\`\`
+
+#### Key Corruption
+\`\`\`
+❌ Error: AUTHENTICATION_FAILED
+✅ Solution: Verify key integrity
+
+// Check key
+console.log('Key length:', key.length)  // Should be 32
+console.log('Key hex:', key.toString('hex'))  // Should be 64 chars
+\`\`\`
+
+#### Wrong Key Used
+\`\`\`
+❌ Error: AUTHENTICATION_FAILED
+✅ Solution: Use same key for encrypt/decrypt
+
+// Wrong
+const key1 = AveroxCrypto.generateMasterKey()
+const key2 = AveroxCrypto.generateMasterKey()
+const envelope = crypto1.encrypt("data", aad)
+const decrypted = crypto2.decrypt(envelope, aad)  // Different key!
+
+// Correct
+const key = AveroxCrypto.generateMasterKey()
+const crypto = new AveroxCrypto(key)
+const envelope = crypto.encrypt("data", aad)
+const decrypted = crypto.decrypt(envelope, aad)  // Same crypto instance
+\`\`\`
+
+### 3. Data Corruption Issues
+
+#### Envelope Tampering
+\`\`\`
+❌ Error: AUTHENTICATION_FAILED
+✅ Solution: Verify envelope integrity
+
+// Check envelope structure
+console.log('Envelope version:', envelope.v)  // Should be "2.0"
+console.log('Algorithm:', envelope.alg)       // Should be "AES-256-GCM"
+console.log('Has ciphertext:', !!envelope.ct)
+console.log('Has tag:', !!envelope.tag)
+console.log('Has IV:', !!envelope.iv)
+\`\`\`
+
+#### Base64URL Corruption
+\`\`\`
+❌ Error: INVALID_ENVELOPE
+✅ Solution: Verify Base64URL encoding
+
+// Check if envelope fields are valid Base64URL
+const isValidBase64URL = (str) => /^[A-Za-z0-9_-]*$/.test(str)
+console.log('Valid ciphertext:', isValidBase64URL(envelope.ct))
+console.log('Valid tag:', isValidBase64URL(envelope.tag))
+console.log('Valid IV:', isValidBase64URL(envelope.iv))
+\`\`\`
+
+### 4. Memory and Resource Issues
+
+#### Insufficient Memory
+\`\`\`
+❌ Error: CRYPTO_ERROR / Out of Memory
+✅ Solution: Check available memory
+
+// Monitor memory usage
+console.log('Memory usage:', process.memoryUsage())
+
+// For large data, process in chunks
+const CHUNK_SIZE = 1024 * 1024  // 1MB chunks
+\`\`\`
+
+#### Memory Corruption
+\`\`\`
+❌ Error: Segmentation fault (C/C++)
+✅ Solution: Run with memory debugging
+
+# AddressSanitizer
+gcc -fsanitize=address program.c
+
+# Valgrind
+valgrind --tool=memcheck --leak-check=full ./program
+\`\`\`
+
+## Debugging Techniques
+
+### 1. Enable Debug Logging
+
+#### JavaScript/Node.js
+\`\`\`javascript
+process.env.DEBUG = 'averox:*'
+process.env.NODE_ENV = 'development'
+\`\`\`
+
+#### Python
+\`\`\`python
+import logging
+logging.basicConfig(level=logging.DEBUG)
+\`\`\`
+
+#### Java
+\`\`\`bash
+java -Djava.util.logging.level=FINE MyApp
+\`\`\`
+
+#### C/C++
+\`\`\`c
+#define AVEROX_DEBUG 1
+#include <averox_crypto.h>
+\`\`\`
+
+### 2. OpenTelemetry Metrics Analysis
+
+#### Check Failure Metrics
+\`\`\`javascript
+// Monitor these metrics:
+// crypto_encrypt_total - Total encryption attempts
+// crypto_decrypt_total - Total decryption attempts  
+// crypto_fail_total - Total failures
+
+const { configureTelemetry } = require('@averox/sdk');
+configureTelemetry({
+  increment: (name, value, attributes) => {
+    if (name === 'crypto_fail_total') {
+      console.error('Crypto failure:', attributes)
+    }
+  }
+})
+\`\`\`
+
+### 3. Health Check Implementation
+
+#### Comprehensive Health Check
+\`\`\`javascript
+function cryptoHealthCheck() {
+  console.log('🔍 Running crypto health check...')
+  
+  try {
+    // Test key generation
+    const key = AveroxCrypto.generateMasterKey()
+    console.log('✅ Key generation: OK')
+    
+    // Test encryption/decryption
+    const crypto = new AveroxCrypto(key)
+    const aad = Buffer.from('health-check')
+    const envelope = crypto.encrypt('test-data', aad)
+    console.log('✅ Encryption: OK')
+    
+    const decrypted = crypto.decrypt(envelope, aad)
+    console.log('✅ Decryption: OK')
+    
+    // Test envelope structure
+    if (envelope.v !== '2.0') throw new Error('Invalid envelope version')
+    if (!envelope.ct || !envelope.tag || !envelope.iv) throw new Error('Incomplete envelope')
+    console.log('✅ Envelope structure: OK')
+    
+    console.log('🎉 All health checks passed!')
+    return true
+    
+  } catch (error) {
+    console.error('❌ Health check failed:', error.message)
+    return false
+  }
+}
+
+// Run health check
+cryptoHealthCheck()
+\`\`\`
+
+## Recovery Procedures
+
+### 1. Immediate Steps for Encryption Failure
+1. **Stop further operations** - Don't retry immediately
+2. **Capture error details** - Log exact error message and context
+3. **Verify inputs** - Check key, AAD, and data integrity
+4. **Run health check** - Verify SDK is functioning
+5. **Check environment** - Verify system resources
+
+### 2. Data Recovery
+\`\`\`javascript
+// If you have the original key and AAD
+function recoverData(corruptedEnvelope, originalKey, originalAAD) {
+  try {
+    // Try decryption with original parameters
+    const crypto = new AveroxCrypto(originalKey)
+    return crypto.decrypt(corruptedEnvelope, originalAAD)
+  } catch (error) {
+    console.error('Recovery failed:', error.message)
+    
+    // Log details for support
+    console.log('Envelope details:', {
+      version: corruptedEnvelope.v,
+      algorithm: corruptedEnvelope.alg,
+      hasCiphertext: !!corruptedEnvelope.ct,
+      hasTag: !!corruptedEnvelope.tag,
+      hasIV: !!corruptedEnvelope.iv
+    })
+    
+    return null
+  }
+}
+\`\`\`
+
+### 3. Preventive Measures
+- Always validate inputs before encryption
+- Implement retry logic with exponential backoff
+- Use health checks before critical operations
+- Monitor OpenTelemetry metrics
+- Backup encryption keys securely
+- Test disaster recovery procedures
+
+---
+*For persistent issues, contact support with complete error logs and environment details.*
+`;
+  }
+
   // Placeholder implementations for other languages  
   static generateCSharpSDK(sdk, algorithms) {
     console.log('🏢 Generating C# SDK placeholder...');
-    return this.generateJavaScriptSDK(sdk, algorithms);
+    const jsSDK = this.generateJavaScriptSDK(sdk, algorithms);
+    
+    // Add C# specific guides to the JavaScript SDK return
+    jsSDK['CSHARP-INSTALLATION-GUIDE.md'] = this.getCSharpInstallationGuide(sdk);
+    jsSDK['ENCRYPTION-FAILURE-GUIDE.md'] = this.getEncryptionFailureGuide();
+    
+    return jsSDK;
   }
 }
 
