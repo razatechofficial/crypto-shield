@@ -1,0 +1,212 @@
+name: Release with SBOM and Checksums
+
+on:
+  push:
+    tags:
+      - 'v*'
+  release:
+    types: [created]
+
+jobs:
+  build-and-verify:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node-version: [18, 20]
+        include:
+          - os: ubuntu-latest
+            native-build: true
+          
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          registry-url: 'https://registry.npmjs.org'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Build project
+        run: npm run build
+        
+      - name: Run tests
+        run: npm test
+        
+      - name: Security audit
+        run: npm audit --audit-level moderate
+        
+      # Native build verification (Ubuntu only)
+      - name: Install native build tools
+        if: matrix.native-build
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential pkg-config libssl-dev
+          
+      - name: Generate C/C++ SDK for testing
+        if: matrix.native-build
+        run: |
+          mkdir -p test-native-sdk
+          node -e "
+          const { FixedEnterpriseSDKGenerator } = require('./enterprise-sdk-generator-fixed.cjs');
+          const sdk = { name: 'TestSDK', version: '2.0.0' };
+          const result = FixedEnterpriseSDKGenerator.generateCSDK(sdk, ['AES-256-GCM']);
+          const fs = require('fs');
+          Object.entries(result).forEach(([file, content]) => {
+            const dir = require('path').dirname('test-native-sdk/' + file);
+            fs.mkdirSync(dir, { recursive: true });
+            fs.writeFileSync('test-native-sdk/' + file, content);
+          });
+          "
+          
+      - name: Native build verification
+        if: matrix.native-build
+        run: |
+          cd test-native-sdk
+          
+          # Build with CMake
+          mkdir -p build
+          cd build
+          cmake .. -DCMAKE_BUILD_TYPE=Release
+          make -j$(nproc)
+          
+          # Install to test prefix
+          cmake --install . --prefix /tmp/pfx
+          
+          # Verify pkg-config file exists
+          test -f /tmp/pfx/lib/pkgconfig/sdkcrypto.pc
+          echo "✅ pkg-config file found"
+          
+          # Test pkg-config functionality
+          PKG_CONFIG_PATH="/tmp/pfx/lib/pkgconfig:$PKG_CONFIG_PATH" pkg-config --exists sdkcrypto
+          echo "✅ pkg-config verification passed"
+          
+          # Verify header files
+          test -f /tmp/pfx/include/averox/crypto.h
+          echo "✅ Header files installed correctly"
+          
+          # Verify library files
+          test -f /tmp/pfx/lib/libaveroxcrypto.so
+          echo "✅ Shared library installed correctly"
+          
+      # Generate SBOMs and checksums (all platforms)
+      - name: Generate SBOM
+        run: |
+          # Install SBOM tools
+          npm install -g @cyclonedx/cyclonedx-npm
+          
+          # Generate SBOM in multiple formats
+          mkdir -p release-artifacts/sboms
+          
+          # CycloneDX JSON format
+          cyclonedx-npm --output-file release-artifacts/sboms/sbom-cyclonedx.json
+          
+          # SPDX format using custom script
+          node scripts/generate-spdx-sbom.js > release-artifacts/sboms/sbom-spdx.json
+          
+          echo "✅ SBOMs generated"
+          
+      - name: Generate checksums
+        run: |
+          mkdir -p release-artifacts/checksums
+          
+          # Generate checksums for all artifacts
+          node scripts/generate-checksums.js
+          
+          echo "✅ Checksums generated"
+          
+      - name: Sign artifacts
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '20'
+        run: |
+          # Sign artifacts using existing signing infrastructure
+          node scripts/artifact-signing.js release-artifacts/
+          
+          echo "✅ Artifacts signed"
+          
+      - name: Upload release artifacts
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '20'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-artifacts
+          path: release-artifacts/
+          retention-days: 90
+          
+  attach-to-release:
+    needs: build-and-verify
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-artifacts
+          path: release-artifacts/
+          
+      - name: Attach SBOMs and checksums to release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            release-artifacts/sboms/*
+            release-artifacts/checksums/*
+            release-artifacts/signatures/*
+          body: |
+            ## Security Artifacts
+            
+            This release includes comprehensive security artifacts:
+            
+            ### 📋 Software Bill of Materials (SBOM)
+            - `sbom-cyclonedx.json` - CycloneDX format SBOM
+            - `sbom-spdx.json` - SPDX format SBOM
+            
+            ### 🔒 Integrity Verification
+            - `SHA256SUMS` - SHA256 checksums for all artifacts
+            - `SHA512SUMS` - SHA512 checksums for all artifacts
+            - `*.sig` - Digital signatures for verification
+            
+            ### 🛡️ Verification Commands
+            ```bash
+            # Verify checksums
+            sha256sum -c SHA256SUMS
+            sha512sum -c SHA512SUMS
+            
+            # Verify signatures (if you have the public key)
+            minisign -Vm <file> -P <public-key>
+            ```
+            
+            ### 📦 Native Package Verification
+            For C/C++ consumers, this release has been verified with:
+            ```bash
+            cmake --install build --prefix /tmp/pfx
+            test -f /tmp/pfx/lib/pkgconfig/sdkcrypto.pc
+            pkg-config --exists sdkcrypto
+            ```
+            
+            All security gates have been validated in CI/CD pipeline.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
