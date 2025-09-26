@@ -3803,7 +3803,7 @@ class AveroxCrypto private constructor(private val masterKey: SecretKey) {
                     REASON_KEY, "encryption_error"
                 )
             )
-            throw AveroxCryptoException.EncryptionFailed("Encryption failed: \${e.message}", e)
+            throw AveroxCryptoException.EncryptionFailed("Encryption failed: " + e.message, e)
         }
     }
     
@@ -3911,7 +3911,7 @@ class AveroxCrypto private constructor(private val masterKey: SecretKey) {
                     REASON_KEY, "decryption_error"
                 )
             )
-            throw AveroxCryptoException.DecryptionFailed("Decryption failed: \${e.message}", e)
+            throw AveroxCryptoException.DecryptionFailed("Decryption failed: " + e.message, e)
         }
     }
     
@@ -10007,7 +10007,7 @@ class AveroxCrypto(private val masterKey: Array[Byte]) extends AutoCloseable {
         incrementError()
         span.recordException(e)
         span.setAttributes(Attributes.of(AttributeKey.stringKey("operation.status"), "error"))
-        Left(AveroxCryptoException("ENCRYPTION_FAILED", s"Failed to encrypt data: ${e.getMessage}"))
+        Left(AveroxCryptoException("ENCRYPTION_FAILED", "Failed to encrypt data: " + e.getMessage))
     } finally {
       span.end()
     }
@@ -10026,7 +10026,7 @@ class AveroxCrypto(private val masterKey: Array[Byte]) extends AutoCloseable {
     if (envelope.algorithm != "AES-256-GCM") {
       incrementError()
       return Left(AveroxCryptoException("UNSUPPORTED_ALGORITHM", 
-        s"Algorithm ${envelope.algorithm} not supported"))
+"Algorithm " + envelope.algorithm + " not supported"))
     }
     
     val span = tracer.spanBuilder("averox.decrypt")
@@ -10083,7 +10083,7 @@ class AveroxCrypto(private val masterKey: Array[Byte]) extends AutoCloseable {
         incrementError()
         span.recordException(e)
         span.setAttributes(Attributes.of(AttributeKey.stringKey("operation.status"), "error"))
-        Left(AveroxCryptoException("DECRYPTION_FAILED", s"Failed to decrypt data: ${e.getMessage}"))
+        Left(AveroxCryptoException("DECRYPTION_FAILED", "Failed to decrypt data: " + e.getMessage))
     } finally {
       span.end()
     }
@@ -12629,6 +12629,476 @@ When the native Swift SDK becomes available:
   }
 
   // Encryption Failure Debugging Guide
+  static getGoInstallationGuide(sdk) {
+    return `# ${sdk.name} SDK - Go Installation Guide
+
+## Prerequisites
+- Go 1.19 or later
+- Git for dependency management
+
+## Installation
+
+### 1. Add to your Go module
+\`\`\`bash
+go get github.com/averox/crypto-sdk-go
+\`\`\`
+
+### 2. Import in your Go code
+\`\`\`go
+import "github.com/averox/crypto-sdk-go"
+\`\`\`
+
+## Quick Start
+
+\`\`\`go
+package main
+
+import (
+    "fmt"
+    "github.com/averox/crypto-sdk-go"
+)
+
+func main() {
+    // Generate master key
+    masterKey := averox.GenerateMasterKey()
+    
+    // Initialize crypto instance
+    crypto, err := averox.NewAveroxCrypto(masterKey)
+    if err != nil {
+        panic(err)
+    }
+    defer crypto.Zeroize()
+    
+    // Encrypt data
+    plaintext := []byte("Hello, World!")
+    aad := []byte("user123")
+    
+    envelope, err := crypto.Encrypt(plaintext, aad, "key-1")
+    if err != nil {
+        panic(err)
+    }
+    
+    // Decrypt data
+    decrypted, err := crypto.Decrypt(envelope, aad)
+    if err != nil {
+        panic(err)
+    }
+    
+    fmt.Printf("Decrypted: %s\\n", string(decrypted))
+}
+\`\`\`
+
+## Testing
+\`\`\`bash
+go test ./...
+\`\`\`
+
+## Building
+\`\`\`bash
+go build
+\`\`\`
+`;
+  }
+
+  static getRustInstallationGuide(sdk) {
+    return `# ${sdk.name} SDK - Rust Installation Guide
+
+## Prerequisites
+- Rust 1.70.0 or later
+- Cargo package manager
+
+## Installation
+
+### 1. Add to your Cargo.toml
+\`\`\`toml
+[dependencies]
+averox-crypto-sdk = "2.0.0"
+\`\`\`
+
+### 2. Or add directly via cargo
+\`\`\`bash
+cargo add averox-crypto-sdk
+\`\`\`
+
+## Quick Start
+
+\`\`\`rust
+use averox_crypto_sdk::{AveroxCrypto, AveroxCryptoError};
+
+fn main() -> Result<(), AveroxCryptoError> {
+    // Generate master key
+    let master_key = AveroxCrypto::generate_master_key();
+    
+    // Initialize crypto instance
+    let crypto = AveroxCrypto::new(master_key)?;
+    
+    // Encrypt data
+    let plaintext = b"Hello, World!";
+    let aad = b"user123";
+    
+    let envelope = crypto.encrypt(plaintext, aad, Some("key-1".to_string()))?;
+    
+    // Decrypt data
+    let decrypted = crypto.decrypt(&envelope, aad)?;
+    
+    println!("Decrypted: {}", String::from_utf8_lossy(&decrypted));
+    Ok(())
+}
+\`\`\`
+
+## Testing
+\`\`\`bash
+cargo test
+\`\`\`
+
+## Building
+\`\`\`bash
+cargo build --release
+\`\`\`
+`;
+  }
+
+  static getPHPInstallationGuide(sdk) {
+    return `# ${sdk.name} SDK - PHP Installation Guide
+
+## Prerequisites
+- PHP 8.1 or later
+- OpenSSL extension
+- Composer
+
+## Installation
+
+### 1. Install via Composer
+\`\`\`bash
+composer require averox/crypto-sdk
+\`\`\`
+
+### 2. Include autoloader
+\`\`\`php
+<?php
+require_once 'vendor/autoload.php';
+\`\`\`
+
+## Quick Start
+
+\`\`\`php
+<?php
+require_once 'vendor/autoload.php';
+
+use Averox\\Crypto\\SDK\\AveroxCrypto;
+use Averox\\Crypto\\SDK\\AveroxCryptoException;
+
+try {
+    // Generate master key
+    $masterKey = AveroxCrypto::generateMasterKey();
+    
+    // Initialize crypto instance
+    $crypto = new AveroxCrypto($masterKey);
+    
+    // Encrypt data
+    $plaintext = "Hello, World!";
+    $aad = "user123";
+    
+    $envelope = $crypto->encrypt($plaintext, $aad, "key-1");
+    
+    // Decrypt data
+    $decrypted = $crypto->decrypt($envelope, $aad);
+    
+    echo "Decrypted: " . $decrypted . "\\n";
+    
+} catch (AveroxCryptoException $e) {
+    echo "Error: " . $e->getMessage() . "\\n";
+}
+\`\`\`
+
+## Testing
+\`\`\`bash
+composer test
+\`\`\`
+`;
+  }
+
+  static getRubyInstallationGuide(sdk) {
+    return `# ${sdk.name} SDK - Ruby Installation Guide
+
+## Prerequisites
+- Ruby 3.0 or later
+- OpenSSL development headers
+- Bundler
+
+## Installation
+
+### 1. Add to your Gemfile
+\`\`\`ruby
+gem 'averox-crypto-sdk', '~> 2.0.0'
+\`\`\`
+
+### 2. Or install directly
+\`\`\`bash
+gem install averox-crypto-sdk
+\`\`\`
+
+## Quick Start
+
+\`\`\`ruby
+require 'averox/crypto/sdk'
+
+# Generate master key
+master_key = Averox::Crypto::SDK::AveroxCrypto.generate_master_key
+
+# Initialize crypto instance
+crypto = Averox::Crypto::SDK::AveroxCrypto.new(master_key)
+
+# Encrypt data
+plaintext = "Hello, World!"
+aad = "user123"
+
+envelope = crypto.encrypt(plaintext, aad)
+
+# Decrypt data
+decrypted = crypto.decrypt(envelope, aad)
+
+puts "Decrypted: #{decrypted}"
+\`\`\`
+
+## Testing
+\`\`\`bash
+bundle exec rspec
+\`\`\`
+`;
+  }
+
+  static getDartInstallationGuide(sdk) {
+    return `# ${sdk.name} SDK - Dart Installation Guide
+
+## Prerequisites
+- Dart 3.0.0 or later
+- pub package manager
+
+## Installation
+
+### 1. Add to your pubspec.yaml
+\`\`\`yaml
+dependencies:
+  averox_crypto_sdk: ^2.0.0
+\`\`\`
+
+### 2. Install dependencies
+\`\`\`bash
+dart pub get
+\`\`\`
+
+## Quick Start
+
+\`\`\`dart
+import 'dart:convert';
+import 'dart:typed_data';
+import 'package:averox_crypto_sdk/averox_crypto_sdk.dart';
+
+void main() async {
+  // Generate master key
+  final masterKey = AveroxCrypto.generateMasterKey();
+  
+  // Initialize crypto instance
+  final crypto = AveroxCrypto(masterKey);
+  
+  // Encrypt data
+  final plaintext = Uint8List.fromList(utf8.encode("Hello, World!"));
+  final aad = Uint8List.fromList(utf8.encode("user123"));
+  
+  final envelope = await crypto.encrypt(plaintext, aad);
+  
+  // Decrypt data
+  final decrypted = await crypto.decrypt(envelope, aad);
+  
+  print("Decrypted: \${utf8.decode(decrypted)}");
+  
+  // Clean up
+  crypto.zeroize();
+}
+\`\`\`
+
+## Testing
+\`\`\`bash
+dart test
+\`\`\`
+`;
+  }
+
+  static getKotlinInstallationGuide(sdk) {
+    return `# ${sdk.name} SDK - Kotlin Installation Guide
+
+## Prerequisites
+- Kotlin 1.8.0 or later
+- JDK 11 or later
+- Gradle or Maven
+
+## Installation
+
+### Gradle (build.gradle.kts)
+\`\`\`kotlin
+dependencies {
+    implementation("com.averox:crypto-sdk:2.0.0")
+}
+\`\`\`
+
+### Maven (pom.xml)
+\`\`\`xml
+<dependency>
+    <groupId>com.averox</groupId>
+    <artifactId>crypto-sdk</artifactId>
+    <version>2.0.0</version>
+</dependency>
+\`\`\`
+
+## Quick Start
+
+\`\`\`kotlin
+import com.averox.crypto.sdk.AveroxCrypto
+import com.averox.crypto.sdk.AveroxCryptoException
+
+fun main() {
+    try {
+        // Generate master key
+        val masterKey = AveroxCrypto.generateMasterKey()
+        
+        // Initialize crypto instance
+        val crypto = AveroxCrypto(masterKey)
+        
+        // Encrypt data
+        val plaintext = "Hello, World!".toByteArray()
+        val aad = "user123".toByteArray()
+        
+        val envelope = crypto.encrypt(plaintext, aad, "key-1")
+        
+        // Decrypt data
+        val decrypted = crypto.decrypt(envelope, aad)
+        
+        println("Decrypted: \${String(decrypted)}")
+        
+    } catch (e: AveroxCryptoException) {
+        println("Error: \${e.message}")
+    }
+}
+\`\`\`
+
+## Testing
+\`\`\`bash
+./gradlew test
+\`\`\`
+`;
+  }
+
+  static getScalaInstallationGuide(sdk) {
+    return `# ${sdk.name} SDK - Scala Installation Guide
+
+## Prerequisites
+- Scala 3.3.1 or later
+- SBT 1.8.0 or later
+- JDK 11 or later
+
+## Installation
+
+### sbt (build.sbt)
+\`\`\`scala
+libraryDependencies += "com.averox" %% "crypto-sdk" % "2.0.0"
+\`\`\`
+
+## Quick Start
+
+\`\`\`scala
+import com.averox.crypto.sdk.{AveroxCrypto, AveroxCryptoException}
+
+object Main {
+  def main(args: Array[String]): Unit = {
+    // Generate master key
+    val masterKey = AveroxCrypto.generateMasterKey()
+    
+    // Initialize crypto instance
+    val crypto = new AveroxCrypto(masterKey)
+    
+    try {
+      // Encrypt data
+      val plaintext = "Hello, World!".getBytes("UTF-8")
+      val aad = "user123".getBytes("UTF-8")
+      
+      crypto.encrypt(plaintext, aad) match {
+        case Right(envelope) =>
+          // Decrypt data
+          crypto.decrypt(envelope, aad) match {
+            case Right(decrypted) =>
+              println(s"Decrypted: \${new String(decrypted, "UTF-8")}")
+            case Left(error) =>
+              println(s"Decryption error: \${error.getMessage}")
+          }
+        case Left(error) =>
+          println(s"Encryption error: \${error.getMessage}")
+      }
+    } finally {
+      crypto.close()
+    }
+  }
+}
+\`\`\`
+
+## Testing
+\`\`\`bash
+sbt test
+\`\`\`
+`;
+  }
+
+  static getUniversalReadme(language, buildCommand) {
+    return `# Averox Crypto SDK - ${language}
+
+## Overview
+Enterprise-grade AES-256-GCM cryptographic SDK with mandatory AAD enforcement for ${language} applications.
+
+## Features
+✅ **Real AES-256-GCM Encryption**: Production-ready authenticated encryption  
+✅ **Mandatory AAD**: Additional Authenticated Data enforcement for enhanced security  
+✅ **OpenTelemetry Integration**: Built-in metrics and tracing support  
+✅ **Memory Security**: Secure key management and memory clearing  
+✅ **Cross-Platform**: Standardized envelope format across all SDKs  
+✅ **Enterprise Ready**: FIPS compliance and government-grade security  
+
+## Quick Start
+
+### Installation
+See INSTALLATION-GUIDE.md for detailed setup instructions.
+
+### Basic Usage
+\`\`\`
+// See examples/ directory for complete usage examples
+\`\`\`
+
+## Building
+\`\`\`bash
+${buildCommand}
+\`\`\`
+
+## Documentation
+- **INSTALLATION-GUIDE.md** - Setup and installation instructions
+- **examples/** - Working code examples  
+- **TROUBLESHOOTING.md** - Common issues and solutions
+- **CHANGELOG.md** - Version history and updates
+
+## Security
+This SDK implements enterprise-grade security standards:
+- AES-256-GCM authenticated encryption
+- Mandatory Additional Authenticated Data (AAD)
+- Secure random number generation
+- Memory zeroization for sensitive data
+- OpenTelemetry integration for monitoring
+
+## Support
+For technical support, documentation, and updates, visit: https://docs.averox.com
+
+---
+**Warning**: Always use Additional Authenticated Data (AAD) - empty AAD will cause encryption to fail by design.
+`;
+  }
+
   static getEncryptionFailureGuide() {
     return `# Encryption Failure Debugging Guide
 
