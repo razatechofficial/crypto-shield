@@ -4936,6 +4936,583 @@ MIT License - see LICENSE file for details.
     };
   }
 
+  // Ruby SDK with complete enterprise implementation
+  static generateRubySDK(sdk, algorithms) {
+    console.log('💎 Generating complete enterprise Ruby SDK...');
+    
+    const gemspecFile = `# frozen_string_literal: true
+
+require_relative "lib/averox/crypto/sdk/version"
+
+Gem::Specification.new do |spec|
+  spec.name = "averox-crypto-sdk"
+  spec.version = Averox::Crypto::SDK::VERSION
+  spec.authors = ["Averox Ltd"]
+  spec.email = ["support@averox.com"]
+
+  spec.summary = "Enterprise-grade AES-256-GCM cryptographic SDK with AAD enforcement"
+  spec.description = "Production-ready cryptographic SDK with enterprise security features for Ruby applications"
+  spec.homepage = "https://docs.averox.com"
+  spec.license = "MIT"
+  spec.required_ruby_version = ">= 3.0.0"
+
+  spec.metadata["homepage_uri"] = spec.homepage
+  spec.metadata["source_code_uri"] = "https://github.com/averox/crypto-sdk-ruby"
+  spec.metadata["changelog_uri"] = "https://github.com/averox/crypto-sdk-ruby/blob/main/CHANGELOG.md"
+
+  # Specify which files should be added to the gem when it is released.
+  spec.files = Dir.chdir(__dir__) do
+    \`git ls-files -z\`.split("\\x0").reject do |f|
+      (File.expand_path(f) == __FILE__) ||
+        f.start_with?(*%w[bin/ test/ spec/ features/ .git .github appveyor Gemfile])
+    end
+  end
+  spec.bindir = "exe"
+  spec.executables = spec.files.grep(%r{\\Aexe/}) { |f| File.basename(f) }
+  spec.require_paths = ["lib"]
+
+  spec.add_dependency "opentelemetry-api", "~> 1.2"
+  spec.add_dependency "base64", "~> 0.2"
+  
+  spec.add_development_dependency "rspec", "~> 3.12"
+  spec.add_development_dependency "rubocop", "~> 1.60"
+  spec.add_development_dependency "yard", "~> 0.9"
+end`;
+
+    const versionFile = `# frozen_string_literal: true
+
+module Averox
+  module Crypto
+    module SDK
+      VERSION = "${sdk.version || "2.0.0"}"
+    end
+  end
+end`;
+
+    const coreImplementation = `# frozen_string_literal: true
+
+require "openssl"
+require "base64"
+require "json"
+require "opentelemetry/api"
+
+module Averox
+  module Crypto
+    module SDK
+      # Enterprise-grade AES-256-GCM cryptographic SDK with AAD enforcement
+      class AveroxCrypto
+        ALGORITHM = "AES-256-GCM"
+        VERSION = "v2"
+        IV_SIZE = 12
+        TAG_SIZE = 16
+        KEY_SIZE = 32
+
+        # Enterprise metrics tracking
+        @encryption_count = 0
+        @decryption_count = 0
+        @error_count = 0
+        @mutex = Mutex.new
+
+        class << self
+          attr_reader :encryption_count, :decryption_count, :error_count
+
+          # Generate cryptographically secure 32-byte master key
+          # @return [String] 32-byte master key
+          def generate_master_key
+            OpenSSL::Random.random_bytes(KEY_SIZE)
+          end
+
+          # Get SDK diagnostics for monitoring
+          # @return [DiagnosticInfo] diagnostic information
+          def diagnostics
+            @mutex.synchronize do
+              DiagnosticInfo.new(
+                encryption_count: @encryption_count,
+                decryption_count: @decryption_count,
+                error_count: @error_count,
+                version: "2.0.0"
+              )
+            end
+          end
+
+          private
+
+          def increment_encryption
+            @mutex.synchronize { @encryption_count += 1 }
+          end
+
+          def increment_decryption
+            @mutex.synchronize { @decryption_count += 1 }
+          end
+
+          def increment_error
+            @mutex.synchronize { @error_count += 1 }
+          end
+        end
+
+        # Initialize with 32-byte master key
+        # @param master_key [String] 32-byte master key
+        # @param tracer [OpenTelemetry::Trace::Tracer, nil] optional tracer
+        def initialize(master_key, tracer: nil)
+          raise ArgumentError, "Master key must be exactly 32 bytes" unless master_key.bytesize == KEY_SIZE
+
+          @master_key = master_key.dup.freeze
+          @tracer = tracer || OpenTelemetry::Trace.tracer_provider.tracer("averox.crypto.sdk")
+        end
+
+        # Encrypt data with AES-256-GCM and mandatory AAD
+        # @param plaintext [String] data to encrypt
+        # @param aad [String] additional authenticated data (required)
+        # @return [EnvelopeV2] encrypted envelope
+        # @raise [ArgumentError] if AAD is empty
+        # @raise [AveroxCryptoError] if encryption fails
+        def encrypt(plaintext, aad)
+          raise ArgumentError, "AAD (Additional Authenticated Data) is required and cannot be empty" if aad.empty?
+
+          @tracer.in_span("averox.encrypt", attributes: {
+            "plaintext.length" => plaintext.bytesize,
+            "aad.length" => aad.bytesize
+          }) do |span|
+            begin
+              # Generate random 12-byte IV
+              iv = OpenSSL::Random.random_bytes(IV_SIZE)
+
+              # Create cipher
+              cipher = OpenSSL::Cipher.new("aes-256-gcm")
+              cipher.encrypt
+              cipher.key = @master_key
+              cipher.iv = iv
+              cipher.auth_data = aad
+
+              # Encrypt
+              ciphertext = cipher.update(plaintext) + cipher.final
+              tag = cipher.auth_tag
+
+              raise AveroxCryptoError.new("ENCRYPTION_FAILED", "Invalid tag length") if tag.bytesize != TAG_SIZE
+
+              envelope = EnvelopeV2.new(
+                algorithm: ALGORITHM,
+                version: VERSION,
+                ciphertext: Base64.strict_encode64(ciphertext),
+                tag: Base64.strict_encode64(tag),
+                iv: Base64.strict_encode64(iv),
+                timestamp: Time.now.to_i
+              )
+
+              self.class.send(:increment_encryption)
+              span.set_attribute("operation.status", "success")
+
+              envelope
+            rescue StandardError => e
+              self.class.send(:increment_error)
+              span.record_exception(e)
+              span.set_attribute("operation.status", "error")
+              raise AveroxCryptoError.new("ENCRYPTION_FAILED", "Failed to encrypt data: #{e.message}")
+            end
+          end
+        end
+
+        # Decrypt envelope with AES-256-GCM and mandatory AAD
+        # @param envelope [EnvelopeV2] encrypted envelope
+        # @param aad [String] additional authenticated data (required)
+        # @return [String] decrypted plaintext
+        # @raise [ArgumentError] if AAD is empty or algorithm unsupported
+        # @raise [AveroxCryptoError] if decryption fails
+        def decrypt(envelope, aad)
+          raise ArgumentError, "AAD (Additional Authenticated Data) is required and cannot be empty" if aad.empty?
+          raise ArgumentError, "Algorithm #{envelope.algorithm} not supported" unless envelope.algorithm == ALGORITHM
+
+          @tracer.in_span("averox.decrypt", attributes: {
+            "envelope.algorithm" => envelope.algorithm,
+            "aad.length" => aad.bytesize
+          }) do |span|
+            begin
+              # Decode base64 components
+              ciphertext = Base64.strict_decode64(envelope.ciphertext)
+              tag = Base64.strict_decode64(envelope.tag)
+              iv = Base64.strict_decode64(envelope.iv)
+
+              # Validate sizes
+              raise AveroxCryptoError.new("INVALID_IV", "IV must be exactly 12 bytes") if iv.bytesize != IV_SIZE
+              raise AveroxCryptoError.new("INVALID_TAG", "Tag must be exactly 16 bytes") if tag.bytesize != TAG_SIZE
+
+              # Create cipher
+              cipher = OpenSSL::Cipher.new("aes-256-gcm")
+              cipher.decrypt
+              cipher.key = @master_key
+              cipher.iv = iv
+              cipher.auth_tag = tag
+              cipher.auth_data = aad
+
+              # Decrypt
+              plaintext = cipher.update(ciphertext) + cipher.final
+
+              self.class.send(:increment_decryption)
+              span.set_attribute("operation.status", "success")
+
+              plaintext
+            rescue OpenSSL::Cipher::CipherError => e
+              self.class.send(:increment_error)
+              span.record_exception(e)
+              span.set_attribute("operation.status", "error")
+              raise AveroxCryptoError.new("AUTHENTICATION_FAILED", "Authentication failed - data may have been tampered with")
+            rescue StandardError => e
+              self.class.send(:increment_error)
+              span.record_exception(e)
+              span.set_attribute("operation.status", "error")
+              raise AveroxCryptoError.new("DECRYPTION_FAILED", "Failed to decrypt data: #{e.message}")
+            end
+          end
+        end
+
+        # Securely clear master key from memory
+        def zeroize!
+          @master_key.clear if @master_key.respond_to?(:clear)
+        end
+      end
+
+      # Envelope format for encrypted data (v2)
+      class EnvelopeV2
+        attr_reader :algorithm, :version, :ciphertext, :tag, :iv, :timestamp
+
+        # @param algorithm [String] encryption algorithm
+        # @param version [String] envelope version
+        # @param ciphertext [String] base64-encoded ciphertext
+        # @param tag [String] base64-encoded authentication tag
+        # @param iv [String] base64-encoded initialization vector
+        # @param timestamp [Integer] unix timestamp
+        def initialize(algorithm:, version:, ciphertext:, tag:, iv:, timestamp:)
+          @algorithm = algorithm
+          @version = version
+          @ciphertext = ciphertext
+          @tag = tag
+          @iv = iv
+          @timestamp = timestamp
+        end
+
+        # Serialize envelope to JSON
+        # @return [String] JSON representation
+        def to_json(*args)
+          {
+            algorithm: @algorithm,
+            version: @version,
+            ciphertext: @ciphertext,
+            tag: @tag,
+            iv: @iv,
+            timestamp: @timestamp
+          }.to_json(*args)
+        end
+
+        # Deserialize envelope from JSON
+        # @param json [String] JSON data
+        # @return [EnvelopeV2] envelope instance
+        def self.from_json(json)
+          data = JSON.parse(json)
+          new(
+            algorithm: data["algorithm"],
+            version: data["version"],
+            ciphertext: data["ciphertext"],
+            tag: data["tag"],
+            iv: data["iv"],
+            timestamp: data["timestamp"]
+          )
+        end
+      end
+
+      # SDK diagnostic information
+      class DiagnosticInfo
+        attr_reader :encryption_count, :decryption_count, :error_count, :version
+
+        # @param encryption_count [Integer] number of encryption operations
+        # @param decryption_count [Integer] number of decryption operations
+        # @param error_count [Integer] number of error operations
+        # @param version [String] SDK version
+        def initialize(encryption_count:, decryption_count:, error_count:, version:)
+          @encryption_count = encryption_count
+          @decryption_count = decryption_count
+          @error_count = error_count
+          @version = version
+        end
+      end
+
+      # Averox cryptography exception
+      class AveroxCryptoError < StandardError
+        attr_reader :error_code
+
+        # @param error_code [String] error code
+        # @param message [String] error message
+        def initialize(error_code, message = "")
+          @error_code = error_code
+          super(message)
+        end
+      end
+    end
+  end
+end`;
+
+    const testFile = `# frozen_string_literal: true
+
+require "spec_helper"
+
+RSpec.describe Averox::Crypto::SDK::AveroxCrypto do
+  let(:master_key) { described_class.generate_master_key }
+  let(:crypto) { described_class.new(master_key) }
+
+  after { crypto.zeroize! }
+
+  describe ".generate_master_key" do
+    it "returns a 32-byte key" do
+      key = described_class.generate_master_key
+      expect(key.bytesize).to eq(32)
+    end
+  end
+
+  describe "#initialize" do
+    context "with valid key" do
+      it "creates instance successfully" do
+        expect { described_class.new(master_key) }.not_to raise_error
+      end
+    end
+
+    context "with invalid key size" do
+      it "raises ArgumentError" do
+        invalid_key = "x" * 16 # Too short
+        expect { described_class.new(invalid_key) }.to raise_error(ArgumentError, "Master key must be exactly 32 bytes")
+      end
+    end
+  end
+
+  describe "#encrypt" do
+    let(:plaintext) { "Hello, World!" }
+    let(:aad) { "user-session-123" }
+
+    context "with valid data" do
+      it "returns envelope with correct format" do
+        envelope = crypto.encrypt(plaintext, aad)
+
+        expect(envelope.algorithm).to eq("AES-256-GCM")
+        expect(envelope.version).to eq("v2")
+        expect(envelope.ciphertext).not_to be_empty
+        expect(envelope.tag).not_to be_empty
+        expect(envelope.iv).not_to be_empty
+        expect(envelope.timestamp).to be > 0
+      end
+    end
+
+    context "without AAD" do
+      it "raises ArgumentError" do
+        expect { crypto.encrypt(plaintext, "") }.to raise_error(ArgumentError, /AAD.*required/)
+      end
+    end
+  end
+
+  describe "#decrypt" do
+    let(:plaintext) { "Sensitive enterprise data 🔒" }
+    let(:aad) { "enterprise-context" }
+
+    context "with valid envelope" do
+      it "decrypts successfully" do
+        envelope = crypto.encrypt(plaintext, aad)
+        decrypted = crypto.decrypt(envelope, aad)
+
+        expect(decrypted).to eq(plaintext)
+      end
+    end
+
+    context "with wrong AAD" do
+      it "raises authentication error" do
+        envelope = crypto.encrypt(plaintext, "correct-aad")
+        
+        expect { crypto.decrypt(envelope, "wrong-aad") }.to raise_error(Averox::Crypto::SDK::AveroxCryptoError) do |error|
+          expect(error.error_code).to eq("AUTHENTICATION_FAILED")
+        end
+      end
+    end
+
+    context "with tampered data" do
+      it "raises authentication error" do
+        envelope = crypto.encrypt(plaintext, aad)
+        tampered_envelope = Averox::Crypto::SDK::EnvelopeV2.new(
+          algorithm: envelope.algorithm,
+          version: envelope.version,
+          ciphertext: Base64.strict_encode64("tampered"),
+          tag: envelope.tag,
+          iv: envelope.iv,
+          timestamp: envelope.timestamp
+        )
+
+        expect { crypto.decrypt(tampered_envelope, aad) }.to raise_error(Averox::Crypto::SDK::AveroxCryptoError) do |error|
+          expect(error.error_code).to eq("AUTHENTICATION_FAILED")
+        end
+      end
+    end
+
+    context "without AAD" do
+      it "raises ArgumentError" do
+        envelope = crypto.encrypt(plaintext, aad)
+        expect { crypto.decrypt(envelope, "") }.to raise_error(ArgumentError, /AAD.*required/)
+      end
+    end
+  end
+
+  describe ".diagnostics" do
+    it "returns diagnostic information" do
+      info = described_class.diagnostics
+
+      expect(info.version).to eq("2.0.0")
+      expect(info.encryption_count).to be >= 0
+      expect(info.decryption_count).to be >= 0
+      expect(info.error_count).to be >= 0
+    end
+  end
+end
+
+RSpec.describe Averox::Crypto::SDK::EnvelopeV2 do
+  let(:envelope) do
+    described_class.new(
+      algorithm: "AES-256-GCM",
+      version: "v2",
+      ciphertext: "test-ciphertext",
+      tag: "test-tag",
+      iv: "test-iv",
+      timestamp: 1234567890
+    )
+  end
+
+  describe "#to_json" do
+    it "serializes to JSON" do
+      json = envelope.to_json
+      expect(json).to include('"algorithm":"AES-256-GCM"')
+      expect(json).to include('"version":"v2"')
+    end
+  end
+
+  describe ".from_json" do
+    it "deserializes from JSON" do
+      json = envelope.to_json
+      decoded = described_class.from_json(json)
+
+      expect(decoded.algorithm).to eq(envelope.algorithm)
+      expect(decoded.version).to eq(envelope.version)
+      expect(decoded.ciphertext).to eq(envelope.ciphertext)
+      expect(decoded.tag).to eq(envelope.tag)
+      expect(decoded.iv).to eq(envelope.iv)
+      expect(decoded.timestamp).to eq(envelope.timestamp)
+    end
+  end
+end`;
+
+    const specHelperFile = `# frozen_string_literal: true
+
+require "averox/crypto/sdk"
+
+RSpec.configure do |config|
+  config.expect_with :rspec do |expectations|
+    expectations.include_chain_clauses_in_custom_matcher_descriptions = true
+  end
+
+  config.mock_with :rspec do |mocks|
+    mocks.verify_partial_doubles = true
+  end
+
+  config.shared_context_metadata_behavior = :apply_to_host_groups
+  config.filter_run_when_matching :focus
+  config.example_status_persistence_file_path = "spec/examples.txt"
+  config.disable_monkey_patching!
+  config.warnings = true
+
+  if config.files_to_run.one?
+    config.default_formatter = "doc"
+  end
+
+  config.profile_examples = 10
+  config.order = :random
+  Kernel.srand config.seed
+end`;
+
+    const readmeFile = `# Averox Ruby Crypto SDK
+
+Enterprise-grade AES-256-GCM cryptographic library with mandatory AAD enforcement for Ruby applications.
+
+## Features
+
+✅ **AES-256-GCM**: Industry-standard authenticated encryption  
+✅ **AAD Enforcement**: Mandatory Additional Authenticated Data  
+✅ **Enterprise Telemetry**: Built-in OpenTelemetry integration  
+✅ **Memory Security**: Secure key clearing  
+✅ **Thread-Safe**: Concurrent-safe operations  
+✅ **Ruby 3.0+**: Modern Ruby support  
+
+## Installation
+
+Add this line to your application's Gemfile:
+
+\`\`\`ruby
+gem 'averox-crypto-sdk'
+\`\`\`
+
+And then execute:
+
+\`\`\`bash
+bundle install
+\`\`\`
+
+Or install it yourself as:
+
+\`\`\`bash
+gem install averox-crypto-sdk
+\`\`\`
+
+## Quick Start
+
+\`\`\`ruby
+require 'averox/crypto/sdk'
+
+# Generate a master key
+master_key = Averox::Crypto::SDK::AveroxCrypto.generate_master_key
+
+# Initialize the crypto instance
+crypto = Averox::Crypto::SDK::AveroxCrypto.new(master_key)
+
+# Encrypt with AAD
+plaintext = "Sensitive data"
+aad = "user-session-123"
+envelope = crypto.encrypt(plaintext, aad)
+
+# Decrypt
+decrypted = crypto.decrypt(envelope, aad)
+puts "Decrypted: #{decrypted}"
+
+# Securely clear key from memory
+crypto.zeroize!
+\`\`\`
+
+## Security Features
+
+🔒 **AAD ENFORCEMENT**: This library REQUIRES Additional Authenticated Data for all encrypt/decrypt operations.
+
+🔒 **IV Policy**: 12-byte IVs are automatically generated using OpenSSL::Random.
+
+🔒 **Memory Security**: Use \`zeroize!\` to securely clear keys from memory.
+
+## License
+
+MIT License - see LICENSE file for details.
+`;
+
+    return {
+      'averox-crypto-sdk.gemspec': gemspecFile,
+      'lib/averox/crypto/sdk/version.rb': versionFile,
+      'lib/averox/crypto/sdk.rb': coreImplementation,
+      'spec/averox/crypto/sdk_spec.rb': testFile,
+      'spec/spec_helper.rb': specHelperFile,
+      'README.md': readmeFile,
+      'LICENSE': this.getMITLicense(),
+      'INSTALLATION-GUIDE.md': this.getRubyInstallationGuide(sdk),
+      'TROUBLESHOOTING.md': this.getUniversalTroubleshootingGuide()
+    };
+  }
+
   // Enterprise CI workflow with sanitizer builds
   static getEnterpriseCI() {
     return `name: Enterprise Security CI
