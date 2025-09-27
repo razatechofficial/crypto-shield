@@ -185,6 +185,19 @@ export const sdks = pgTable("sdks", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Packages table for subscription management
+export const packages = pgTable("packages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  name: varchar("name").notNull(),
+  description: text("description"),
+  version: varchar("version").notNull().default('1.0.0'),
+  isVisible: boolean("is_visible").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Encryption keys table with versioning support
 export const encryptionKeys = pgTable("encryption_keys", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -671,6 +684,12 @@ export const insertSdkSchema = createInsertSchema(sdks).omit({
   confidentialFeatures: z.array(z.string()).optional().transform((val) => val ? JSON.stringify(val) : null),
 });
 
+export const insertPackageSchema = createInsertSchema(packages).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertEncryptionKeySchema = createInsertSchema(encryptionKeys).omit({
   id: true,
   createdAt: true,
@@ -755,7 +774,9 @@ export type TrialRegistration = z.infer<typeof trialRegistrationSchema>;
 export type Tenant = typeof tenants.$inferSelect;
 export type InsertTenant = z.infer<typeof insertTenantSchema>;
 export type Sdk = typeof sdks.$inferSelect;
+export type Package = typeof packages.$inferSelect;
 export type InsertSdk = z.infer<typeof insertSdkSchema>;
+export type InsertPackage = z.infer<typeof insertPackageSchema>;
 export type EncryptionAlgorithm = typeof encryptionAlgorithms.$inferSelect;
 export type EncryptionKey = typeof encryptionKeys.$inferSelect;
 export type InsertEncryptionKey = z.infer<typeof insertEncryptionKeySchema>;

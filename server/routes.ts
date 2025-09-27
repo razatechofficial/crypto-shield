@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./customAuth";
-import { insertSdkSchema, insertEncryptionKeySchema, insertKeyRotationPolicySchema } from "@shared/schema";
+import { insertSdkSchema, insertPackageSchema, insertEncryptionKeySchema, insertKeyRotationPolicySchema } from "@shared/schema";
 import { z } from "zod";
 import { keyRotationScheduler } from "./keyRotationScheduler";
 import { emailService, generateVerificationToken, hashToken } from "./email";
@@ -718,6 +718,129 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting SDK:", error);
       res.status(500).json({ message: "Failed to delete SDK" });
+    }
+  });
+
+  // ============================================================================
+  // PACKAGES MANAGEMENT
+  // ============================================================================
+
+  // Get all packages for tenant
+  app.get("/api/packages", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const userId = user.id || user.claims?.sub;
+      const userEmail = user.email || user.claims?.email;
+      
+      if (!userId || !userEmail) {
+        return res.status(401).json({ message: "Invalid user session" });
+      }
+      
+      const tenantId = user.tenantId || await storage.getOrCreateTenantForUser(userId, userEmail);
+      const packages = await storage.getPackages(tenantId, userId);
+      
+      res.json(packages);
+    } catch (error) {
+      console.error("Error fetching packages:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Create new package
+  app.post("/api/packages", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const userId = user.id || user.claims?.sub;
+      const userEmail = user.email || user.claims?.email;
+      
+      if (!userId || !userEmail) {
+        return res.status(401).json({ message: "Invalid user session" });
+      }
+      
+      const tenantId = user.tenantId || await storage.getOrCreateTenantForUser(userId, userEmail);
+      
+      // Validate input
+      const validatedData = insertPackageSchema.parse({
+        ...req.body,
+        tenantId,
+        userId
+      });
+      
+      const newPackage = await storage.createPackage(validatedData);
+      res.status(201).json(newPackage);
+    } catch (error) {
+      console.error("Error creating package:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Update package
+  app.put("/api/packages/:id", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const userId = user.id || user.claims?.sub;
+      const userEmail = user.email || user.claims?.email;
+      
+      if (!userId || !userEmail) {
+        return res.status(401).json({ message: "Invalid user session" });
+      }
+      
+      const pkg = await storage.getPackage(req.params.id);
+      if (!pkg) {
+        return res.status(404).json({ message: "Package not found" });
+      }
+      
+      // Verify user owns this package or belongs to same tenant
+      const tenantId = user.tenantId || await storage.getOrCreateTenantForUser(userId, userEmail);
+      if (pkg.tenantId !== tenantId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      // Only allow updating certain fields
+      const allowedUpdates: any = {};
+      if (req.body.name !== undefined) allowedUpdates.name = req.body.name;
+      if (req.body.description !== undefined) allowedUpdates.description = req.body.description;
+      if (req.body.version !== undefined) allowedUpdates.version = req.body.version;
+      if (req.body.isVisible !== undefined) allowedUpdates.isVisible = req.body.isVisible;
+      
+      const updatedPackage = await storage.updatePackage(req.params.id, allowedUpdates);
+      res.json(updatedPackage);
+    } catch (error) {
+      console.error("Error updating package:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Delete package
+  app.delete("/api/packages/:id", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const userId = user.id || user.claims?.sub;
+      const userEmail = user.email || user.claims?.email;
+      
+      if (!userId || !userEmail) {
+        return res.status(401).json({ message: "Invalid user session" });
+      }
+      
+      const pkg = await storage.getPackage(req.params.id);
+      if (!pkg) {
+        return res.status(404).json({ message: "Package not found" });
+      }
+      
+      // Verify user owns this package or belongs to same tenant
+      const tenantId = user.tenantId || await storage.getOrCreateTenantForUser(userId, userEmail);
+      if (pkg.tenantId !== tenantId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      await storage.deletePackage(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting package:", error);
+      res.status(500).json({ message: "Internal server error" });
     }
   });
 

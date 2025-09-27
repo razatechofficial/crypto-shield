@@ -2,6 +2,7 @@ import {
   users,
   tenants,
   sdks,
+  packages,
   encryptionAlgorithms,
   encryptionKeys,
   securityEvents,
@@ -24,6 +25,8 @@ import {
   type InsertTenant,
   type Sdk,
   type InsertSdk,
+  type Package,
+  type InsertPackage,
   type EncryptionAlgorithm,
   type EncryptionKey,
   type InsertEncryptionKey,
@@ -168,6 +171,13 @@ export interface IStorage {
   getSDK(id: string): Promise<Sdk | undefined>;
   deleteSDK(id: string): Promise<void>;
   deleteAllSDKs(tenantId: string): Promise<void>;
+
+  // Package operations
+  getPackages(tenantId: string, userId?: string): Promise<Package[]>;
+  createPackage(pkg: InsertPackage): Promise<Package>;
+  getPackage(id: string): Promise<Package | undefined>;
+  updatePackage(id: string, updates: Partial<Package>): Promise<Package>;
+  deletePackage(id: string): Promise<void>;
   
   // Algorithm operations
   getEncryptionAlgorithms(): Promise<EncryptionAlgorithm[]>;
@@ -645,6 +655,38 @@ export class DatabaseStorage implements IStorage {
 
   async deleteAllSDKs(tenantId: string): Promise<void> {
     await db.delete(sdks).where(eq(sdks.tenantId, tenantId));
+  }
+
+  // Package operations
+  async getPackages(tenantId: string, userId?: string): Promise<Package[]> {
+    return await db
+      .select()
+      .from(packages)
+      .where(eq(packages.tenantId, tenantId))
+      .orderBy(desc(packages.createdAt));
+  }
+
+  async createPackage(packageData: InsertPackage): Promise<Package> {
+    const [pkg] = await db.insert(packages).values(packageData).returning();
+    return pkg;
+  }
+
+  async getPackage(id: string): Promise<Package | undefined> {
+    const [pkg] = await db.select().from(packages).where(eq(packages.id, id));
+    return pkg;
+  }
+
+  async updatePackage(id: string, updates: Partial<Package>): Promise<Package> {
+    const [pkg] = await db
+      .update(packages)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(packages.id, id))
+      .returning();
+    return pkg;
+  }
+
+  async deletePackage(id: string): Promise<void> {
+    await db.delete(packages).where(eq(packages.id, id));
   }
 
   // Algorithm operations
