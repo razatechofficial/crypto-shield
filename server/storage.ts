@@ -3571,6 +3571,7 @@ export class DatabaseStorage implements IStorage {
   // TODO: All subscription methods commented out until types are properly defined
 
   /*
+  // TODO: Subscription methods commented out until types are properly defined
   async getSubscriptionPlans(): Promise<SubscriptionPlan[]> {
     return await db.select().from(subscriptionPlans).where(eq(subscriptionPlans.isActive, true));
   }
@@ -3675,7 +3676,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(invoices.createdAt))
       .limit(limit);
   }
-
+  */
 
   // REAL MONITORING OPERATIONS - Track actual SDK usage
   
@@ -4620,7 +4621,6 @@ export class DatabaseStorage implements IStorage {
 
     return rolePermissions[role] || ['keys:view'];
   }
-  */
 }
 
 export const storage = new DatabaseStorage();
