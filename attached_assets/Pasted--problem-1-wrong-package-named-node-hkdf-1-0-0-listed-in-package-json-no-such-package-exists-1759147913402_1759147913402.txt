@@ -1,0 +1,254 @@
+**problem #1**, wrong package named 'node-hkdf^1.0.0' listed in package.json, no such package exists. and its not even being used in code. had to remove it to install node modules. 
+
+
+
+**problem #2** there were some pre-defined tests present in sdk, maybe made by replit, i created one myself. All of them failed due to typescript errors and implementation gaps in code
+
+
+
+PS C:\\Users\\Mansoor Khan\\Downloads\\New Test Sdk-v2.0.0\\javascript> npm test -- --no-cache
+
+npm warn invalid config cache=false set in command line options
+
+npm warn invalid config Must be valid filesystem path
+
+
+
+> @averox/new-test-sdk-crypto-sdk@2.0.0 test
+
+> jest
+
+
+
+&nbsp;FAIL  test/audit-compliance.test.js
+
+&nbsp; ● Test suite failed to run
+
+&nbsp;                                                                                                               
+
+&nbsp;   src/index.ts:99:5 - error TS2322: Type 'Buffer<ArrayBufferLike>' is not assignable to type 'Buffer<ArrayBuffer>'.                                                                                                           
+
+&nbsp;     Type 'ArrayBufferLike' is not assignable to type 'ArrayBuffer'.                                           
+
+&nbsp;       Type 'SharedArrayBuffer' is not assignable to type 'ArrayBuffer'.                                       
+
+&nbsp;         Types of property '\[Symbol.toStringTag]' are incompatible.                                            
+
+&nbsp;           Type '"SharedArrayBuffer"' is not assignable to type '"ArrayBuffer"'.                               
+
+&nbsp;                                                                                                               
+
+&nbsp;   99     t = hmacExpand.digest();
+
+&nbsp;          ~
+
+&nbsp;   src/index.ts:178:78 - error TS18046: 'error' is of type 'unknown'.
+
+
+
+&nbsp;   178       throw new AveroxCryptoError('ENCRYPTION\_FAILED', `Encryption failed: ${error.message}`);
+
+&nbsp;                                                                                    ~~~~~
+
+&nbsp;   src/index.ts:232:11 - error TS18046: 'error' is of type 'unknown'.
+
+
+
+&nbsp;   232       if (error.message \&\& error.message.includes('Unsupported state or unable to authenticate data')) {
+
+&nbsp;                 ~~~~~
+
+&nbsp;   src/index.ts:232:28 - error TS18046: 'error' is of type 'unknown'.
+
+
+
+&nbsp;   232       if (error.message \&\& error.message.includes('Unsupported state or unable to authenticate data')) {
+
+&nbsp;                                  ~~~~~
+
+&nbsp;   src/index.ts:237:78 - error TS18046: 'error' is of type 'unknown'.
+
+
+
+&nbsp;   237       throw new AveroxCryptoError('DECRYPTION\_FAILED', `Decryption failed: ${error.message}`);
+
+&nbsp;                                                                                    ~~~~~
+
+
+
+&nbsp;FAIL  test/wycheproof-gcm.test.js
+
+&nbsp; ● Test suite failed to run
+
+&nbsp;                                                                                                               
+
+&nbsp;   src/index.ts:99:5 - error TS2322: Type 'Buffer<ArrayBufferLike>' is not assignable to type 'Buffer<ArrayBuffer>'.                                                                                                           
+
+&nbsp;     Type 'ArrayBufferLike' is not assignable to type 'ArrayBuffer'.                                           
+
+&nbsp;       Type 'SharedArrayBuffer' is not assignable to type 'ArrayBuffer'.                                       
+
+&nbsp;         Types of property '\[Symbol.toStringTag]' are incompatible.                                            
+
+&nbsp;           Type '"SharedArrayBuffer"' is not assignable to type '"ArrayBuffer"'.                               
+
+&nbsp;                                                                                                               
+
+&nbsp;   99     t = hmacExpand.digest();
+
+&nbsp;          ~
+
+&nbsp;   src/index.ts:178:78 - error TS18046: 'error' is of type 'unknown'.
+
+
+
+&nbsp;   178       throw new AveroxCryptoError('ENCRYPTION\_FAILED', `Encryption failed: ${error.message}`);
+
+&nbsp;                                                                                    ~~~~~
+
+&nbsp;   src/index.ts:232:11 - error TS18046: 'error' is of type 'unknown'.
+
+
+
+&nbsp;   232       if (error.message \&\& error.message.includes('Unsupported state or unable to authenticate data')) {
+
+&nbsp;                 ~~~~~
+
+&nbsp;   src/index.ts:232:28 - error TS18046: 'error' is of type 'unknown'.
+
+
+
+&nbsp;   232       if (error.message \&\& error.message.includes('Unsupported state or unable to authenticate data')) {
+
+&nbsp;                                  ~~~~~
+
+&nbsp;   src/index.ts:237:78 - error TS18046: 'error' is of type 'unknown'.
+
+
+
+&nbsp;   237       throw new AveroxCryptoError('DECRYPTION\_FAILED', `Decryption failed: ${error.message}`);
+
+&nbsp;                                                                                    ~~~~~
+
+
+
+&nbsp;FAIL  test/nist-vectors.test.js
+
+&nbsp; ● Test suite failed to run
+
+
+
+&nbsp;   src/index.ts:99:5 - error TS2322: Type 'Buffer<ArrayBufferLike>' is not assignable to type 'Buffer<ArrayBuffer>'.                                                                                                           
+
+&nbsp;     Type 'ArrayBufferLike' is not assignable to type 'ArrayBuffer'.
+
+&nbsp;       Type 'SharedArrayBuffer' is not assignable to type 'ArrayBuffer'.
+
+&nbsp;         Types of property '\[Symbol.toStringTag]' are incompatible.
+
+&nbsp;           Type '"SharedArrayBuffer"' is not assignable to type '"ArrayBuffer"'.
+
+
+
+&nbsp;   99     t = hmacExpand.digest();
+
+&nbsp;          ~
+
+&nbsp;   src/index.ts:178:78 - error TS18046: 'error' is of type 'unknown'.
+
+
+
+&nbsp;   178       throw new AveroxCryptoError('ENCRYPTION\_FAILED', `Encryption failed: ${error.message}`);
+
+&nbsp;                                                                                    ~~~~~
+
+&nbsp;   src/index.ts:232:11 - error TS18046: 'error' is of type 'unknown'.
+
+
+
+&nbsp;   232       if (error.message \&\& error.message.includes('Unsupported state or unable to authenticate data')) {
+
+&nbsp;                 ~~~~~
+
+&nbsp;   src/index.ts:232:28 - error TS18046: 'error' is of type 'unknown'.
+
+
+
+&nbsp;   232       if (error.message \&\& error.message.includes('Unsupported state or unable to authenticate data')) {
+
+&nbsp;                                  ~~~~~
+
+&nbsp;   src/index.ts:237:78 - error TS18046: 'error' is of type 'unknown'.
+
+
+
+&nbsp;   237       throw new AveroxCryptoError('DECRYPTION\_FAILED', `Decryption failed: ${error.message}`);
+
+&nbsp;                                                                                    ~~~~~
+
+
+
+&nbsp;FAIL  test/crypto.test.ts
+
+&nbsp; ● Test suite failed to run
+
+
+
+&nbsp;   src/index.ts:99:5 - error TS2322: Type 'Buffer<ArrayBufferLike>' is not assignable to type 'Buffer<ArrayBuffer>'.                                                                                                           
+
+&nbsp;     Type 'ArrayBufferLike' is not assignable to type 'ArrayBuffer'.
+
+&nbsp;       Type 'SharedArrayBuffer' is not assignable to type 'ArrayBuffer'.
+
+&nbsp;         Types of property '\[Symbol.toStringTag]' are incompatible.
+
+&nbsp;           Type '"SharedArrayBuffer"' is not assignable to type '"ArrayBuffer"'.
+
+
+
+&nbsp;   99     t = hmacExpand.digest();
+
+&nbsp;          ~
+
+&nbsp;   src/index.ts:178:78 - error TS18046: 'error' is of type 'unknown'.
+
+
+
+&nbsp;   178       throw new AveroxCryptoError('ENCRYPTION\_FAILED', `Encryption failed: ${error.message}`);
+
+&nbsp;                                                                                    ~~~~~
+
+&nbsp;   src/index.ts:232:11 - error TS18046: 'error' is of type 'unknown'.
+
+
+
+&nbsp;   232       if (error.message \&\& error.message.includes('Unsupported state or unable to authenticate data')) {
+
+&nbsp;                 ~~~~~
+
+&nbsp;   src/index.ts:232:28 - error TS18046: 'error' is of type 'unknown'.
+
+
+
+&nbsp;   232       if (error.message \&\& error.message.includes('Unsupported state or unable to authenticate data')) {
+
+&nbsp;                                  ~~~~~
+
+&nbsp;   src/index.ts:237:78 - error TS18046: 'error' is of type 'unknown'.
+
+
+
+&nbsp;   237       throw new AveroxCryptoError('DECRYPTION\_FAILED', `Decryption failed: ${error.message}`);
+
+&nbsp;                                                                                    ~~~~~
+
+
+
+Test Suites: 4 failed, 4 total
+
+Tests:       0 total
+
+Snapshots:   0 total
+
+Time:        18.229 s
+

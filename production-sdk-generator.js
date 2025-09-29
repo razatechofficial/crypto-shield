@@ -206,7 +206,8 @@ if (!RNGHealthMonitor.getHealthStatus().initialized) {
   try {
     RNGHealthMonitor.initialize();
   } catch (error) {
-    console.error('[SDK-GENERATOR] ❌ RNG health monitoring initialization failed:', error.message);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[SDK-GENERATOR] ❌ RNG health monitoring initialization failed:', errorMessage);
     throw error;
   }
 }
@@ -444,7 +445,8 @@ class AveroxCrypto {
       if (error instanceof SecurityError) {
         throw error;
       }
-      if (error.message.includes('Unsupported state or unable to authenticate data')) {
+      const errorMessage = error instanceof Error ? error.message : '';
+      if (errorMessage.includes('Unsupported state or unable to authenticate data')) {
         throw new AveroxCryptoError('AUTH_FAILURE', 'Authentication failed: invalid tag or AAD mismatch', error);
       }
       throw new AveroxCryptoError('DECRYPTION_ERROR', 'Decryption failed', error);

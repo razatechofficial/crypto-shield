@@ -37,9 +37,7 @@ class FixedEnterpriseSDKGenerator {
         "test:security": "npm run test:nist && npm run test:audit",
         "test:audit": "node test/audit-compliance.test.js"
       },
-      "dependencies": {
-        "node-hkdf": "^1.0.0"
-      },
+      "dependencies": {},
       "peerDependencies": {
         "@opentelemetry/api": "^1.0.0"
       },
@@ -184,7 +182,7 @@ function hkdf(ikm: Buffer, salt: Buffer, info: Buffer, length: number): Buffer {
     hmacExpand.update(t);
     hmacExpand.update(info);
     hmacExpand.update(Buffer.from([i]));
-    t = hmacExpand.digest();
+    t = Buffer.from(hmacExpand.digest());
     t.copy(okm, (i - 1) * 32, 0, Math.min(32, length - (i - 1) * 32));
   }
   
@@ -260,10 +258,11 @@ export class AveroxCrypto {
         aad: aadBuffer.toString('base64url')
       };
       
-    } catch (error) {
+    } catch (error: unknown) {
       telemetry.increment(METRICS.FAIL_TOTAL, 1, { ...attributes, reason: 'encryption_error' });
       if (error instanceof AveroxCryptoError) throw error;
-      throw new AveroxCryptoError('ENCRYPTION_FAILED', \`Encryption failed: \${error.message}\`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown encryption error';
+      throw new AveroxCryptoError('ENCRYPTION_FAILED', \`Encryption failed: \${errorMessage}\`);
     }
   }
   
@@ -314,15 +313,17 @@ export class AveroxCrypto {
       telemetry.increment(METRICS.DECRYPT_TOTAL, 1, attributes);
       return plaintext;
       
-    } catch (error) {
+    } catch (error: unknown) {
       telemetry.increment(METRICS.FAIL_TOTAL, 1, { ...attributes, reason: 'decryption_error' });
       
-      if (error.message && error.message.includes('Unsupported state or unable to authenticate data')) {
+      const errorMessage = error instanceof Error ? error.message : '';
+      if (errorMessage && errorMessage.includes('Unsupported state or unable to authenticate data')) {
         throw new InvalidTagError('Authentication failed - data may have been tampered with');
       }
       
       if (error instanceof AveroxCryptoError) throw error;
-      throw new AveroxCryptoError('DECRYPTION_FAILED', \`Decryption failed: \${error.message}\`);
+      const finalErrorMessage = error instanceof Error ? error.message : 'Unknown decryption error';
+      throw new AveroxCryptoError('DECRYPTION_FAILED', \`Decryption failed: \${finalErrorMessage}\`);
     }
   }
   
