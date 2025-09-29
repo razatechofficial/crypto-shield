@@ -10174,7 +10174,7 @@ class AveroxCryptoSuite extends FunSuite {
         assert(envelope.iv.nonEmpty)
         assert(envelope.timestamp > 0)
       case Left(error) =>
-        fail(s"Encryption failed: \${error.message}")
+        fail(s"Encryption failed: \${if (error.getMessage != null) error.getMessage else "Unknown error"}")
     }
     
     crypto.close()
@@ -10210,7 +10210,7 @@ class AveroxCryptoSuite extends FunSuite {
     
     result match {
       case Right(decryptedText) => assertEquals(decryptedText, originalText)
-      case Left(error) => fail(s"Round trip failed: \${error.message}")
+      case Left(error) => fail(s"Round trip failed: \${if (error.getMessage != null) error.getMessage else "Unknown error"}")
     }
     
     crypto.close()
@@ -10316,7 +10316,7 @@ val result = for {
 
 result match {
   case Right(decryptedText) => println(s"Decrypted: $decryptedText")
-  case Left(error) => println(s"Error: \${error.message}")
+  case Left(error) => println(s"Error: \${if (error.getMessage != null) error.getMessage else "Unknown error"}")
 }
 
 // Securely clear key from memory
@@ -11618,7 +11618,7 @@ try {
   const decrypted: Buffer = crypto.decrypt(envelope, aad);
   console.log('Success:', decrypted.toString());
 } catch (error) {
-  console.error('Encryption failed:', error.message);
+  console.error('Encryption failed:', error instanceof Error ? error.message : 'Unknown error');
 }
 \`\`\`
 
@@ -11763,7 +11763,7 @@ try {
   const decrypted = crypto.decrypt(envelope, aad);
   console.log('✅ SDK is working properly');
 } catch (error) {
-  console.error('❌ SDK health check failed:', error.message);
+  console.error('❌ SDK health check failed:', error instanceof Error ? error.message : 'Unknown error');
 }
 \`\`\`
 
@@ -14460,7 +14460,7 @@ function cryptoHealthCheck() {
     return true
     
   } catch (error) {
-    console.error('❌ Health check failed:', error.message)
+    console.error('❌ Health check failed:', error instanceof Error ? error.message : 'Unknown error')
     return false
   }
 }
@@ -14487,7 +14487,7 @@ function recoverData(corruptedEnvelope, originalKey, originalAAD) {
     const crypto = new AveroxCrypto(originalKey)
     return crypto.decrypt(corruptedEnvelope, originalAAD)
   } catch (error) {
-    console.error('Recovery failed:', error.message)
+    console.error('Recovery failed:', error instanceof Error ? error.message : 'Unknown error')
     
     // Log details for support
     console.log('Envelope details:', {
