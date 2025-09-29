@@ -7622,11 +7622,11 @@ zeroize = { version = "1.6", features = ["zeroize_derive"] }
 tracing = "0.1"
 thiserror = "1.0"
 opentelemetry = { version = "0.20", optional = true }
-opentelemetry-api = { version = "0.20", optional = true }
+opentelemetry_api = { version = "0.20", optional = true }
 
 [features]
 default = ["telemetry"]
-telemetry = ["opentelemetry", "opentelemetry-api"]
+telemetry = ["opentelemetry", "opentelemetry_api"]
 
 [dev-dependencies]
 tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }

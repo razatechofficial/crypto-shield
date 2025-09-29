@@ -4,7 +4,7 @@ hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["unzip", "openssl", "pkg-config", "openjdk", "php", "ruby", "rustc", "cargo"]
+packages = ["unzip", "openssl", "pkg-config", "openjdk", "php", "ruby", "rustc", "cargo", "scala", "dart"]
 
 [deployment]
 deploymentTarget = "autoscale"
