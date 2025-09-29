@@ -34,6 +34,12 @@ export default function Dashboard() {
     retry: false,
   });
 
+  // Real historical performance data from actual API usage
+  const { data: historicalData = [] } = useQuery({
+    queryKey: ['/api/monitoring/historical-performance'],
+    retry: false,
+  });
+
   if (statsLoading) {
     return (
       <div className="p-6">
@@ -47,12 +53,6 @@ export default function Dashboard() {
       </div>
     );
   }
-
-  // Real historical performance data from actual API usage
-  const { data: historicalData = [] } = useQuery({
-    queryKey: ['/api/monitoring/historical-performance'],
-    retry: false,
-  });
 
   const performanceData = {
     labels: historicalData.map((point: any) => point.label) || ['Today', 'Yesterday', '2 days ago', '3 days ago', '4 days ago', '5 days ago'],
