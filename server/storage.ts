@@ -4013,62 +4013,121 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getRecentActivities(tenantId: string): Promise<any[]> {
-    // Get recent activities from various sources
-    const [operations, incidents, sdkChanges] = await Promise.all([
-      this.getCryptoOperations(tenantId, 24).then(ops => 
-        ops.slice(0, 10).map((op, index) => ({
-          id: `crypto_${index}`,
-          type: 'crypto_operation',
-          eventType: op.operation,
-          title: `${op.operation.charAt(0).toUpperCase() + op.operation.slice(1)} operation ${op.status}`,
-          description: `${op.algorithm} ${op.operation} operation processed ${Math.round((op.dataSize || 0) / 1024)}KB in ${op.duration}ms`,
-          timestamp: op.createdAt,
-          createdAt: op.createdAt,
-          status: op.status,
-          metadata: op
-        }))
+    // Get real activities from actual API usage and system operations
+    const [apiUsageData, sdkChanges, keyChanges] = await Promise.all([
+      // Get recent API usage for real operational activities
+      this.getApiUsage(tenantId, 7).then(usageData => 
+        usageData
+          .filter(usage => 
+            (usage.encryptionRequests || 0) > 0 || 
+            (usage.keyRotations || 0) > 0 || 
+            (usage.threatsBlocked || 0) > 0
+          )
+          .slice(0, 10)
+          .map((usage, index) => {
+            const activities = [];
+            
+            // Add encryption activities
+            if ((usage.encryptionRequests || 0) > 0) {
+              activities.push({
+                id: `encryption_${usage.id}_${index}`,
+                type: 'encryption_operation',
+                eventType: 'encryption_completed',
+                title: 'Encryption Operations Completed',
+                description: `${usage.encryptionRequests} encryption operations processed successfully`,
+                timestamp: usage.date,
+                createdAt: usage.date,
+                status: 'success',
+                metadata: usage
+              });
+            }
+            
+            // Add key rotation activities
+            if ((usage.keyRotations || 0) > 0) {
+              activities.push({
+                id: `rotation_${usage.id}_${index}`,
+                type: 'key_operation',
+                eventType: 'key_rotated',
+                title: 'Key Rotation Completed',
+                description: `${usage.keyRotations} key rotation${usage.keyRotations > 1 ? 's' : ''} performed successfully`,
+                timestamp: usage.date,
+                createdAt: usage.date,
+                status: 'success',
+                metadata: usage
+              });
+            }
+            
+            // Add security activities
+            if ((usage.threatsBlocked || 0) > 0) {
+              activities.push({
+                id: `security_${usage.id}_${index}`,
+                type: 'security_incident',
+                eventType: 'threat_detected',
+                title: 'Security Threats Blocked',
+                description: `${usage.threatsBlocked} security threat${usage.threatsBlocked > 1 ? 's' : ''} detected and blocked`,
+                timestamp: usage.date,
+                createdAt: usage.date,
+                status: 'resolved',
+                metadata: usage
+              });
+            }
+            
+            return activities;
+          })
+          .flat()
       ),
-      this.getSecurityIncidents(tenantId).then(incidents => 
-        incidents.slice(0, 5).map((inc, index) => ({
-          id: `incident_${index}`,
-          type: 'security_incident',
-          eventType: inc.incidentType,
-          title: `${inc.incidentType.replace(/_/g, ' ')} incident ${inc.status}`,
-          description: inc.description,
-          timestamp: inc.createdAt,
-          createdAt: inc.createdAt,
-          status: inc.status,
-          severity: inc.severity,
-          metadata: inc
-        }))
-      ),
+      
+      // Get actual SDK changes
       db.select().from(sdks)
         .where(eq(sdks.tenantId, tenantId))
         .orderBy(desc(sdks.updatedAt))
         .limit(5)
         .then(sdks => 
           sdks.map((sdk, index) => ({
-            id: `sdk_${index}`,
+            id: `sdk_${sdk.id}_${index}`,
             type: 'sdk_change',
-            eventType: 'sdk_updated',
-            title: `SDK "${sdk.name}" updated`,
-            description: `${sdk.name} configuration modified - Status: ${sdk.status || 'active'}`,
-            timestamp: sdk.updatedAt,
-            createdAt: sdk.updatedAt,
-            status: sdk.status || 'active',
+            eventType: 'sdk_generated',
+            title: `SDK "${sdk.name}" Generated`,
+            description: `New ${sdk.name} SDK created with ${JSON.parse(sdk.languages || '[]').length} language${JSON.parse(sdk.languages || '[]').length !== 1 ? 's' : ''}`,
+            timestamp: sdk.createdAt,
+            createdAt: sdk.createdAt,
+            status: sdk.isActive ? 'active' : 'inactive',
             metadata: sdk
+          }))
+        ),
+        
+      // Get recent key operations from encryption keys table
+      db.select().from(encryptionKeys)
+        .where(eq(encryptionKeys.tenantId, tenantId))
+        .orderBy(desc(encryptionKeys.createdAt))
+        .limit(3)
+        .then(keys => 
+          keys.map((key, index) => ({
+            id: `key_${key.id}_${index}`,
+            type: 'key_operation',
+            eventType: 'key_generated',
+            title: 'Encryption Key Generated',
+            description: `New ${key.keyType} encryption key created for ${key.metadata ? JSON.parse(key.metadata).name || 'cryptographic operations' : 'operations'}`,
+            timestamp: key.createdAt,
+            createdAt: key.createdAt,
+            status: key.status,
+            metadata: key
           }))
         )
     ]);
 
-    // Combine and sort by timestamp
-    return [...operations, ...incidents, ...sdkChanges]
+    // Combine all real activities and sort by timestamp
+    const allActivities = [...apiUsageData, ...sdkChanges, ...keyChanges]
+      .filter(activity => activity.timestamp) // Only include activities with valid timestamps
       .sort((a, b) => {
         const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
         const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
         return timeB - timeA;
       })
       .slice(0, 20);
+
+    // If no real activities, return empty array instead of mock data
+    return allActivities;
   }
 
   async getSystemHealth(tenantId: string): Promise<any> {
