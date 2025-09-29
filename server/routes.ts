@@ -46,61 +46,45 @@ async function recordRealApiUsage(req: any, res: any, duration: number) {
   if (!req.user) return;
   
   const tenantId = req.user.tenantId || 'default-tenant';
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  
-  // Determine operation type
-  let encryptionOps = 0;
-  let decryptionOps = 0;
-  let keyRotations = 0;
-  let threatBlocks = 0;
-  
   const path = req.path;
   const method = req.method;
   
-  // Track actual operations based on endpoints
-  if (path.includes('/sdks') && method === 'POST') {
-    encryptionOps = 1; // SDK generation involves encryption
-  } else if (path.includes('/keys/rotate') && method === 'POST') {
-    keyRotations = 1;
-  } else if (path.includes('/security') || res.statusCode === 403 || res.statusCode === 401) {
-    threatBlocks = 1; // Security-related endpoints or blocked requests
-  } else if (path.includes('/monitoring/operations') && method === 'GET') {
-    // Monitoring access counts as encryption operation tracking
-    encryptionOps = 1;
+  // Determine operation type based on actual endpoints and operations
+  const operation = {
+    encryptionOps: 0,
+    decryptionOps: 0,
+    keyRotations: 0,
+    threatBlocks: 0,
+  };
+  
+  // Track actual operations based on endpoints and responses
+  if (path.includes('/sdks') && method === 'POST' && res.statusCode === 200) {
+    operation.encryptionOps = 1; // SDK generation involves encryption operations
+  } else if (path.includes('/keys/rotate') && method === 'POST' && res.statusCode === 200) {
+    operation.keyRotations = 1; // Actual key rotation performed
+  } else if (path.includes('/keys') && method === 'POST' && res.statusCode === 200) {
+    operation.encryptionOps = 1; // Key generation involves encryption
+  } else if (res.statusCode === 403 || res.statusCode === 401) {
+    operation.threatBlocks = 1; // Blocked unauthorized access
+  } else if (path.includes('/monitoring') && res.statusCode === 200) {
+    // Monitoring API usage
+    operation.encryptionOps = 1;
+  } else if ((path.includes('/encrypt') || path.includes('/decrypt')) && res.statusCode === 200) {
+    // Direct encryption/decryption operations if they exist
+    if (path.includes('/encrypt')) {
+      operation.encryptionOps = 1;
+    } else {
+      operation.decryptionOps = 1;
+    }
   }
   
-  try {
-    // Get existing usage for today or create new
-    const existingUsage = await storage.getApiUsage(tenantId, 1);
-    const todayUsage = existingUsage.find(usage => 
-      usage.date && new Date(usage.date).toDateString() === today.toDateString()
-    );
-    
-    if (todayUsage) {
-      // Update existing record
-      await storage.recordApiUsage({
-        id: todayUsage.id,
-        tenantId,
-        date: today,
-        encryptionRequests: (todayUsage.encryptionRequests || 0) + encryptionOps,
-        decryptionRequests: (todayUsage.decryptionRequests || 0) + decryptionOps,
-        keyRotations: (todayUsage.keyRotations || 0) + keyRotations,
-        threatsBlocked: (todayUsage.threatsBlocked || 0) + threatBlocks,
-      });
-    } else {
-      // Create new record for today
-      await storage.recordApiUsage({
-        tenantId,
-        date: today,
-        encryptionRequests: encryptionOps,
-        decryptionRequests: decryptionOps,
-        keyRotations: keyRotations,
-        threatsBlocked: threatBlocks,
-      });
+  // Only record if there's actual activity to track
+  if (operation.encryptionOps + operation.decryptionOps + operation.keyRotations + operation.threatBlocks > 0) {
+    try {
+      await storage.incrementApiUsage(tenantId, operation);
+    } catch (error) {
+      console.error('Failed to record API usage:', error);
     }
-  } catch (error) {
-    console.error('Failed to record API usage:', error);
   }
 }
 
@@ -962,6 +946,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('Error fetching dashboard activities:', error);
       res.status(500).json({ message: "Failed to fetch dashboard activities" });
+    }
+  });
+
+  // Historical performance data for dashboard charts
+  app.get("/api/monitoring/historical-performance", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const tenantId = user.tenantId || 'default-tenant';
+      
+      // Get last 7 days of API usage for real historical data
+      const historicalData = await storage.getApiUsage(tenantId, 7);
+      
+      // Format data for chart consumption
+      const chartData = historicalData
+        .sort((a, b) => new Date(a.date || '').getTime() - new Date(b.date || '').getTime())
+        .map((usage, index) => {
+          const date = usage.date ? new Date(usage.date) : new Date();
+          const daysAgo = Math.abs(Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 1000 * 24)));
+          
+          return {
+            label: daysAgo === 0 ? 'Today' : 
+                   daysAgo === 1 ? 'Yesterday' : 
+                   `${daysAgo} days ago`,
+            operations: (usage.encryptionRequests || 0) + (usage.decryptionRequests || 0),
+            keyRotations: usage.keyRotations || 0,
+            threatBlocks: usage.threatsBlocked || 0,
+            date: usage.date
+          };
+        });
+
+      // If no historical data, provide empty chart structure
+      if (chartData.length === 0) {
+        const emptyData = Array.from({ length: 6 }, (_, i) => ({
+          label: i === 0 ? 'Today' : `${i} day${i > 1 ? 's' : ''} ago`,
+          operations: 0,
+          keyRotations: 0,
+          threatBlocks: 0,
+          date: new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString()
+        }));
+        
+        return res.json(emptyData.reverse());
+      }
+
+      res.json(chartData);
+    } catch (error: any) {
+      console.error('Error fetching historical performance:', error);
+      res.status(500).json({ message: "Failed to fetch historical performance data" });
     }
   });
 

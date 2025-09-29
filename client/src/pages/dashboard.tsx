@@ -48,19 +48,17 @@ export default function Dashboard() {
     );
   }
 
-  // Real-time performance data based on actual metrics
+  // Real historical performance data from actual API usage
+  const { data: historicalData = [] } = useQuery({
+    queryKey: ['/api/monitoring/historical-performance'],
+    retry: false,
+  });
+
   const performanceData = {
-    labels: ['6h ago', '5h ago', '4h ago', '3h ago', '2h ago', '1h ago'],
+    labels: historicalData.map((point: any) => point.label) || ['Today', 'Yesterday', '2 days ago', '3 days ago', '4 days ago', '5 days ago'],
     datasets: [{
-      label: 'Encryption Operations/Hour',
-      data: [
-        Math.max((stats?.encryptedRequests || 0) * 0.8, 1000),
-        Math.max((stats?.encryptedRequests || 0) * 0.9, 1200),
-        Math.max((stats?.encryptedRequests || 0) * 0.7, 900),
-        Math.max((stats?.encryptedRequests || 0) * 1.1, 1400),
-        Math.max((stats?.encryptedRequests || 0) * 0.95, 1100),
-        Math.max(stats?.encryptedRequests || 0, 1000)
-      ],
+      label: 'Daily Encryption Operations',
+      data: historicalData.map((point: any) => point.operations) || [stats?.encryptedRequests || 0, 0, 0, 0, 0, 0],
       borderColor: '#3B82F6',
       backgroundColor: 'rgba(59, 130, 246, 0.1)',
       tension: 0.4
@@ -70,7 +68,7 @@ export default function Dashboard() {
   const securityData = {
     labels: ['Threats Blocked', 'Requests Secured', 'Keys Rotated'],
     datasets: [{
-      data: [stats?.threatBlocks || 0, Math.max((stats?.encryptedRequests || 0) / 1000, 100), stats?.keyRotations || 0],
+      data: [stats?.threatBlocks || 0, stats?.encryptedRequests || 0, stats?.keyRotations || 0],
       backgroundColor: ['#EF4444', '#10B981', '#F59E0B'],
       borderWidth: 0
     }]
@@ -96,32 +94,32 @@ export default function Dashboard() {
         <StatsCard
           title="Active SDKs"
           value={stats?.activeSDKs || 0}
-          change="+12% this month"
-          changeType="positive"
+          change={stats?.activeSDKs > 0 ? 'SDKs Available' : 'No SDKs Generated'}
+          changeType={stats?.activeSDKs > 0 ? 'positive' : 'neutral'}
           icon={Code}
           iconColor="bg-blue-500"
         />
         <StatsCard
           title="Encrypted Requests"
-          value={`${((stats?.encryptedRequests || 0) / 1000000).toFixed(1)}M`}
-          change="+24% this week"
-          changeType="positive"
+          value={stats?.encryptedRequests?.toLocaleString() || '0'}
+          change={stats?.encryptedRequests > 0 ? 'Operations Tracked' : 'No Operations Yet'}
+          changeType={stats?.encryptedRequests > 0 ? 'positive' : 'neutral'}
           icon={Lock}
           iconColor="bg-green-500"
         />
         <StatsCard
           title="Key Rotations"
           value={stats?.keyRotations || 0}
-          change="Auto-healing active"
-          changeType="neutral"
+          change={stats?.keyRotations > 0 ? 'Rotations Performed' : 'Auto-rotation Ready'}
+          changeType={stats?.keyRotations > 0 ? 'positive' : 'neutral'}
           icon={RotateCcw}
           iconColor="bg-yellow-500"
         />
         <StatsCard
           title="Threat Blocks"
           value={stats?.threatBlocks || 0}
-          change="Last 24h"
-          changeType="neutral"
+          change={stats?.threatBlocks > 0 ? 'Threats Blocked' : 'Security Active'}
+          changeType={stats?.threatBlocks > 0 ? 'positive' : 'neutral'}
           icon={Shield}
           iconColor="bg-red-500"
         />

@@ -3156,6 +3156,67 @@ export class DatabaseStorage implements IStorage {
     return usage;
   }
 
+  async updateApiUsage(usageId: string, updates: Partial<InsertApiUsage>): Promise<ApiUsage> {
+    const [usage] = await db
+      .update(apiUsage)
+      .set(updates)
+      .where(eq(apiUsage.id, usageId))
+      .returning();
+    return usage;
+  }
+
+  async getOrCreateDailyApiUsage(tenantId: string, date: Date): Promise<ApiUsage> {
+    // Check if usage record exists for this tenant and date
+    const [existing] = await db
+      .select()
+      .from(apiUsage)
+      .where(and(
+        eq(apiUsage.tenantId, tenantId),
+        sql`DATE(${apiUsage.date}) = DATE(${date})`
+      ));
+
+    if (existing) {
+      return existing;
+    }
+
+    // Create new usage record for today
+    const [newUsage] = await db
+      .insert(apiUsage)
+      .values({
+        tenantId,
+        date,
+        encryptionRequests: 0,
+        decryptionRequests: 0,
+        keyRotations: 0,
+        threatsBlocked: 0,
+      })
+      .returning();
+
+    return newUsage;
+  }
+
+  async incrementApiUsage(tenantId: string, operation: {
+    encryptionOps?: number;
+    decryptionOps?: number;
+    keyRotations?: number;
+    threatBlocks?: number;
+  }): Promise<void> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const usage = await this.getOrCreateDailyApiUsage(tenantId, today);
+
+    await db
+      .update(apiUsage)
+      .set({
+        encryptionRequests: (usage.encryptionRequests || 0) + (operation.encryptionOps || 0),
+        decryptionRequests: (usage.decryptionRequests || 0) + (operation.decryptionOps || 0),
+        keyRotations: (usage.keyRotations || 0) + (operation.keyRotations || 0),
+        threatsBlocked: (usage.threatsBlocked || 0) + (operation.threatBlocks || 0),
+      })
+      .where(eq(apiUsage.id, usage.id));
+  }
+
   // Dashboard statistics
   async getDashboardStats(tenantId: string): Promise<{
     activeSDKs: number;
