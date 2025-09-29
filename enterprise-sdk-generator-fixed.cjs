@@ -90,7 +90,7 @@ class FixedEnterpriseSDKGenerator {
  * Enterprise-grade with OpenTelemetry metrics integration
  */
 
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 
 // OpenTelemetry Metrics Integration
 interface TelemetryCounters {
@@ -171,7 +171,7 @@ function timingSafeCompare(a: Buffer, b: Buffer): boolean {
 function hkdf(ikm: Buffer, salt: Buffer, info: Buffer, length: number): Buffer {
   const hmac = crypto.createHmac('sha256', salt);
   hmac.update(ikm);
-  const prk = hmac.digest();
+  const prk = Buffer.from(hmac.digest());
   
   const okm = Buffer.alloc(length);
   const n = Math.ceil(length / 32);
