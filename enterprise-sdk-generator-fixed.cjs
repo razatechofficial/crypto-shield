@@ -37,7 +37,9 @@ class FixedEnterpriseSDKGenerator {
         "test:security": "npm run test:nist && npm run test:audit",
         "test:audit": "node test/audit-compliance.test.js"
       },
-      "dependencies": {},
+      "dependencies": {
+        "@types/node": "^20.0.0"
+      },
       "peerDependencies": {
         "@opentelemetry/api": "^1.0.0"
       },
