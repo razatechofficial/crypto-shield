@@ -319,7 +319,7 @@ export class AveroxCrypto {
       telemetry.increment(METRICS.FAIL_TOTAL, 1, { ...attributes, reason: 'decryption_error' });
       
       const errorMessage = error instanceof Error ? error.message : '';
-      if (errorMessage && errorMessage.includes('Unsupported state or unable to authenticate data')) {
+      if (errorMessage && (errorMessage.includes('unable to authenticate') || errorMessage.includes('authentication'))) {
         throw new InvalidTagError('Authentication failed - data may have been tampered with');
       }
       
