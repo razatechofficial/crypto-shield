@@ -19,7 +19,7 @@ export default function Subscription() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [editingPackage, setEditingPackage] = useState(null);
+  const [editingPackage, setEditingPackage] = useState<any>(null);
   const [newPackage, setNewPackage] = useState({
     name: "",
     description: "",
@@ -27,18 +27,31 @@ export default function Subscription() {
     isVisible: true
   });
 
-  const { data: tenant, isLoading } = useQuery({
+  const { data: tenant, isLoading } = useQuery<any>({
     queryKey: ["/api/tenant"],
     retry: false,
   });
 
-  const { data: packages = [], isLoading: packagesLoading } = useQuery({
+  const { data: packages = [], isLoading: packagesLoading } = useQuery<any[]>({
     queryKey: ["/api/packages"],
     retry: false,
   });
 
+  const { data: sdks = [] } = useQuery<any[]>({
+    queryKey: ["/api/sdks"],
+    retry: false,
+  });
+
+  const { data: subscriptionData } = useQuery<{
+    subscription: any;
+    plan: any;
+  }>({
+    queryKey: ["/api/enterprise/subscription"],
+    retry: false,
+  });
+
   const createPackageMutation = useMutation({
-    mutationFn: (packageData) => apiRequest('POST', '/api/packages', packageData),
+    mutationFn: (packageData: any) => apiRequest('POST', '/api/packages', packageData),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/packages"] });
       setIsCreateOpen(false);
@@ -58,7 +71,7 @@ export default function Subscription() {
   });
 
   const updatePackageMutation = useMutation({
-    mutationFn: ({ id, ...data }) => apiRequest('PUT', `/api/packages/${id}`, data),
+    mutationFn: ({ id, ...data }: any) => apiRequest('PUT', `/api/packages/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/packages"] });
       setEditingPackage(null);
@@ -77,7 +90,7 @@ export default function Subscription() {
   });
 
   const deletePackageMutation = useMutation({
-    mutationFn: (id) => apiRequest('DELETE', `/api/packages/${id}`),
+    mutationFn: (id: string) => apiRequest('DELETE', `/api/packages/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/packages"] });
       toast({
@@ -95,7 +108,7 @@ export default function Subscription() {
   });
 
   const toggleVisibilityMutation = useMutation({
-    mutationFn: ({ id, isVisible }) => apiRequest('PUT', `/api/packages/${id}`, { isVisible }),
+    mutationFn: ({ id, isVisible }: any) => apiRequest('PUT', `/api/packages/${id}`, { isVisible }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/packages"] });
       toast({
@@ -190,30 +203,62 @@ export default function Subscription() {
         {/* Usage Stats */}
         <Card className="bg-white border-gray-200">
           <CardHeader>
-            <CardTitle className="text-gray-900">Usage This Month</CardTitle>
+            <CardTitle className="text-gray-900">Plan Limits & Usage</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               <div>
                 <div className="flex justify-between text-sm mb-1">
-                  <span className="text-gray-600">API Calls</span>
-                  <span className="text-gray-900" data-testid="text-api-calls">2.4M / Unlimited</span>
+                  <span className="text-gray-600">Generated SDKs</span>
+                  <span className="text-gray-900 font-medium" data-testid="text-sdk-usage">
+                    {sdks.length} / {
+                      subscriptionData?.plan?.limits?.maxSdks 
+                        ? subscriptionData.plan.limits.maxSdks 
+                        : 'Unlimited'
+                    }
+                  </span>
                 </div>
-                <Progress value={65} className="h-2" />
+                <Progress 
+                  value={
+                    subscriptionData?.plan?.limits?.maxSdks 
+                      ? (sdks.length / subscriptionData.plan.limits.maxSdks) * 100 
+                      : 0
+                  } 
+                  className="h-2" 
+                />
               </div>
               <div>
                 <div className="flex justify-between text-sm mb-1">
-                  <span className="text-gray-600">Storage</span>
-                  <span className="text-gray-900" data-testid="text-storage">847GB / 1TB</span>
+                  <span className="text-gray-600">Encryption Keys</span>
+                  <span className="text-gray-900 font-medium" data-testid="text-key-usage">
+                    0 / {
+                      subscriptionData?.plan?.limits?.maxKeys 
+                        ? subscriptionData.plan.limits.maxKeys 
+                        : 'Unlimited'
+                    }
+                  </span>
                 </div>
-                <Progress value={84} className="h-2" />
+                <Progress value={0} className="h-2" />
               </div>
               <div>
                 <div className="flex justify-between text-sm mb-1">
-                  <span className="text-gray-600">Active Users</span>
-                  <span className="text-gray-900" data-testid="text-active-users">127 / Unlimited</span>
+                  <span className="text-gray-600">Team Members</span>
+                  <span className="text-gray-900 font-medium" data-testid="text-user-usage">
+                    3 / {
+                      subscriptionData?.plan?.limits?.maxUsers 
+                        ? subscriptionData.plan.limits.maxUsers 
+                        : 'Unlimited'
+                    }
+                  </span>
                 </div>
-                <Progress value={32} className="h-2" />
+                <Progress 
+                  value={
+                    subscriptionData?.plan?.limits?.maxUsers 
+                      ? (3 / subscriptionData.plan.limits.maxUsers) * 100 
+                      : 0
+                  } 
+                  className="h-2" 
+                />
               </div>
             </div>
           </CardContent>

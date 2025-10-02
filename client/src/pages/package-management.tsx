@@ -22,16 +22,16 @@ const planFormSchema = z.object({
   code: z.string().min(1, "Plan code is required"),
   name: z.string().min(1, "Plan name is required"),
   description: z.string().optional(),
-  priceCents: z.number().min(0, "Price must be positive"),
+  priceCents: z.coerce.number().min(0, "Price must be positive"),
   currency: z.string().default("USD"),
   interval: z.enum(["month", "year", "week"], {
     required_error: "Billing interval is required",
   }),
-  maxSdks: z.number().min(0, "Max SDKs must be positive").optional(),
-  maxKeys: z.number().min(0, "Max keys must be positive").optional(),
-  maxUsers: z.number().min(0, "Max users must be positive").optional(),
+  maxSdks: z.coerce.number().min(0, "Max SDKs must be positive").optional(),
+  maxKeys: z.coerce.number().min(0, "Max keys must be positive").optional(),
+  maxUsers: z.coerce.number().min(0, "Max users must be positive").optional(),
   isActive: z.boolean().default(true),
-  sortOrder: z.number().min(0).default(0),
+  sortOrder: z.coerce.number().min(0).default(0),
 });
 
 type PlanFormData = z.infer<typeof planFormSchema>;

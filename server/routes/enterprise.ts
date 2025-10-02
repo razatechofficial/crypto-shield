@@ -354,6 +354,30 @@ export function setupEnterpriseRoutes(app: Express) {
     }
   });
 
+  // Get current subscription with plan details (All authenticated users)
+  app.get("/api/enterprise/subscription", enterpriseAuth, async (req, res) => {
+    try {
+      const tenantId = req.user!.tenantId;
+      const subscription = await storage.getTenantSubscription(tenantId);
+      
+      if (!subscription) {
+        return res.json({ subscription: null, plan: null });
+      }
+
+      const plan = subscription.planId 
+        ? await storage.getSubscriptionPlan(subscription.planId)
+        : null;
+
+      res.json({
+        subscription,
+        plan
+      });
+    } catch (error) {
+      console.error("Error fetching subscription:", error);
+      res.status(500).json({ error: "Failed to fetch subscription" });
+    }
+  });
+
   // ====== SUBSCRIPTION PLAN MANAGEMENT (ADMIN ONLY) ======
 
   // Get all subscription plans (Admin)

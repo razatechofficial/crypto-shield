@@ -21,7 +21,6 @@ import {
   notifications,
   subscriptionPlans,
   tenantSubscriptions,
-  paymentEvents,
   type User,
   type UpsertUser,
   type Tenant,
@@ -67,8 +66,6 @@ import {
   type InsertSubscriptionPlan,
   type TenantSubscription,
   type InsertTenantSubscription,
-  type PaymentEvent,
-  type InsertPaymentEvent,
   tenantUsers,
   auditEvents,
 } from "@shared/schema";
@@ -3772,26 +3769,26 @@ export class DatabaseStorage implements IStorage {
   //   return subscription;
   // }
 
-  async recordPaymentEvent(event: InsertPaymentEvent): Promise<PaymentEvent> {
-    const [paymentEvent] = await db
-      .insert(paymentEvents)
-      .values(event)
-      .returning();
-    return paymentEvent;
-  }
+  // async recordPaymentEvent(event: InsertPaymentEvent): Promise<PaymentEvent> {
+  //   const [paymentEvent] = await db
+  //     .insert(paymentEvents)
+  //     .values(event)
+  //     .returning();
+  //   return paymentEvent;
+  // }
 
-  async getPaymentHistory(tenantId: string, limit: number = 50): Promise<PaymentEvent[]> {
-    // Get subscription for this tenant first
-    const subscription = await this.getTenantSubscription(tenantId);
-    if (!subscription) return [];
+  // async getPaymentHistory(tenantId: string, limit: number = 50): Promise<PaymentEvent[]> {
+  //   // Get subscription for this tenant first
+  //   const subscription = await this.getTenantSubscription(tenantId);
+  //   if (!subscription) return [];
 
-    return await db
-      .select()
-      .from(paymentEvents)
-      .where(eq(paymentEvents.subscriptionId, subscription.id))
-      .orderBy(desc(paymentEvents.createdAt))
-      .limit(limit);
-  }
+  //   return await db
+  //     .select()
+  //     .from(paymentEvents)
+  //     .where(eq(paymentEvents.subscriptionId, subscription.id))
+  //     .orderBy(desc(paymentEvents.createdAt))
+  //     .limit(limit);
+  // }
 
   // ====== ADMIN PLAN MANAGEMENT ======
 
