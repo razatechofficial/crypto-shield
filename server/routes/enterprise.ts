@@ -353,20 +353,4 @@ export function setupEnterpriseRoutes(app: Express) {
       res.status(500).json({ error: "Failed to fetch context" });
     }
   });
-
-  // Backfill tenant_users for all users (Admin Only - Production Sync)
-  app.post("/api/enterprise/users/backfill", adminOnly, async (req, res) => {
-    try {
-      const tenantId = req.user!.tenantId;
-      const result = await storage.backfillTenantUsers(tenantId);
-      
-      res.json({
-        message: "User backfill completed successfully",
-        ...result
-      });
-    } catch (error: any) {
-      console.error("Error backfilling users:", error);
-      res.status(500).json({ error: error.message || "Failed to backfill users" });
-    }
-  });
 }

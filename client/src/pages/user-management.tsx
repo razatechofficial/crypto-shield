@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Plus, Edit, Ban, Users, UserPlus, ShieldCheck, Eye, RefreshCw } from "lucide-react";
+import { Plus, Edit, Ban, Users, UserPlus, ShieldCheck, Eye } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -195,27 +195,6 @@ export default function UserManagement() {
       toast({
         title: "Error",
         description: "Failed to update user role. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const backfillUsersMutation = useMutation({
-    mutationFn: async () => {
-      return await apiRequest('POST', `/api/enterprise/users/backfill`, {});
-    },
-    onSuccess: (data: any) => {
-      toast({
-        title: "Sync Complete",
-        description: `Synced ${data.backfilled} users. All users are now visible.`,
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/users/stats"] });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to sync users. Please try again.",
         variant: "destructive",
       });
     },
@@ -464,16 +443,6 @@ export default function UserManagement() {
               </Form>
             </DialogContent>
           </Dialog>
-
-          <Button
-            onClick={() => backfillUsersMutation.mutate()}
-            disabled={backfillUsersMutation.isPending}
-            className="bg-orange-600 hover:bg-orange-700 text-white"
-            data-testid="button-sync-users"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${backfillUsersMutation.isPending ? 'animate-spin' : ''}`} />
-            {backfillUsersMutation.isPending ? "Syncing..." : "Sync Users"}
-          </Button>
 
           <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
             <DialogTrigger asChild>
