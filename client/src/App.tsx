@@ -22,6 +22,7 @@ import ProviderHealth from "@/pages/provider-health";
 import BYOKImport from "@/pages/byok-import";
 import KeyReplication from "@/pages/key-replication";
 import UserManagement from "@/pages/user-management";
+import PackageManagement from "@/pages/package-management";
 import Subscription from "@/pages/subscription";
 import Settings from "@/pages/settings";
 import QuantumSecurity from "@/pages/quantum-security";
@@ -63,6 +64,7 @@ function Router() {
           <Route path="/byok" component={BYOKImport} />
           <Route path="/replication" component={KeyReplication} />
           <Route path="/users" component={UserManagement} />
+          <Route path="/packages" component={PackageManagement} />
           <Route path="/subscription" component={Subscription} />
           <Route path="/quantum" component={QuantumSecurity} />
           <Route path="/analytics" component={AdvancedAnalytics} />

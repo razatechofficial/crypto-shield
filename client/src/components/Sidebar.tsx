@@ -35,6 +35,7 @@ const navigation = [
   { name: "Quantum Security", href: "/quantum", icon: Zap },
   { name: "Advanced Analytics", href: "/analytics", icon: TrendingUp },
   { name: "User Management", href: "/users", icon: Users },
+  { name: "Package Management", href: "/packages", icon: Shield },
   { name: "Subscription", href: "/subscription", icon: CreditCard },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
