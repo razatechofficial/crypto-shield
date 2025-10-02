@@ -120,7 +120,8 @@ export class EnterpriseAdapter {
       return results;
     } catch (error) {
       console.error('❌ Enterprise SDK generation failed:', error);
-      throw new Error(`Failed to generate enterprise SDK: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Failed to generate enterprise SDK: ${errorMessage}`);
     }
   }
 }
