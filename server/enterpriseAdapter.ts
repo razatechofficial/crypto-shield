@@ -72,6 +72,42 @@ export class EnterpriseAdapter {
             fileMap = FixedEnterpriseSDKGenerator.generateAndroidSDK(sdk, algorithms);
             break;
           
+          case 'go':
+            fileMap = FixedEnterpriseSDKGenerator.generateGoSDK(sdk, algorithms);
+            break;
+          
+          case 'rust':
+            fileMap = FixedEnterpriseSDKGenerator.generateRustSDK(sdk, algorithms);
+            break;
+          
+          case 'php':
+            fileMap = FixedEnterpriseSDKGenerator.generatePHPSDK(sdk, algorithms);
+            break;
+          
+          case 'ruby':
+            fileMap = FixedEnterpriseSDKGenerator.generateRubySDK(sdk, algorithms);
+            break;
+          
+          case 'scala':
+            fileMap = FixedEnterpriseSDKGenerator.generateScalaSDK(sdk, algorithms);
+            break;
+          
+          case 'dart':
+            fileMap = FixedEnterpriseSDKGenerator.generateDartSDK(sdk, algorithms);
+            break;
+          
+          case 'objectivec':
+            fileMap = FixedEnterpriseSDKGenerator.generateSwiftSDK(sdk, algorithms); // Objective-C uses Swift SDK
+            break;
+          
+          case 'reactnative':
+            fileMap = FixedEnterpriseSDKGenerator.generateJavaScriptSDK(sdk, algorithms); // React Native uses JavaScript SDK
+            break;
+          
+          case 'xamarin':
+            fileMap = FixedEnterpriseSDKGenerator.generateCSharpSDK(sdk, algorithms); // Xamarin uses C# SDK
+            break;
+          
           default:
             console.log(`⚠️ Language ${language} not yet implemented, using JavaScript SDK`);
             fileMap = FixedEnterpriseSDKGenerator.generateJavaScriptSDK(sdk, algorithms);
