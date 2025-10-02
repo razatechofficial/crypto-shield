@@ -4208,6 +4208,44 @@ export class DatabaseStorage implements IStorage {
     return tenantUser;
   }
 
+  async backfillTenantUsers(tenantId: string): Promise<{ backfilled: number; total: number; users: string[] }> {
+    // Find all users with this tenant_id
+    const usersInTenant = await db
+      .select()
+      .from(users)
+      .where(eq(users.tenantId, tenantId));
+
+    // Find which users already have tenant_users entries
+    const existingTenantUsers = await db
+      .select()
+      .from(tenantUsers)
+      .where(eq(tenantUsers.tenantId, tenantId));
+
+    const existingUserIds = new Set(existingTenantUsers.map(tu => tu.userId));
+    const usersToBackfill = usersInTenant.filter(u => !existingUserIds.has(u.id));
+
+    // Insert missing tenant_users entries
+    const backfilledUsers: string[] = [];
+    for (const user of usersToBackfill) {
+      await db.insert(tenantUsers).values({
+        tenantId,
+        userId: user.id,
+        role: 'admin', // Default to admin for backfilled users
+        status: 'active',
+        joinedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+      backfilledUsers.push(user.email);
+    }
+
+    return {
+      backfilled: usersToBackfill.length,
+      total: usersInTenant.length,
+      users: backfilledUsers
+    };
+  }
+
   async getRolePermissions(role: string): Promise<string[]> {
     // Static role permissions mapping
     const permissions: Record<string, string[]> = {
