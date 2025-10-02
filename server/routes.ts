@@ -582,6 +582,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const tenantId = user.tenantId || await storage.getOrCreateTenantForUser(userId, userEmail);
       
+      // CHECK SDK LIMITS BASED ON SUBSCRIPTION PLAN
+      const subscription = await storage.getTenantSubscription(tenantId);
+      if (subscription && subscription.planId) {
+        const plan = await storage.getSubscriptionPlan(subscription.planId);
+        if (plan && plan.limits && typeof plan.limits === 'object' && 'maxSdks' in plan.limits) {
+          const maxSdks = (plan.limits as any).maxSdks;
+          if (maxSdks !== null && maxSdks !== undefined) {
+            const existingSdks = await storage.getSDKs(tenantId);
+            if (existingSdks.length >= maxSdks) {
+              return res.status(403).json({ 
+                message: `SDK limit reached. Your ${plan.name} plan allows up to ${maxSdks} SDKs. Please upgrade your plan to generate more SDKs.`,
+                limit: maxSdks,
+                current: existingSdks.length 
+              });
+            }
+          }
+        }
+      }
+      
       // Ensure arrays are properly formatted (handle case where they might be strings)
       const requestBody = req.body;
       const normalizedBody = {

@@ -3700,10 +3700,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // ====== SUBSCRIPTION & BILLING OPERATIONS ======
-  // TODO: All subscription methods commented out until types are properly defined
 
-  /*
-  // TODO: Subscription methods commented out until types are properly defined
   async getSubscriptionPlans(): Promise<SubscriptionPlan[]> {
     return await db.select().from(subscriptionPlans).where(eq(subscriptionPlans.isActive, true));
   }
@@ -3795,20 +3792,6 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(paymentEvents.createdAt))
       .limit(limit);
   }
-
-  async getInvoices(tenantId: string, limit: number = 20): Promise<Invoice[]> {
-    // Get subscription for this tenant first  
-    const subscription = await this.getTenantSubscription(tenantId);
-    if (!subscription) return [];
-
-    return await db
-      .select()
-      .from(invoices)
-      .where(eq(invoices.subscriptionId, subscription.id))
-      .orderBy(desc(invoices.createdAt))
-      .limit(limit);
-  }
-  */
 
   // ====== ADMIN PLAN MANAGEMENT ======
 
