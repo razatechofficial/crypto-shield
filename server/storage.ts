@@ -19,6 +19,9 @@ import {
   byokImports,
   compliancePolicies,
   notifications,
+  subscriptionPlans,
+  tenantSubscriptions,
+  paymentEvents,
   type User,
   type UpsertUser,
   type Tenant,
@@ -60,6 +63,12 @@ import {
   type InsertTenantUser,
   type Notification,
   type InsertNotification,
+  type SubscriptionPlan,
+  type InsertSubscriptionPlan,
+  type TenantSubscription,
+  type InsertTenantSubscription,
+  type PaymentEvent,
+  type InsertPaymentEvent,
   tenantUsers,
   auditEvents,
 } from "@shared/schema";
@@ -3800,6 +3809,54 @@ export class DatabaseStorage implements IStorage {
       .limit(limit);
   }
   */
+
+  // ====== ADMIN PLAN MANAGEMENT ======
+
+  async getAllSubscriptionPlans(): Promise<SubscriptionPlan[]> {
+    return await db
+      .select()
+      .from(subscriptionPlans)
+      .orderBy(subscriptionPlans.sortOrder);
+  }
+
+  async createSubscriptionPlan(data: Partial<InsertSubscriptionPlan>): Promise<SubscriptionPlan> {
+    const [plan] = await db
+      .insert(subscriptionPlans)
+      .values({
+        code: data.code!,
+        name: data.name!,
+        description: data.description || '',
+        priceCents: data.priceCents!,
+        currency: data.currency || 'USD',
+        interval: data.interval || 'month',
+        features: data.features || {},
+        limits: data.limits || {},
+        isActive: data.isActive !== undefined ? data.isActive : true,
+        sortOrder: data.sortOrder || 0,
+        stripeProductId: data.stripeProductId || null,
+        stripePriceId: data.stripePriceId || null,
+        paypalProductId: data.paypalProductId || null,
+        paypalPlanId: data.paypalPlanId || null,
+      })
+      .returning();
+    return plan;
+  }
+
+  async updateSubscriptionPlan(planId: string, updates: Partial<SubscriptionPlan>): Promise<SubscriptionPlan> {
+    const [plan] = await db
+      .update(subscriptionPlans)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(subscriptionPlans.id, planId))
+      .returning();
+    return plan;
+  }
+
+  async deactivateSubscriptionPlan(planId: string): Promise<void> {
+    await db
+      .update(subscriptionPlans)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(subscriptionPlans.id, planId));
+  }
 
   // REAL MONITORING OPERATIONS - Track actual SDK usage
   

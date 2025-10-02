@@ -353,4 +353,54 @@ export function setupEnterpriseRoutes(app: Express) {
       res.status(500).json({ error: "Failed to fetch context" });
     }
   });
+
+  // ====== SUBSCRIPTION PLAN MANAGEMENT (ADMIN ONLY) ======
+
+  // Get all subscription plans (Admin)
+  app.get("/api/admin/plans", adminOnly, async (req, res) => {
+    try {
+      const plans = await storage.getAllSubscriptionPlans();
+      res.json(plans);
+    } catch (error: any) {
+      console.error("Error fetching plans:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch plans" });
+    }
+  });
+
+  // Create subscription plan (Admin)
+  app.post("/api/admin/plans", adminOnly, async (req, res) => {
+    try {
+      const planData = req.body;
+      const plan = await storage.createSubscriptionPlan(planData);
+      res.json({ message: "Plan created successfully", plan });
+    } catch (error: any) {
+      console.error("Error creating plan:", error);
+      res.status(500).json({ error: error.message || "Failed to create plan" });
+    }
+  });
+
+  // Update subscription plan (Admin)
+  app.put("/api/admin/plans/:planId", adminOnly, async (req, res) => {
+    try {
+      const { planId } = req.params;
+      const updates = req.body;
+      const plan = await storage.updateSubscriptionPlan(planId, updates);
+      res.json({ message: "Plan updated successfully", plan });
+    } catch (error: any) {
+      console.error("Error updating plan:", error);
+      res.status(500).json({ error: error.message || "Failed to update plan" });
+    }
+  });
+
+  // Delete/Deactivate subscription plan (Admin)
+  app.delete("/api/admin/plans/:planId", adminOnly, async (req, res) => {
+    try {
+      const { planId } = req.params;
+      await storage.deactivateSubscriptionPlan(planId);
+      res.json({ message: "Plan deactivated successfully" });
+    } catch (error: any) {
+      console.error("Error deactivating plan:", error);
+      res.status(500).json({ error: error.message || "Failed to deactivate plan" });
+    }
+  });
 }
