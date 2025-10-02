@@ -38,14 +38,22 @@ const createUserSchema = z.object({
   }),
 });
 
+const editUserSchema = z.object({
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().optional(),
+});
+
 type InviteUserFormData = z.infer<typeof inviteUserSchema>;
 type CreateUserFormData = z.infer<typeof createUserSchema>;
+type EditUserFormData = z.infer<typeof editUserSchema>;
 
 export default function UserManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<any>(null);
 
   const { data: users = [], isLoading, error } = useQuery<any[]>({
     queryKey: ["/api/users"],
@@ -80,6 +88,14 @@ export default function UserManagement() {
       firstName: "",
       lastName: "",
       role: "viewer",
+    },
+  });
+
+  const editForm = useForm<EditUserFormData>({
+    resolver: zodResolver(editUserSchema),
+    defaultValues: {
+      firstName: "",
+      lastName: "",
     },
   });
 
@@ -124,6 +140,30 @@ export default function UserManagement() {
       toast({
         title: "Error",
         description: error.message || "Failed to create user. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const editUserMutation = useMutation({
+    mutationFn: async ({ userId, data }: { userId: string; data: EditUserFormData }) => {
+      return await apiRequest('PUT', `/api/enterprise/users/${userId}/profile`, data);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "User name updated successfully!",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users/stats"] });
+      setIsEditDialogOpen(false);
+      setSelectedUser(null);
+      editForm.reset();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update user name. Please try again.",
         variant: "destructive",
       });
     },
@@ -183,6 +223,21 @@ export default function UserManagement() {
 
   const onCreateUser = (data: CreateUserFormData) => {
     createUserMutation.mutate(data);
+  };
+
+  const handleEditUser = (user: any) => {
+    setSelectedUser(user);
+    editForm.reset({
+      firstName: user.firstName || "",
+      lastName: user.lastName || "",
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const onEditUser = (data: EditUserFormData) => {
+    if (selectedUser) {
+      editUserMutation.mutate({ userId: selectedUser.id, data });
+    }
   };
 
   if (error) {
@@ -329,6 +384,66 @@ export default function UserManagement() {
               </Form>
             </DialogContent>
           </Dialog>
+
+          {/* Edit User Dialog */}
+          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Edit User Name</DialogTitle>
+              </DialogHeader>
+              <Form {...editForm}>
+                <form onSubmit={editForm.handleSubmit(onEditUser)} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={editForm.control}
+                      name="firstName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>First Name</FormLabel>
+                          <FormControl>
+                            <Input placeholder="John" {...field} data-testid="input-edit-firstname" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={editForm.control}
+                      name="lastName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Last Name</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Doe" {...field} data-testid="input-edit-lastname" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="flex justify-end space-x-2 pt-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsEditDialogOpen(false)}
+                      data-testid="button-cancel-edit"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={editUserMutation.isPending}
+                      className="bg-blue-600 hover:bg-blue-700"
+                      data-testid="button-save-edit"
+                    >
+                      {editUserMutation.isPending ? "Saving..." : "Save Changes"}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+
           <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
             <DialogTrigger asChild>
               <Button className="bg-blue-600 hover:bg-blue-700 text-white" data-testid="button-invite-user">
@@ -576,6 +691,7 @@ export default function UserManagement() {
                           <Button
                             size="sm"
                             variant="ghost"
+                            onClick={() => handleEditUser(user)}
                             className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                             data-testid={`button-edit-${user.id}`}
                           >
