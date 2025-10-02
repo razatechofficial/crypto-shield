@@ -3388,6 +3388,68 @@ export class DatabaseStorage implements IStorage {
     return { user: newUser, invitation: { type: 'new_user', tenantId, role } };
   }
 
+  async createUserWithPassword(tenantId: string, userData: {
+    email: string;
+    password: string;
+    firstName: string | null;
+    lastName: string | null;
+    role: string;
+  }, createdBy: string): Promise<User> {
+    const bcrypt = await import('bcryptjs');
+    
+    // Validate role against schema
+    if (!['admin', 'developer', 'viewer'].includes(userData.role)) {
+      throw new Error(`Invalid role: ${userData.role}. Must be 'admin', 'developer', or 'viewer'`);
+    }
+
+    // Check if user already exists
+    const existingUser = await db.select().from(users).where(eq(users.email, userData.email)).limit(1);
+    
+    if (existingUser.length > 0) {
+      throw new Error('User already exists with this email');
+    }
+
+    // Hash password
+    const saltRounds = 12;
+    const passwordHash = await bcrypt.hash(userData.password, saltRounds);
+
+    // Create new user
+    const newUserId = randomUUID();
+    const [newUser] = await db.insert(users).values({
+      id: newUserId,
+      email: userData.email,
+      firstName: userData.firstName,
+      lastName: userData.lastName,
+      passwordHash,
+      role: userData.role as any,
+      tenantId,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }).returning();
+
+    // Create tenant user association
+    await db.insert(tenantUsers).values({
+      id: randomUUID(),
+      tenantId,
+      userId: newUserId,
+      role: userData.role as any,
+      joinedAt: new Date(),
+      invitedBy: createdBy
+    });
+
+    // Log audit event
+    await this.logAuditEvent({
+      tenantId,
+      userId: createdBy,
+      action: 'create_user',
+      resourceType: 'user',
+      resourceId: newUserId,
+      details: { email: userData.email, role: userData.role }
+    });
+
+    return newUser;
+  }
+
   async deactivateUser(userId: string, deactivatedBy: string): Promise<User> {
     // Get user first to capture tenant info
     const existingUser = await this.getUser(userId);

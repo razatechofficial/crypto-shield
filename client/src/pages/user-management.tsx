@@ -28,12 +28,24 @@ const inviteUserSchema = z.object({
   }),
 });
 
+const createUserSchema = z.object({
+  email: z.string().email("Please enter a valid email address"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().optional(),
+  role: z.enum(["admin", "developer", "viewer"], {
+    required_error: "Please select a role",
+  }),
+});
+
 type InviteUserFormData = z.infer<typeof inviteUserSchema>;
+type CreateUserFormData = z.infer<typeof createUserSchema>;
 
 export default function UserManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
   const { data: users = [], isLoading, error } = useQuery<any[]>({
     queryKey: ["/api/users"],
@@ -60,9 +72,20 @@ export default function UserManagement() {
     },
   });
 
+  const createForm = useForm<CreateUserFormData>({
+    resolver: zodResolver(createUserSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+      firstName: "",
+      lastName: "",
+      role: "viewer",
+    },
+  });
+
   const inviteUserMutation = useMutation({
     mutationFn: async (data: InviteUserFormData) => {
-      return await apiRequest('POST', `/api/users/invite`, data);
+      return await apiRequest('POST', `/api/enterprise/users/invite`, data);
     },
     onSuccess: () => {
       toast({
@@ -78,6 +101,29 @@ export default function UserManagement() {
       toast({
         title: "Error",
         description: error.message || "Failed to invite user. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const createUserMutation = useMutation({
+    mutationFn: async (data: CreateUserFormData) => {
+      return await apiRequest('POST', `/api/enterprise/users/create`, data);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "User created successfully!",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users/stats"] });
+      setIsCreateDialogOpen(false);
+      createForm.reset();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create user. Please try again.",
         variant: "destructive",
       });
     },
@@ -135,6 +181,10 @@ export default function UserManagement() {
     inviteUserMutation.mutate(data);
   };
 
+  const onCreateUser = (data: CreateUserFormData) => {
+    createUserMutation.mutate(data);
+  };
+
   if (error) {
     return (
       <div className="min-h-screen bg-white p-6">
@@ -154,14 +204,139 @@ export default function UserManagement() {
           <h3 className="text-2xl font-bold text-gray-900">User Management</h3>
           <p className="text-gray-600 mt-1">Manage team members and their permissions</p>
         </div>
-        <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white" data-testid="button-invite-user">
-              <Plus className="w-4 h-4 mr-2" />
-              Invite User
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
+        <div className="flex gap-2">
+          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-green-600 hover:bg-green-700 text-white" data-testid="button-create-user">
+                <Plus className="w-4 h-4 mr-2" />
+                Create User
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Create New User</DialogTitle>
+              </DialogHeader>
+              <Form {...createForm}>
+                <form onSubmit={createForm.handleSubmit(onCreateUser)} className="space-y-4">
+                  <FormField
+                    control={createForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email Address</FormLabel>
+                        <FormControl>
+                          <Input placeholder="user@example.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={createForm.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Password</FormLabel>
+                        <FormControl>
+                          <Input type="password" placeholder="Minimum 8 characters" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={createForm.control}
+                      name="firstName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>First Name</FormLabel>
+                          <FormControl>
+                            <Input placeholder="John" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={createForm.control}
+                      name="lastName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Last Name</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Doe" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <FormField
+                    control={createForm.control}
+                    name="role"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Role</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a role" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="viewer">
+                              <div className="flex items-center">
+                                <Eye className="w-4 h-4 mr-2" />
+                                Viewer - Read-only access
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="developer">
+                              <div className="flex items-center">
+                                <Users className="w-4 h-4 mr-2" />
+                                Developer - Create and manage SDKs
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="admin">
+                              <div className="flex items-center">
+                                <ShieldCheck className="w-4 h-4 mr-2" />
+                                Admin - Full access
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="flex justify-end space-x-2 pt-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsCreateDialogOpen(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={createUserMutation.isPending}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      {createUserMutation.isPending ? "Creating..." : "Create User"}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+          <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-blue-600 hover:bg-blue-700 text-white" data-testid="button-invite-user">
+                <UserPlus className="w-4 h-4 mr-2" />
+                Invite User
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Invite New User</DialogTitle>
             </DialogHeader>
@@ -266,6 +441,7 @@ export default function UserManagement() {
           </DialogContent>
         </Dialog>
       </div>
+    </div>
 
       {/* User Statistics Cards */}
       {userStats && (

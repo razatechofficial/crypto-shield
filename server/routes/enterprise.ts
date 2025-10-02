@@ -11,6 +11,47 @@ export function setupEnterpriseRoutes(app: Express) {
   
   // ====== COMPREHENSIVE USER MANAGEMENT ROUTES ======
 
+  // Create User Directly (Admin Only)
+  app.post("/api/enterprise/users/create", adminOnly, async (req, res) => {
+    try {
+      const tenantId = req.user!.tenantId;
+      const createdBy = req.user!.id;
+      const { email, password, firstName, lastName, role } = req.body;
+
+      // Validate input
+      if (!email || !password || !role) {
+        return res.status(400).json({ error: "Email, password, and role are required" });
+      }
+
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({ error: "Invalid email format" });
+      }
+
+      // Validate password length
+      if (password.length < 8) {
+        return res.status(400).json({ error: "Password must be at least 8 characters" });
+      }
+
+      const user = await storage.createUserWithPassword(tenantId, {
+        email,
+        password,
+        firstName: firstName || null,
+        lastName: lastName || null,
+        role
+      }, createdBy);
+      
+      res.json({ 
+        message: "User created successfully", 
+        user
+      });
+    } catch (error: any) {
+      console.error("Error creating user:", error);
+      res.status(500).json({ error: error.message || "Failed to create user" });
+    }
+  });
+
   // Invite User to Tenant (Admin Only)
   app.post("/api/enterprise/users/invite", adminOnly, async (req, res) => {
     try {
