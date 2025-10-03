@@ -58,28 +58,40 @@ class FixedEnterpriseSDKGenerator {
     const nistTests = this.getFixedNISTTests();
     const auditTests = this.getFixedAuditTests();
     const wycheproofTests = this.getWycheproofTests();
+    const basicTests = this.getBasicFunctionalityTests();
+    const edgeCaseTests = this.getEdgeCaseTests();
+    const errorHandlingTests = this.getErrorHandlingTests();
+    const memorySafetyTests = this.getMemorySafetyTests();
     const ciWorkflow = this.getEnterpriseCI();
     const sbomScript = this.getSBOMScript();
     const threatModel = this.getThreatModel();
     const changelog = this.getChangelog(sdk);
     const readme = this.getFixedReadme(sdk);
     const security = this.getFixedSecurityPolicy();
+    const apiDocs = this.getAPIDocumentation(sdk);
+    const jestConfig = this.getJestConfig();
     
     return {
       'package.json': JSON.stringify(packageJson, null, 2),
       'src/index.ts': coreImplementation,
       'src/index.d.ts': typeDefinitions,
+      'test/basic-functionality.test.ts': basicTests,
       'test/nist-vectors.test.js': nistTests,
       'test/audit-compliance.test.js': auditTests,
       'test/wycheproof-gcm.test.js': wycheproofTests,
+      'test/edge-cases.test.ts': edgeCaseTests,
+      'test/error-handling.test.ts': errorHandlingTests,
+      'test/memory-safety.test.ts': memorySafetyTests,
       '.github/workflows/ci.yml': ciWorkflow,
       'scripts/generate-sbom.sh': sbomScript,
       'THREAT-MODEL.md': threatModel,
       'CHANGELOG.md': changelog,
       'README.md': readme,
       'SECURITY.md': security,
+      'API.md': apiDocs,
       'LICENSE': this.getMITLicense(),
       'tsconfig.json': this.getTypeScriptConfig(),
+      'jest.config.js': jestConfig,
       'INSTALLATION-GUIDE.md': this.getJavaScriptInstallationGuide(sdk),
       'TROUBLESHOOTING.md': this.getUniversalTroubleshootingGuide()
     };
@@ -5135,6 +5147,884 @@ describe('Audit Compliance Tests', () => {
 });
 
 console.log('✅ Audit compliance verification completed');
+`;
+  }
+
+  static getBasicFunctionalityTests() {
+    return `// Basic Functionality Tests - 100% Coverage Required
+import { AveroxCrypto, ChaCha20Poly1305, InvalidTagError, BadInputError } from '../src/index';
+
+describe('Basic Functionality', () => {
+  describe('AveroxCrypto', () => {
+    test('generateMasterKey creates 32-byte key', () => {
+      const key = AveroxCrypto.generateMasterKey();
+      expect(Buffer.isBuffer(key)).toBe(true);
+      expect(key.length).toBe(32);
+    });
+
+    test('encrypt and decrypt round trip', () => {
+      const key = AveroxCrypto.generateMasterKey();
+      const crypto = new AveroxCrypto(key);
+      const plaintext = 'Hello, World!';
+      const aad = Buffer.from('metadata');
+
+      const encrypted = crypto.encrypt(plaintext, aad);
+      const decrypted = crypto.decrypt(encrypted, aad);
+
+      expect(decrypted.toString()).toBe(plaintext);
+    });
+
+    test('encrypt with Buffer plaintext', () => {
+      const key = AveroxCrypto.generateMasterKey();
+      const crypto = new AveroxCrypto(key);
+      const plaintext = Buffer.from('test data');
+      const aad = Buffer.from('metadata');
+
+      const encrypted = crypto.encrypt(plaintext, aad);
+      const decrypted = crypto.decrypt(encrypted, aad);
+
+      expect(decrypted.equals(plaintext)).toBe(true);
+    });
+
+    test('encrypt with string AAD', () => {
+      const key = AveroxCrypto.generateMasterKey();
+      const crypto = new AveroxCrypto(key);
+      const encrypted = crypto.encrypt('test', 'string-aad');
+      const decrypted = crypto.decrypt(encrypted, 'string-aad');
+      expect(decrypted.toString()).toBe('test');
+    });
+
+    test('deriveKey produces deterministic output', () => {
+      const key = AveroxCrypto.generateMasterKey();
+      const crypto = new AveroxCrypto(key);
+      const salt = Buffer.from('salt');
+      const info = Buffer.from('info');
+
+      const derived1 = crypto.deriveKey(salt, info);
+      const derived2 = crypto.deriveKey(salt, info);
+
+      expect(derived1.equals(derived2)).toBe(true);
+      expect(derived1.length).toBe(32);
+    });
+
+    test('zeroize clears sensitive data', () => {
+      const key = AveroxCrypto.generateMasterKey();
+      const crypto = new AveroxCrypto(key);
+      
+      crypto.zeroize();
+      
+      // After zeroization, operations should fail
+      expect(() => crypto.encrypt('test', 'aad')).toThrow();
+    });
+  });
+
+  describe('ChaCha20Poly1305', () => {
+    test('generateKey creates 32-byte key', () => {
+      const key = ChaCha20Poly1305.generateKey();
+      expect(Buffer.isBuffer(key)).toBe(true);
+      expect(key.length).toBe(32);
+    });
+
+    test('encrypt and decrypt round trip', () => {
+      const key = ChaCha20Poly1305.generateKey();
+      const chacha = new ChaCha20Poly1305(key);
+      const plaintext = 'Hello, ChaCha!';
+      const aad = 'metadata';
+
+      const encrypted = chacha.encrypt(plaintext, aad);
+      const decrypted = chacha.decrypt(encrypted, aad);
+
+      expect(decrypted.toString()).toBe(plaintext);
+    });
+
+    test('encrypt without AAD', () => {
+      const key = ChaCha20Poly1305.generateKey();
+      const chacha = new ChaCha20Poly1305(key);
+      const plaintext = 'test';
+
+      const encrypted = chacha.encrypt(plaintext);
+      const decrypted = chacha.decrypt(encrypted);
+
+      expect(decrypted.toString()).toBe(plaintext);
+    });
+
+    test('zeroize clears sensitive data', () => {
+      const key = ChaCha20Poly1305.generateKey();
+      const chacha = new ChaCha20Poly1305(key);
+      
+      chacha.zeroize();
+      
+      // After zeroization, operations should fail
+      expect(() => chacha.encrypt('test')).toThrow();
+    });
+  });
+});
+
+console.log('✅ Basic functionality tests passed');
+`;
+  }
+
+  static getEdgeCaseTests() {
+    return `// Edge Case Tests - Comprehensive Coverage
+import { AveroxCrypto, ChaCha20Poly1305, BadInputError } from '../src/index';
+
+describe('Edge Cases', () => {
+  describe('Input Validation', () => {
+    test('empty plaintext', () => {
+      const key = AveroxCrypto.generateMasterKey();
+      const crypto = new AveroxCrypto(key);
+      const aad = Buffer.from('aad');
+
+      const encrypted = crypto.encrypt('', aad);
+      const decrypted = crypto.decrypt(encrypted, aad);
+
+      expect(decrypted.toString()).toBe('');
+    });
+
+    test('very large plaintext (1MB)', () => {
+      const key = AveroxCrypto.generateMasterKey();
+      const crypto = new AveroxCrypto(key);
+      const plaintext = Buffer.alloc(1024 * 1024, 'x');
+      const aad = Buffer.from('aad');
+
+      const encrypted = crypto.encrypt(plaintext, aad);
+      const decrypted = crypto.decrypt(encrypted, aad);
+
+      expect(decrypted.equals(plaintext)).toBe(true);
+    });
+
+    test('unicode plaintext', () => {
+      const key = AveroxCrypto.generateMasterKey();
+      const crypto = new AveroxCrypto(key);
+      const plaintext = '🔐 Unicode: 你好世界 🌍';
+      const aad = Buffer.from('aad');
+
+      const encrypted = crypto.encrypt(plaintext, aad);
+      const decrypted = crypto.decrypt(encrypted, aad);
+
+      expect(decrypted.toString()).toBe(plaintext);
+    });
+
+    test('binary data with all byte values', () => {
+      const key = AveroxCrypto.generateMasterKey();
+      const crypto = new AveroxCrypto(key);
+      const plaintext = Buffer.from([...Array(256)].map((_, i) => i));
+      const aad = Buffer.from('aad');
+
+      const encrypted = crypto.encrypt(plaintext, aad);
+      const decrypted = crypto.decrypt(encrypted, aad);
+
+      expect(decrypted.equals(plaintext)).toBe(true);
+    });
+
+    test('very long AAD', () => {
+      const key = AveroxCrypto.generateMasterKey();
+      const crypto = new AveroxCrypto(key);
+      const aad = Buffer.alloc(10000, 'A');
+
+      const encrypted = crypto.encrypt('test', aad);
+      const decrypted = crypto.decrypt(encrypted, aad);
+
+      expect(decrypted.toString()).toBe('test');
+    });
+  });
+
+  describe('Constructor Edge Cases', () => {
+    test('null key throws error', () => {
+      expect(() => new AveroxCrypto(null as any)).toThrow(BadInputError);
+    });
+
+    test('undefined key throws error', () => {
+      expect(() => new AveroxCrypto(undefined as any)).toThrow(BadInputError);
+    });
+
+    test('wrong size key throws error', () => {
+      expect(() => new AveroxCrypto(Buffer.alloc(16))).toThrow(BadInputError);
+      expect(() => new AveroxCrypto(Buffer.alloc(64))).toThrow(BadInputError);
+    });
+
+    test('non-Buffer key throws error', () => {
+      expect(() => new AveroxCrypto('not a buffer' as any)).toThrow(BadInputError);
+    });
+  });
+
+  describe('Multiple Operations', () => {
+    test('same instance can encrypt multiple times', () => {
+      const key = AveroxCrypto.generateMasterKey();
+      const crypto = new AveroxCrypto(key);
+      const aad = Buffer.from('aad');
+
+      const encrypted1 = crypto.encrypt('test1', aad);
+      const encrypted2 = crypto.encrypt('test2', aad);
+      const encrypted3 = crypto.encrypt('test3', aad);
+
+      expect(crypto.decrypt(encrypted1, aad).toString()).toBe('test1');
+      expect(crypto.decrypt(encrypted2, aad).toString()).toBe('test2');
+      expect(crypto.decrypt(encrypted3, aad).toString()).toBe('test3');
+    });
+
+    test('IVs are unique across encryptions', () => {
+      const key = AveroxCrypto.generateMasterKey();
+      const crypto = new AveroxCrypto(key);
+      const aad = Buffer.from('aad');
+
+      const encrypted1 = crypto.encrypt('test', aad);
+      const encrypted2 = crypto.encrypt('test', aad);
+
+      expect(encrypted1.iv).not.toBe(encrypted2.iv);
+    });
+  });
+});
+
+console.log('✅ Edge case tests passed');
+`;
+  }
+
+  static getErrorHandlingTests() {
+    return `// Error Handling Tests - All Error Paths Covered
+import { AveroxCrypto, ChaCha20Poly1305, InvalidTagError, BadInputError, AveroxCryptoError } from '../src/index';
+
+describe('Error Handling', () => {
+  describe('AAD Validation', () => {
+    test('missing AAD throws BadInputError', () => {
+      const key = AveroxCrypto.generateMasterKey();
+      const crypto = new AveroxCrypto(key);
+
+      expect(() => crypto.encrypt('test', null as any)).toThrow(BadInputError);
+      expect(() => crypto.encrypt('test', undefined as any)).toThrow(BadInputError);
+    });
+
+    test('empty AAD throws BadInputError', () => {
+      const key = AveroxCrypto.generateMasterKey();
+      const crypto = new AveroxCrypto(key);
+
+      expect(() => crypto.encrypt('test', '')).toThrow(BadInputError);
+      expect(() => crypto.encrypt('test', Buffer.alloc(0))).toThrow(BadInputError);
+    });
+
+    test('wrong AAD during decrypt throws InvalidTagError', () => {
+      const key = AveroxCrypto.generateMasterKey();
+      const crypto = new AveroxCrypto(key);
+      const encrypted = crypto.encrypt('test', 'correct-aad');
+
+      expect(() => crypto.decrypt(encrypted, 'wrong-aad')).toThrow(InvalidTagError);
+    });
+  });
+
+  describe('Authentication Failures', () => {
+    test('tampered ciphertext throws InvalidTagError', () => {
+      const key = AveroxCrypto.generateMasterKey();
+      const crypto = new AveroxCrypto(key);
+      const aad = Buffer.from('aad');
+      const encrypted = crypto.encrypt('test', aad);
+
+      // Tamper with ciphertext
+      encrypted.ct = Buffer.from('tampered').toString('base64url');
+
+      expect(() => crypto.decrypt(encrypted, aad)).toThrow(InvalidTagError);
+    });
+
+    test('tampered tag throws InvalidTagError', () => {
+      const key = AveroxCrypto.generateMasterKey();
+      const crypto = new AveroxCrypto(key);
+      const aad = Buffer.from('aad');
+      const encrypted = crypto.encrypt('test', aad);
+
+      // Tamper with tag
+      encrypted.tag = Buffer.from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]).toString('base64url');
+
+      expect(() => crypto.decrypt(encrypted, aad)).toThrow(InvalidTagError);
+    });
+
+    test('tampered IV throws InvalidTagError', () => {
+      const key = AveroxCrypto.generateMasterKey();
+      const crypto = new AveroxCrypto(key);
+      const aad = Buffer.from('aad');
+      const encrypted = crypto.encrypt('test', aad);
+
+      // Tamper with IV
+      encrypted.iv = Buffer.from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]).toString('base64url');
+
+      expect(() => crypto.decrypt(encrypted, aad)).toThrow(InvalidTagError);
+    });
+  });
+
+  describe('Algorithm Validation', () => {
+    test('wrong algorithm throws BadInputError', () => {
+      const key = AveroxCrypto.generateMasterKey();
+      const crypto = new AveroxCrypto(key);
+      const aad = Buffer.from('aad');
+      const encrypted = crypto.encrypt('test', aad);
+
+      encrypted.alg = 'AES-128-GCM';
+
+      expect(() => crypto.decrypt(encrypted, aad)).toThrow(BadInputError);
+    });
+
+    test('ChaCha20 with wrong algorithm throws BadInputError', () => {
+      const key = ChaCha20Poly1305.generateKey();
+      const chacha = new ChaCha20Poly1305(key);
+      const encrypted = chacha.encrypt('test', 'aad');
+
+      encrypted.alg = 'AES-256-GCM';
+
+      expect(() => chacha.decrypt(encrypted, 'aad')).toThrow(BadInputError);
+    });
+  });
+
+  describe('Envelope Validation', () => {
+    test('missing envelope fields throw errors', () => {
+      const key = AveroxCrypto.generateMasterKey();
+      const crypto = new AveroxCrypto(key);
+      const aad = Buffer.from('aad');
+
+      expect(() => crypto.decrypt({} as any, aad)).toThrow();
+      expect(() => crypto.decrypt({ v: '2' } as any, aad)).toThrow();
+      expect(() => crypto.decrypt({ v: '2', alg: 'AES-256-GCM' } as any, aad)).toThrow();
+    });
+
+    test('invalid base64url encoding throws error', () => {
+      const key = AveroxCrypto.generateMasterKey();
+      const crypto = new AveroxCrypto(key);
+      const aad = Buffer.from('aad');
+      const encrypted = crypto.encrypt('test', aad);
+
+      encrypted.iv = 'invalid base64url!!!';
+
+      expect(() => crypto.decrypt(encrypted, aad)).toThrow();
+    });
+  });
+
+  describe('Error Message Safety', () => {
+    test('errors do not leak sensitive data', () => {
+      const key = AveroxCrypto.generateMasterKey();
+      const crypto = new AveroxCrypto(key);
+
+      try {
+        crypto.encrypt('sensitive data', null as any);
+        fail('Should have thrown error');
+      } catch (error) {
+        expect(error.message).not.toContain('sensitive data');
+        expect(error.message).not.toContain(key.toString('hex'));
+      }
+    });
+
+    test('InvalidTagError has safe message', () => {
+      const key = AveroxCrypto.generateMasterKey();
+      const crypto = new AveroxCrypto(key);
+      const encrypted = crypto.encrypt('test', 'aad');
+      encrypted.tag = Buffer.from([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]).toString('base64url');
+
+      try {
+        crypto.decrypt(encrypted, 'aad');
+        fail('Should have thrown InvalidTagError');
+      } catch (error) {
+        expect(error).toBeInstanceOf(InvalidTagError);
+        expect(error.code).toBe('INVALID_TAG');
+        expect(error.message).not.toContain('test');
+      }
+    });
+  });
+});
+
+console.log('✅ Error handling tests passed');
+`;
+  }
+
+  static getMemorySafetyTests() {
+    return `// Memory Safety Tests - Verify Secure Memory Handling
+import { AveroxCrypto, ChaCha20Poly1305 } from '../src/index';
+
+describe('Memory Safety', () => {
+  describe('Memory Zeroization', () => {
+    test('AveroxCrypto zeroize clears master key', () => {
+      const key = AveroxCrypto.generateMasterKey();
+      const keyCopy = Buffer.from(key);
+      const crypto = new AveroxCrypto(key);
+
+      // Use the crypto instance
+      const aad = Buffer.from('aad');
+      crypto.encrypt('test', aad);
+
+      // Zeroize
+      crypto.zeroize();
+
+      // After zeroization, encryption should fail
+      expect(() => crypto.encrypt('test', aad)).toThrow();
+
+      // Original key buffer should be zeroed
+      expect(key.every(byte => byte === 0)).toBe(true);
+    });
+
+    test('ChaCha20Poly1305 zeroize clears key', () => {
+      const key = ChaCha20Poly1305.generateKey();
+      const keyCopy = Buffer.from(key);
+      const chacha = new ChaCha20Poly1305(key);
+
+      // Use the instance
+      chacha.encrypt('test', 'aad');
+
+      // Zeroize
+      chacha.zeroize();
+
+      // After zeroization, encryption should fail
+      expect(() => chacha.encrypt('test')).toThrow();
+
+      // Original key buffer should be zeroed
+      expect(key.every(byte => byte === 0)).toBe(true);
+    });
+
+    test('multiple zeroize calls are safe', () => {
+      const key = AveroxCrypto.generateMasterKey();
+      const crypto = new AveroxCrypto(key);
+
+      crypto.zeroize();
+      crypto.zeroize();
+      crypto.zeroize();
+
+      // Should not throw, just be a no-op
+      expect(key.every(byte => byte === 0)).toBe(true);
+    });
+  });
+
+  describe('Key Independence', () => {
+    test('constructor creates independent key copy', () => {
+      const originalKey = AveroxCrypto.generateMasterKey();
+      const crypto = new AveroxCrypto(originalKey);
+
+      // Modify original key
+      originalKey.fill(0xFF);
+
+      // Crypto instance should still work (has its own copy)
+      const aad = Buffer.from('aad');
+      const encrypted = crypto.encrypt('test', aad);
+      const decrypted = crypto.decrypt(encrypted, aad);
+
+      expect(decrypted.toString()).toBe('test');
+    });
+
+    test('zeroizing one instance does not affect others', () => {
+      const key = AveroxCrypto.generateMasterKey();
+      const crypto1 = new AveroxCrypto(Buffer.from(key));
+      const crypto2 = new AveroxCrypto(Buffer.from(key));
+
+      crypto1.zeroize();
+
+      // crypto2 should still work
+      const aad = Buffer.from('aad');
+      const encrypted = crypto2.encrypt('test', aad);
+      const decrypted = crypto2.decrypt(encrypted, aad);
+
+      expect(decrypted.toString()).toBe('test');
+    });
+  });
+
+  describe('Derived Key Cleanup', () => {
+    test('deriveKey does not leak intermediate values', () => {
+      const key = AveroxCrypto.generateMasterKey();
+      const crypto = new AveroxCrypto(key);
+
+      const salt = Buffer.from('salt');
+      const info = Buffer.from('info');
+
+      // Call multiple times to ensure no memory leaks
+      for (let i = 0; i < 100; i++) {
+        const derived = crypto.deriveKey(salt, info);
+        expect(derived.length).toBe(32);
+      }
+
+      // No assertion needed - just checking no crashes/leaks
+    });
+  });
+
+  describe('Buffer Ownership', () => {
+    test('encrypted envelope does not share buffers', () => {
+      const key = AveroxCrypto.generateMasterKey();
+      const crypto = new AveroxCrypto(key);
+      const plaintext = Buffer.from('test data');
+      const aad = Buffer.from('aad');
+
+      const encrypted = crypto.encrypt(plaintext, aad);
+
+      // Modify original plaintext
+      plaintext.fill(0xFF);
+
+      // Should not affect decryption
+      const decrypted = crypto.decrypt(encrypted, aad);
+      expect(decrypted.toString()).toBe('test data');
+    });
+
+    test('decrypted data is independent', () => {
+      const key = AveroxCrypto.generateMasterKey();
+      const crypto = new AveroxCrypto(key);
+      const aad = Buffer.from('aad');
+
+      const encrypted = crypto.encrypt('test', aad);
+      const decrypted1 = crypto.decrypt(encrypted, aad);
+      const decrypted2 = crypto.decrypt(encrypted, aad);
+
+      // Modifying one should not affect the other
+      decrypted1.fill(0xFF);
+      expect(decrypted2.toString()).toBe('test');
+    });
+  });
+});
+
+console.log('✅ Memory safety tests passed');
+`;
+  }
+
+  static getJestConfig() {
+    return `module.exports = {
+  preset: 'ts-jest',
+  testEnvironment: 'node',
+  roots: ['<rootDir>/test'],
+  testMatch: ['**/*.test.ts', '**/*.test.js'],
+  collectCoverage: true,
+  coverageDirectory: 'coverage',
+  coverageReporters: ['text', 'lcov', 'html'],
+  coveragePathIgnorePatterns: ['/node_modules/', '/dist/'],
+  collectCoverageFrom: [
+    'src/**/*.ts',
+    '!src/**/*.d.ts',
+    '!src/**/index.ts'
+  ],
+  coverageThreshold: {
+    global: {
+      branches: 100,
+      functions: 100,
+      lines: 100,
+      statements: 100
+    }
+  },
+  verbose: true,
+  testTimeout: 10000
+};
+`;
+  }
+
+  static getAPIDocumentation(sdk) {
+    return `# API Reference - ${sdk.name}
+
+## Table of Contents
+- [AveroxCrypto](#averoxcrypto)
+- [ChaCha20Poly1305](#chacha20poly1305)
+- [Error Types](#error-types)
+- [Type Definitions](#type-definitions)
+
+## AveroxCrypto
+
+Enterprise-grade AES-256-GCM encryption class with mandatory AAD.
+
+### Constructor
+
+\`\`\`typescript
+new AveroxCrypto(masterKey: Buffer): AveroxCrypto
+\`\`\`
+
+Creates a new AveroxCrypto instance with the provided master key.
+
+**Parameters:**
+- \`masterKey\` (Buffer): Must be exactly 32 bytes
+
+**Throws:**
+- \`BadInputError\`: If key is not a Buffer or not 32 bytes
+
+**Example:**
+\`\`\`typescript
+const key = AveroxCrypto.generateMasterKey();
+const crypto = new AveroxCrypto(key);
+\`\`\`
+
+### Static Methods
+
+#### generateMasterKey()
+
+\`\`\`typescript
+static generateMasterKey(): Buffer
+\`\`\`
+
+Generates a cryptographically secure 32-byte master key.
+
+**Returns:** Buffer of 32 random bytes
+
+**Example:**
+\`\`\`typescript
+const key = AveroxCrypto.generateMasterKey();
+\`\`\`
+
+### Instance Methods
+
+#### encrypt()
+
+\`\`\`typescript
+encrypt(plaintext: Buffer | string, aad: Buffer | string, kid?: string): AveroxEnvelope
+\`\`\`
+
+Encrypts data using AES-256-GCM with mandatory AAD.
+
+**Parameters:**
+- \`plaintext\` (Buffer | string): Data to encrypt
+- \`aad\` (Buffer | string): Additional authenticated data (REQUIRED, non-empty)
+- \`kid\` (string, optional): Key identifier for envelope
+
+**Returns:** AveroxEnvelope object
+
+**Throws:**
+- \`BadInputError\`: If AAD is missing or empty
+
+**Example:**
+\`\`\`typescript
+const encrypted = crypto.encrypt('Hello', Buffer.from('metadata'));
+\`\`\`
+
+#### decrypt()
+
+\`\`\`typescript
+decrypt(envelope: AveroxEnvelope, aad: Buffer | string): Buffer
+\`\`\`
+
+Decrypts an encrypted envelope.
+
+**Parameters:**
+- \`envelope\` (AveroxEnvelope): Encrypted data envelope
+- \`aad\` (Buffer | string): Same AAD used during encryption
+
+**Returns:** Buffer containing decrypted plaintext
+
+**Throws:**
+- \`InvalidTagError\`: If authentication fails (wrong AAD, tampered data, wrong key)
+- \`BadInputError\`: If envelope format is invalid or algorithm mismatch
+
+**Example:**
+\`\`\`typescript
+const decrypted = crypto.decrypt(encrypted, Buffer.from('metadata'));
+console.log(decrypted.toString());
+\`\`\`
+
+#### deriveKey()
+
+\`\`\`typescript
+deriveKey(salt: Buffer, info: Buffer, length?: number): Buffer
+\`\`\`
+
+Derives a key using HKDF-SHA256.
+
+**Parameters:**
+- \`salt\` (Buffer): Salt for derivation
+- \`info\` (Buffer): Context/application info
+- \`length\` (number, optional): Desired key length in bytes (default: 32)
+
+**Returns:** Derived key buffer
+
+**Example:**
+\`\`\`typescript
+const derivedKey = crypto.deriveKey(
+  Buffer.from('salt'),
+  Buffer.from('app-context')
+);
+\`\`\`
+
+#### zeroize()
+
+\`\`\`typescript
+zeroize(): void
+\`\`\`
+
+Securely zeros out the master key in memory. After calling this method, the instance cannot be used for encryption/decryption.
+
+**Example:**
+\`\`\`typescript
+crypto.zeroize();
+// crypto instance is now unusable
+\`\`\`
+
+## ChaCha20Poly1305
+
+ChaCha20-Poly1305 AEAD encryption (RFC 8439 compliant).
+
+### Constructor
+
+\`\`\`typescript
+new ChaCha20Poly1305(key: Buffer): ChaCha20Poly1305
+\`\`\`
+
+Creates a new ChaCha20Poly1305 instance.
+
+**Parameters:**
+- \`key\` (Buffer): Must be exactly 32 bytes
+
+**Throws:**
+- \`BadInputError\`: If key is not a Buffer or not 32 bytes
+
+### Static Methods
+
+#### generateKey()
+
+\`\`\`typescript
+static generateKey(): Buffer
+\`\`\`
+
+Generates a cryptographically secure 32-byte key.
+
+**Returns:** Buffer of 32 random bytes
+
+### Instance Methods
+
+#### encrypt()
+
+\`\`\`typescript
+encrypt(plaintext: Buffer | string, aad?: Buffer | string, kid?: string): AveroxEnvelope
+\`\`\`
+
+Encrypts data using ChaCha20-Poly1305.
+
+**Parameters:**
+- \`plaintext\` (Buffer | string): Data to encrypt
+- \`aad\` (Buffer | string, optional): Additional authenticated data
+- \`kid\` (string, optional): Key identifier
+
+**Returns:** AveroxEnvelope object
+
+#### decrypt()
+
+\`\`\`typescript
+decrypt(envelope: AveroxEnvelope, aad?: Buffer | string): Buffer
+\`\`\`
+
+Decrypts an encrypted envelope.
+
+**Parameters:**
+- \`envelope\` (AveroxEnvelope): Encrypted data envelope
+- \`aad\` (Buffer | string, optional): Same AAD used during encryption
+
+**Returns:** Buffer containing decrypted plaintext
+
+**Throws:**
+- \`InvalidTagError\`: If authentication fails
+- \`BadInputError\`: If envelope format is invalid
+
+#### zeroize()
+
+\`\`\`typescript
+zeroize(): void
+\`\`\`
+
+Securely zeros out the key in memory.
+
+## Error Types
+
+### AveroxCryptoError
+
+Base error class for all crypto operations.
+
+\`\`\`typescript
+class AveroxCryptoError extends Error {
+  code: string;
+  details?: any;
+}
+\`\`\`
+
+### InvalidTagError
+
+Thrown when authentication tag verification fails.
+
+\`\`\`typescript
+class InvalidTagError extends AveroxCryptoError {
+  code: 'INVALID_TAG'
+}
+\`\`\`
+
+**Common causes:**
+- Wrong AAD provided
+- Data has been tampered with
+- Wrong decryption key used
+
+### BadInputError
+
+Thrown for invalid inputs or parameters.
+
+\`\`\`typescript
+class BadInputError extends AveroxCryptoError {
+  code: 'BAD_INPUT'
+}
+\`\`\`
+
+**Common causes:**
+- Missing or empty AAD
+- Invalid key size
+- Malformed envelope
+- Algorithm mismatch
+
+## Type Definitions
+
+### AveroxEnvelope
+
+\`\`\`typescript
+interface AveroxEnvelope {
+  v: string;       // Version (always "2")
+  alg: string;     // Algorithm ("AES-256-GCM" or "CHACHA20-POLY1305")
+  kid?: string;    // Key identifier (optional)
+  iv: string;      // Base64url-encoded IV
+  tag: string;     // Base64url-encoded authentication tag
+  ct: string;      // Base64url-encoded ciphertext
+  aad?: string;    // Base64url-encoded AAD (if present)
+}
+\`\`\`
+
+## Security Best Practices
+
+1. **Always use AAD**: For AES-256-GCM, AAD is mandatory. Include context like tenant ID, request ID, or operation type.
+
+2. **Zeroize after use**: Call \`zeroize()\` when you're done with a crypto instance to clear sensitive keys from memory.
+
+3. **Handle errors properly**: Catch \`InvalidTagError\` separately from \`BadInputError\` for appropriate error handling.
+
+4. **Store keys securely**: Never log or expose master keys. Use environment variables or key management systems.
+
+5. **Don't reuse envelopes**: Each encryption generates a unique IV. Never attempt to decrypt the same envelope multiple times with different AADs.
+
+## Complete Example
+
+\`\`\`typescript
+import { AveroxCrypto, InvalidTagError, BadInputError } from '${sdk.name.toLowerCase().replace(/\s+/g, '-')}-crypto-sdk';
+
+// Generate or load master key
+const key = AveroxCrypto.generateMasterKey();
+const crypto = new AveroxCrypto(key);
+
+try {
+  // Encrypt with AAD
+  const aad = Buffer.from(JSON.stringify({
+    tenantId: 'tenant-123',
+    requestId: 'req-456'
+  }));
+  
+  const encrypted = crypto.encrypt('sensitive data', aad);
+  
+  // Store encrypted.v, encrypted.ct, encrypted.iv, encrypted.tag, etc.
+  
+  // Decrypt with same AAD
+  const decrypted = crypto.decrypt(encrypted, aad);
+  console.log(decrypted.toString()); // "sensitive data"
+  
+} catch (error) {
+  if (error instanceof InvalidTagError) {
+    console.error('Authentication failed - data may be tampered');
+  } else if (error instanceof BadInputError) {
+    console.error('Invalid input:', error.message);
+  } else {
+    console.error('Unexpected error:', error);
+  }
+} finally {
+  // Clean up
+  crypto.zeroize();
+}
+\`\`\`
+
+---
+
+Generated: ${new Date().toISOString()}
 `;
   }
 

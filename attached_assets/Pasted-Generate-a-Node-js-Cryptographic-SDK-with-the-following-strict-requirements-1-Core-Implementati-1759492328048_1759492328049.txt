@@ -1,0 +1,190 @@
+Generate a Node.js Cryptographic SDK with the following strict requirements:
+
+1. Core Implementation Requirements:
+- Only implement features that are fully tested and functional
+- Each feature must have corresponding test vectors
+- All advertised features must be fully implemented
+- No empty/stub methods allowed
+- All crypto operations must use Node.js native 'crypto' module
+
+2. Mandatory Security Features:
+```typescript
+// AES-256-GCM Requirements
+- 12-byte IV (non-negotiable)
+- Mandatory AAD validation
+- Proper tag length verification
+- Secure memory handling with zeroization
+- Timing-safe comparisons
+
+// Error Handling Requirements
+class CryptoError extends Error {
+  constructor(code: string, message: string) {
+    // Must include error code and safe message
+    // No sensitive data in errors
+  }
+}
+
+// Memory Safety Requirements
+function secureZero(buffer: Buffer): void {
+  // Multiple overwrites required
+  // Verify buffer type
+  // Handle edge cases
+}
+```
+
+3. Testing Infrastructure:
+```typescript
+// Required Test Files
+- basic-functionality.test.ts
+- nist-vectors.test.ts
+- wycheproof.test.ts
+- edge-cases.test.ts
+- error-handling.test.ts
+
+// Required Test Coverage
+- All public methods: 100%
+- Error paths: 100%
+- Edge cases: 100%
+```
+
+4. Documentation Requirements:
+```markdown
+# Required Documentation Files
+- README.md (usage examples, all features)
+- SECURITY.md (security policy, features)
+- CHANGELOG.md (versioning)
+- API.md (complete API reference)
+- THREAT-MODEL.md (security analysis)
+
+# Documentation Rules
+- Only document implemented features
+- Include security warnings
+- Provide complete examples
+- Document all error types
+```
+
+5. Build Configuration:
+```json
+// Required Configuration Files
+{
+  "tsconfig.json": {
+    "strict": true,
+    "esModuleInterop": true,
+    "declaration": true
+  },
+  "jest.config.js": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "coverage": {
+      "threshold": {
+        "global": {
+          "branches": 100,
+          "functions": 100,
+          "lines": 100
+        }
+      }
+    }
+  }
+}
+```
+
+6. Quality Gates:
+```typescript
+// Pre-release Checks
+function validateSDK() {
+  - All tests pass
+  - 100% test coverage
+  - No empty implementations
+  - Documentation matches code
+  - All examples work
+  - Security features verified
+  - Memory handling verified
+}
+```
+
+7. Security Requirements:
+```typescript
+// Mandatory Security Features
+- Secure key generation
+- Proper IV handling
+- AAD validation
+- Memory zeroization
+- Timing attack prevention
+- Error message safety
+- Input validation
+
+// Required Security Tests
+- NIST test vectors
+- Wycheproof test vectors
+- Memory leak tests
+- Timing attack tests
+```
+
+8. API Design Rules:
+```typescript
+// Method Requirements
+- Strong typing
+- Input validation
+- Error handling
+- Memory cleanup
+- Performance considerations
+
+// Interface Standards
+interface CryptoOperation {
+  - Clear parameter types
+  - Documented errors
+  - Return type safety
+  - Memory handling
+}
+```
+
+9. Validation Requirements:
+```typescript
+// Pre-publish Checks
+- No TODOs in code
+- No empty implementations
+- All features documented
+- All features tested
+- Security review complete
+- Memory handling verified
+- Error handling verified
+```
+
+10. Generated Code Standards:
+```typescript
+// Code Quality Rules
+- No any types
+- No implicit returns
+- Full error handling
+- Memory safety
+- Performance optimization
+- Clear documentation
+- Complete examples
+```
+
+IMPORTANT RULES:
+1. DO NOT generate code for features that aren't fully implemented
+2. DO NOT include placeholder or stub methods
+3. DO NOT claim security features that aren't thoroughly tested
+4. DO NOT skip error handling or input validation
+5. DO NOT leave memory handling to garbage collection
+6. DO NOT use deprecated crypto methods
+7. DO NOT expose internal implementation details
+8. DO NOT skip security validations
+
+Example Usage:
+```typescript
+import { CryptoSDK } from '@company/crypto-sdk';
+
+// Key generation
+const key = CryptoSDK.generateKey();
+
+// Encryption with mandatory AAD
+const aad = Buffer.from('metadata');
+const encrypted = sdk.encrypt('data', aad);
+
+// Decryption with same AAD
+const decrypted = sdk.decrypt(encrypted, aad);
+```
+
+Generate an SDK that strictly follows these requirements, with no compromises on security or completeness.
