@@ -326,7 +326,9 @@ export class AveroxCrypto {
       
       // Create cipher with IV (REQUIRED for AES-GCM)
       const cipher = crypto.createCipheriv('aes-256-gcm', this.masterKey, iv);
-      cipher.setAAD(aadBuffer);
+      cipher.setAAD(aadBuffer, { 
+        plaintextLength: plaintextBuffer.length 
+      });
       
       // Encrypt
       let ciphertext = cipher.update(plaintextBuffer);
@@ -395,7 +397,9 @@ export class AveroxCrypto {
       // Create decipher with IV (REQUIRED for AES-GCM)
       const decipher = crypto.createDecipheriv('aes-256-gcm', this.masterKey, iv);
       decipher.setAuthTag(tag);
-      decipher.setAAD(aadBuffer);
+      decipher.setAAD(aadBuffer, { 
+        plaintextLength: ciphertext.length 
+      });
       
       // Decrypt
       let plaintext = decipher.update(ciphertext);
@@ -474,7 +478,9 @@ export class ChaCha20Poly1305 {
       });
       
       if (aadBuffer.length > 0) {
-        cipher.setAAD(aadBuffer);
+        cipher.setAAD(aadBuffer, { 
+          plaintextLength: plaintextBuffer.length 
+        });
       }
       
       // Encrypt
@@ -540,7 +546,9 @@ export class ChaCha20Poly1305 {
       decipher.setAuthTag(tag);
       
       if (aadBuffer.length > 0) {
-        decipher.setAAD(aadBuffer);
+        decipher.setAAD(aadBuffer, { 
+          plaintextLength: ciphertext.length 
+        });
       }
       
       // Decrypt
