@@ -1,0 +1,22 @@
+Failed to load resource: the server responded with a status of 500 (Internal Server Error)Understand this error
+hook.js:608 Download failed: 500 {"message":"SDK generation failed: Missing required files","details":"Missing: src/index.ts, package.json","generated_files":["kotlin/settings.gradle","kotlin/build.gradle","kotlin/cryptoshield/build.gradle","kotlin/cryptoshield/src/main/AndroidManifest.xml","kotlin/cryptoshield/src/main/java/com/averox/crypto/sdk/AveroxCrypto.kt","kotlin/cryptoshield/src/test/java/com/averox/crypto/sdk/AveroxCryptoTest.kt","kotlin/cryptoshield/proguard-rules.pro","kotlin/README.md","kotlin/LICENSE","kotlin/SECURITY.md","kotlin/INSTALLATION-GUIDE.md","kotlin/TROUBLESHOOTING.md","rust/Cargo.toml","rust/src/lib.rs","rust/examples/basic.rs","rust/README.md","rust/LICENSE","rust/INSTALLATION-GUIDE.md","rust/TROUBLESHOOTING.md"]}
+overrideMethod @ hook.js:608Understand this error
+hook.js:608 SDK download error: Error: Download failed: 500
+    at onClick (src/pages/sdk-wizard.tsx:2220:27)
+overrideMethod @ hook.js:608Understand this error
+ Pre-selecting ALL algorithms for convenience. Total: 24
+ Compliance recommendation received: Response
+ Compliance recommendation received: Response
+ Recommended algorithms received: Response
+ Compliance recommendation received: Response
+ Compliance recommendation received: Response
+ Compliance recommendation received: Response
+ SDK generation response received: Object
+ downloadUrl in response: /api/sdks/684e4cc8-101c-4b5b-80b4-09db72940ef0/download
+ Compliance recommendation received: Response
+ Downloading SDK with ID: 684e4cc8-101c-4b5b-80b4-09db72940ef0
+api/sdks/684e4cc8-101c-4b5b-80b4-09db72940ef0/download:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)Understand this error
+hook.js:608 Download failed: 500 {"message":"SDK generation failed: Missing required files","details":"Missing: src/index.ts, SECURITY.md, package.json","generated_files":["python/setup.py","python/averox_crypto/__init__.py","python/README.md","python/LICENSE","python/INSTALLATION-GUIDE.md","python/TROUBLESHOOTING.md"]}
+overrideMethod @ hook.js:608Understand this error
+hook.js:608 SDK download error: Error: Download failed: 500
+    at onClick (src/pages/sdk-wizard.tsx:2220:27)
