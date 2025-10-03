@@ -1,0 +1,66 @@
+# Crypto SDK Generator Issues - Fix Requirements
+
+## 1. Error Handling Inconsistencies
+- Authentication failures are not properly identified and wrapped
+- Generic errors are being thrown instead of specific error types
+- Error messages are inconsistent between encryption and decryption operations
+- The system should ensure consistent error handling patterns
+
+## 2. Missing Promised Features
+- ChaCha20-Poly1305 is advertised in README but not implemented
+- The README claims "✅ ChaCha20-Poly1305 - Real RFC 8439 compliant implementation" but the class is undefined
+- Need to either implement promised features or update documentation
+
+## 3. Type Safety Issues
+- Optional parameters (like `kid`) are not properly typed in envelope format
+- Some parameters are marked as optional in types but treated as required in code
+- Need consistent typing between interface definitions and implementations
+
+## 4. API Design Issues
+- `deriveKey` method is referenced in tests but not implemented in the SDK
+- Inconsistent method signatures between different crypto operations
+- Need consistent API design patterns across all crypto operations
+
+## 5. Documentation vs Implementation Mismatch
+- README claims features that aren't fully implemented
+- Some security claims need verification
+- Documentation should accurately reflect implemented features
+
+## 6. Test Coverage Gaps
+- Edge cases for encryption/decryption not fully covered
+- Buffer overflow scenarios not tested
+- Memory zeroization effectiveness not verified
+- Need comprehensive test coverage for security features
+
+## Required Improvements for SDK Generator:
+
+1. Add validation to ensure all documented features are implemented
+2. Implement strict error handling patterns
+3. Add type safety checks in the generation process
+4. Ensure consistent API design patterns
+5. Add documentation accuracy verification
+6. Generate comprehensive test suites automatically
+
+## Security Requirements:
+1. Proper authentication failure handling
+2. Consistent error types for crypto operations
+3. Memory safety in crypto operations
+4. Proper parameter validation
+5. Secure default values
+6. Comprehensive security test vectors
+
+Example of proper error handling pattern to implement:
+```typescript
+try {
+  // Crypto operation
+} catch (error) {
+  if (isAuthenticationError(error)) {
+    throw new InvalidTagError("Authentication failed");
+  } else if (isInputError(error)) {
+    throw new BadInputError(error.message);
+  } else if (isCryptoError(error)) {
+    throw new CryptoOperationError(error.message);
+  }
+  throw new UnknownCryptoError("Unknown error occurred");
+}
+```

@@ -329,9 +329,155 @@ export class AveroxCrypto {
     }
   }
   
+  // Derive key using HKDF-SHA256
+  deriveKey(salt: Buffer, info: Buffer): Buffer {
+    try {
+      return hkdf(this.masterKey, salt, info, AveroxCrypto.KEY_SIZE);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown key derivation error';
+      throw new AveroxCryptoError('KEY_DERIVATION_FAILED', \`Key derivation failed: \${errorMessage}\`);
+    }
+  }
+  
   // Securely clear master key from memory
   zeroize(): void {
     secureZero(this.masterKey);
+  }
+}
+
+// ChaCha20-Poly1305 Implementation (RFC 8439)
+export class ChaCha20Poly1305 {
+  private static readonly KEY_SIZE = 32;
+  private static readonly NONCE_SIZE = 12;
+  
+  private readonly key: Buffer;
+  
+  constructor(key: Buffer) {
+    if (!Buffer.isBuffer(key) || key.length !== ChaCha20Poly1305.KEY_SIZE) {
+      throw new BadInputError('ChaCha20-Poly1305 key must be exactly 32 bytes');
+    }
+    this.key = Buffer.from(key);
+  }
+  
+  // Generate secure 32-byte key
+  static generateKey(): Buffer {
+    return crypto.randomBytes(ChaCha20Poly1305.KEY_SIZE);
+  }
+  
+  // Encrypt with ChaCha20-Poly1305
+  encrypt(plaintext: Buffer | string, aad?: Buffer | string, kid?: string): AveroxEnvelope {
+    const attributes = {
+      alg: 'ChaCha20-Poly1305',
+      kid: kid || 'unknown',
+      env: process.env.NODE_ENV || 'development'
+    };
+
+    try {
+      const plaintextBuffer = typeof plaintext === 'string' ? Buffer.from(plaintext, 'utf8') : plaintext;
+      const aadBuffer = aad ? (typeof aad === 'string' ? Buffer.from(aad, 'utf8') : aad) : Buffer.alloc(0);
+      
+      // Generate random 12-byte nonce
+      const nonce = crypto.randomBytes(ChaCha20Poly1305.NONCE_SIZE);
+      
+      // Create cipher
+      const cipher = crypto.createCipheriv('chacha20-poly1305', this.key, nonce, {
+        authTagLength: 16
+      });
+      
+      if (aadBuffer.length > 0) {
+        cipher.setAAD(aadBuffer);
+      }
+      
+      // Encrypt
+      let ciphertext = cipher.update(plaintextBuffer);
+      ciphertext = Buffer.concat([ciphertext, cipher.final()]);
+      const tag = cipher.getAuthTag();
+      
+      telemetry.increment(METRICS.ENCRYPT_TOTAL, 1, attributes);
+      
+      return {
+        v: '2.0',
+        alg: 'ChaCha20-Poly1305',
+        kid,
+        iv: nonce.toString('base64url'),
+        tag: tag.toString('base64url'),
+        ct: ciphertext.toString('base64url'),
+        aad: aadBuffer.length > 0 ? aadBuffer.toString('base64url') : undefined
+      };
+      
+    } catch (error: unknown) {
+      telemetry.increment(METRICS.FAIL_TOTAL, 1, { ...attributes, reason: 'encryption_error' });
+      if (error instanceof AveroxCryptoError) throw error;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown encryption error';
+      throw new AveroxCryptoError('ENCRYPTION_FAILED', \`ChaCha20-Poly1305 encryption failed: \${errorMessage}\`);
+    }
+  }
+  
+  // Decrypt with ChaCha20-Poly1305
+  decrypt(envelope: AveroxEnvelope, aad?: Buffer | string): Buffer {
+    const attributes = {
+      alg: envelope.alg,
+      kid: envelope.kid || 'unknown',
+      env: process.env.NODE_ENV || 'development'
+    };
+
+    try {
+      if (envelope.alg !== 'ChaCha20-Poly1305') {
+        telemetry.increment(METRICS.FAIL_TOTAL, 1, { ...attributes, reason: 'unsupported_algorithm' });
+        throw new BadInputError(\`Expected ChaCha20-Poly1305 but got: \${envelope.alg}\`);
+      }
+      
+      const aadBuffer = aad ? (typeof aad === 'string' ? Buffer.from(aad, 'utf8') : aad) : Buffer.alloc(0);
+      
+      // Decode envelope components
+      const nonce = Buffer.from(envelope.iv, 'base64url');
+      const tag = Buffer.from(envelope.tag, 'base64url');
+      const ciphertext = Buffer.from(envelope.ct, 'base64url');
+      
+      // Validate sizes
+      if (nonce.length !== ChaCha20Poly1305.NONCE_SIZE) {
+        throw new AveroxCryptoError('INVALID_NONCE', 'Nonce must be exactly 12 bytes');
+      }
+      
+      if (tag.length !== 16) {
+        throw new AveroxCryptoError('INVALID_TAG', 'Tag must be exactly 16 bytes');
+      }
+      
+      // Create decipher
+      const decipher = crypto.createDecipheriv('chacha20-poly1305', this.key, nonce, {
+        authTagLength: 16
+      });
+      
+      decipher.setAuthTag(tag);
+      
+      if (aadBuffer.length > 0) {
+        decipher.setAAD(aadBuffer);
+      }
+      
+      // Decrypt
+      let plaintext = decipher.update(ciphertext);
+      plaintext = Buffer.concat([plaintext, decipher.final()]);
+      
+      telemetry.increment(METRICS.DECRYPT_TOTAL, 1, attributes);
+      return plaintext;
+      
+    } catch (error: unknown) {
+      telemetry.increment(METRICS.FAIL_TOTAL, 1, { ...attributes, reason: 'decryption_error' });
+      
+      const errorMessage = error instanceof Error ? error.message : '';
+      if (errorMessage && (errorMessage.includes('unable to authenticate') || errorMessage.includes('Unsupported state'))) {
+        throw new InvalidTagError('ChaCha20-Poly1305 authentication failed - data may have been tampered with');
+      }
+      
+      if (error instanceof AveroxCryptoError) throw error;
+      const finalErrorMessage = error instanceof Error ? error.message : 'Unknown decryption error';
+      throw new AveroxCryptoError('DECRYPTION_FAILED', \`ChaCha20-Poly1305 decryption failed: \${finalErrorMessage}\`);
+    }
+  }
+  
+  // Securely clear key from memory
+  zeroize(): void {
+    secureZero(this.key);
   }
 }
 
@@ -4805,8 +4951,11 @@ export declare class AveroxCrypto {
 }
 
 export declare class ChaCha20Poly1305 {
-  static encrypt(plaintext: Buffer, key: Buffer, aad?: Buffer): AveroxEnvelope;
-  static decrypt(envelope: AveroxEnvelope, key: Buffer): Buffer;
+  constructor(key: Buffer);
+  encrypt(plaintext: string | Buffer, aad?: Buffer | string, kid?: string): AveroxEnvelope;
+  decrypt(envelope: AveroxEnvelope, aad?: Buffer | string): Buffer;
+  zeroize(): void;
+  static generateKey(): Buffer;
 }
 `;
   }
@@ -4875,8 +5024,13 @@ describe('Audit Compliance Tests', () => {
     
     // ChaCha20-Poly1305 
     expect(ChaCha20Poly1305).toBeDefined();
-    expect(typeof ChaCha20Poly1305.encrypt).toBe('function');
-    expect(typeof ChaCha20Poly1305.decrypt).toBe('function');
+    expect(typeof ChaCha20Poly1305.generateKey).toBe('function');
+    
+    const testKey = ChaCha20Poly1305.generateKey();
+    const chacha = new ChaCha20Poly1305(testKey);
+    expect(typeof chacha.encrypt).toBe('function');
+    expect(typeof chacha.decrypt).toBe('function');
+    expect(typeof chacha.zeroize).toBe('function');
   });
   
   test('Envelope format standardization', () => {
