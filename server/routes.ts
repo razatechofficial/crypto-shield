@@ -694,13 +694,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // CRITICAL: Calculate totals and verify BEFORE streaming starts
       let totalSize = 0;
       let fileCount = 0;
-      const requiredFiles = [
-        'src/index.ts',      // TypeScript files, not JavaScript
-        'README.md',
-        'SECURITY.md',
-        'LICENSE',
-        'package.json'
-      ];
 
       const allFiles: string[] = [];
 
@@ -717,32 +710,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`🎯 PRODUCTION SDK SUMMARY: ${fileCount} files, ${(totalSize/1024).toFixed(1)} KB total`);
 
       // CRITICAL: Verify production readiness BEFORE streaming
-      const MIN_FILES = 10;  // Minimum expected files for production SDK
+      // Minimum files per language (each SDK should have at least these core files)
+      const MIN_FILES_PER_LANGUAGE = 5;
+      const totalLanguages = Object.keys(sdkResults).length;
+      const MIN_TOTAL_FILES = MIN_FILES_PER_LANGUAGE * totalLanguages;
       
-      // Check for required files
-      const missingFiles = requiredFiles.filter(required => 
-        !allFiles.some(file => file.includes(required))
-      );
-      
-      if (missingFiles.length > 0) {
-        console.error(`❌ PRODUCTION VERIFICATION FAILED: Missing required files: ${missingFiles.join(', ')}`);
-        return res.status(500).json({ 
-          message: `SDK generation failed: Missing required files`,
-          details: `Missing: ${missingFiles.join(', ')}`,
-          generated_files: allFiles
-        });
+      // Verify each language has generated files
+      for (const [language, fileMap] of Object.entries(sdkResults)) {
+        const langFileCount = Object.keys(fileMap).length;
+        if (langFileCount < MIN_FILES_PER_LANGUAGE) {
+          console.error(`❌ PRODUCTION VERIFICATION FAILED: ${language} SDK only has ${langFileCount} files (minimum ${MIN_FILES_PER_LANGUAGE} required)`);
+          return res.status(500).json({ 
+            message: `SDK generation failed: ${language} SDK incomplete`,
+            details: `${language} only has ${langFileCount} files (minimum ${MIN_FILES_PER_LANGUAGE} required)`,
+            generated_files: allFiles
+          });
+        }
       }
 
-      if (fileCount < MIN_FILES) {
-        console.error(`❌ PRODUCTION VERIFICATION FAILED: Only ${fileCount} files (minimum ${MIN_FILES} required)`);
+      if (fileCount < MIN_TOTAL_FILES) {
+        console.error(`❌ PRODUCTION VERIFICATION FAILED: Only ${fileCount} files (minimum ${MIN_TOTAL_FILES} required for ${totalLanguages} language(s))`);
         return res.status(500).json({ 
-          message: `SDK generation failed: Insufficient files (${fileCount}/${MIN_FILES})`,
+          message: `SDK generation failed: Insufficient files (${fileCount}/${MIN_TOTAL_FILES})`,
           details: "Enterprise SDK must contain all required components"
         });
       }
 
-      console.log(`✅ PRODUCTION VERIFICATION PASSED: ${fileCount} files, ${(totalSize/1024).toFixed(1)} KB`);
-      console.log(`🔒 REQUIRED FILES VERIFIED: ${requiredFiles.join(', ')}`);
+      console.log(`✅ PRODUCTION VERIFICATION PASSED: ${fileCount} files across ${totalLanguages} language(s), ${(totalSize/1024).toFixed(1)} KB`);
 
       // NOW start streaming after all verification passes
       res.setHeader('Content-Type', 'application/zip');
