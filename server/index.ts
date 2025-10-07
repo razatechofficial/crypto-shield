@@ -1,7 +1,11 @@
 import express, { type Request, Response, NextFunction } from "express";
+import { config } from "./config";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { initializeKeyRotationScheduler, shutdownKeyRotationScheduler } from "./keyRotationScheduler";
+import {
+  initializeKeyRotationScheduler,
+  shutdownKeyRotationScheduler,
+} from "./keyRotationScheduler";
 
 const app = express();
 app.use(express.json());
@@ -61,48 +65,64 @@ app.use((req, res, next) => {
   // Other ports are firewalled. Default to 5000 if not specified.
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
-  const port = parseInt(process.env.PORT || '5000', 10);
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`serving on port ${port}`);
-    
-    // Production configuration validation (graceful degradation)
-    if (process.env.NODE_ENV === 'production') {
-      let configIssues = [];
-      
-      if (!process.env.STRIPE_SECRET_KEY || process.env.STRIPE_SECRET_KEY.startsWith('sk_test_development')) {
-        console.warn('⚠️ WARNING: STRIPE_SECRET_KEY not configured for production - billing features will be unavailable');
-        configIssues.push('Stripe billing');
+  const port = config.server.port;
+  server.listen(
+    {
+      port,
+      host: "0.0.0.0",
+      reusePort: true,
+    },
+    () => {
+      log(`serving on port ${port}`);
+
+      // Production configuration validation (graceful degradation)
+      if (process.env.NODE_ENV === "production") {
+        let configIssues = [];
+
+        if (
+          !process.env.STRIPE_SECRET_KEY ||
+          process.env.STRIPE_SECRET_KEY.startsWith("sk_test_development")
+        ) {
+          console.warn(
+            "⚠️ WARNING: STRIPE_SECRET_KEY not configured for production - billing features will be unavailable"
+          );
+          configIssues.push("Stripe billing");
+        }
+        if (!process.env.STRIPE_WEBHOOK_SECRET) {
+          console.warn(
+            "⚠️ WARNING: STRIPE_WEBHOOK_SECRET not configured for production - webhook processing will be unavailable"
+          );
+          configIssues.push("Stripe webhooks");
+        }
+
+        if (configIssues.length === 0) {
+          console.log("✅ Production Stripe configuration validated");
+        } else {
+          console.warn(
+            `⚠️ Production running with degraded services: ${configIssues.join(
+              ", "
+            )}`
+          );
+          console.warn(
+            "Application will continue but some features may be limited"
+          );
+        }
       }
-      if (!process.env.STRIPE_WEBHOOK_SECRET) {
-        console.warn('⚠️ WARNING: STRIPE_WEBHOOK_SECRET not configured for production - webhook processing will be unavailable');
-        configIssues.push('Stripe webhooks');
-      }
-      
-      if (configIssues.length === 0) {
-        console.log('✅ Production Stripe configuration validated');
-      } else {
-        console.warn(`⚠️ Production running with degraded services: ${configIssues.join(', ')}`);
-        console.warn('Application will continue but some features may be limited');
-      }
+
+      // Initialize automated key rotation scheduler
+      initializeKeyRotationScheduler();
     }
-    
-    // Initialize automated key rotation scheduler
-    initializeKeyRotationScheduler();
-  });
+  );
 
   // Graceful shutdown
-  process.on('SIGINT', () => {
-    console.log('\n🛑 Received SIGINT, shutting down gracefully...');
+  process.on("SIGINT", () => {
+    console.log("\n🛑 Received SIGINT, shutting down gracefully...");
     shutdownKeyRotationScheduler();
     process.exit(0);
   });
 
-  process.on('SIGTERM', () => {
-    console.log('\n🛑 Received SIGTERM, shutting down gracefully...');
+  process.on("SIGTERM", () => {
+    console.log("\n🛑 Received SIGTERM, shutting down gracefully...");
     shutdownKeyRotationScheduler();
     process.exit(0);
   });
