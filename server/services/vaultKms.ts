@@ -93,7 +93,7 @@ export class VaultKmsService {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            type: "transit",0
+            type: "transit",
             description: "KMS for CryptoShield SDK envelope encryption",
             config: {
               default_lease_ttl: "0",
