@@ -32,4 +32,9 @@ export const config = {
     enabled: process.env.AVEROX_TELEMETRY === "enabled",
     traceEnabled: process.env.OTEL_TRACE_ENABLED === "true",
   },
+  vault: {
+    endpoint: process.env.VAULT_ENDPOINT || "https://kms.averox.com",
+    token: process.env.VAULT_TOKEN || "your_vault_token_here",
+    transitMount: process.env.VAULT_TRANSIT_MOUNT || "transit",
+  },
 };
