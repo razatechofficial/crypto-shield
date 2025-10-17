@@ -197,19 +197,19 @@ Ephemeral key exchange protocols ensure compromise of long-term keys doesn't aff
 ### JavaScript/TypeScript
 
 ```bash
-npm install @ /salman-40-crypto-sdk
+npm install @ / crypto-sdk
 ```
 
 ### Python
 
 ```bash
-pip install salman-40-crypto-sdk
+pip install  crypto-sdk
 ```
 
 ### Swift (iOS/macOS)
 
 ```swift
-.package(url: "https://github.com/ /salman-40-crypto-sdk", from: "2.0.0")
+.package(url: "https://github.com/ / crypto-sdk", from: "2.0.0")
 ```
 
 ### Java (Android/JVM)
@@ -217,7 +217,7 @@ pip install salman-40-crypto-sdk
 ```xml
 <dependency>
     <groupId>com. </groupId>
-    <artifactId>salman-40-crypto-sdk</artifactId>
+    <artifactId> crypto-sdk</artifactId>
     <version>2.0.0</version>
 </dependency>
 ```
@@ -225,33 +225,33 @@ pip install salman-40-crypto-sdk
 ### C# (.NET)
 
 ```bash
-dotnet add package salman-40-crypto-sdk
+dotnet add package  crypto-sdk
 ```
 
 ### Rust
 
 ```toml
 [dependencies]
-salman-40-crypto-sdk = "2.0.0"
+ crypto-sdk = "2.0.0"
 ```
 
 ### PHP
 
 ```bash
-composer require  /salman-40-crypto-sdk
+composer require  / crypto-sdk
 ```
 
 ### Ruby
 
 ```bash
-gem install salman-40-crypto-sdk
+gem install  crypto-sdk
 ```
 
 ### Dart/Flutter
 
 ```yaml
 dependencies:
-  salman_40_crypto_sdk: ^2.0.0
+  crypto_sdk: ^2.0.0
 ```
 
 ## Quick Start
@@ -259,7 +259,7 @@ dependencies:
 ### Basic Encryption Example
 
 ```javascript
-const { Crypto, CryptoUtils } = require("@ /salman-40-crypto-sdk");
+const { Crypto, CryptoUtils } = require("@ / crypto-sdk");
 
 // Generate secure master key
 const masterKey = CryptoUtils.generateMasterKey();
