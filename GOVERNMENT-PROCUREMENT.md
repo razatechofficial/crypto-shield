@@ -1,8 +1,8 @@
 # Government Procurement Compliance Documentation
-## Averox Enterprise Cryptographic SDK - Federal Acquisition Requirements
+##   Enterprise Cryptographic SDK - Federal Acquisition Requirements
 
 **Document Classification:** Unclassified // For Official Use Only  
-**Document Control:** AVEROX-GOV-001  
+**Document Control:**  -GOV-001  
 **Effective Date:** September 11, 2025  
 **Review Cycle:** Annual  
 **Next Review:** September 11, 2026  
@@ -12,7 +12,7 @@
 
 ## Executive Summary
 
-This document provides comprehensive government procurement compliance information for the Averox Enterprise Cryptographic SDK, covering Federal Acquisition Regulation (FAR) requirements, Section 508 accessibility compliance, FISMA authorization requirements, and all necessary documentation for government procurement processes.
+This document provides comprehensive government procurement compliance information for the   Enterprise Cryptographic SDK, covering Federal Acquisition Regulation (FAR) requirements, Section 508 accessibility compliance, FISMA authorization requirements, and all necessary documentation for government procurement processes.
 
 ### Government Procurement Readiness
 
@@ -241,7 +241,7 @@ This document provides comprehensive government procurement compliance informati
 **ATO Expiration:** September 11, 2026  
 
 **System Boundaries:**
-- **Application Boundary:** Averox Enterprise Cryptographic SDK and supporting infrastructure
+- **Application Boundary:**   Enterprise Cryptographic SDK and supporting infrastructure
 - **Network Boundary:** Government network segments with appropriate security controls
 - **Data Boundary:** Federal Contract Information (FCI) and Controlled Unclassified Information (CUI)
 - **Physical Boundary:** Government-approved data centers with FISMA compliance
@@ -503,7 +503,7 @@ This document provides comprehensive government procurement compliance informati
 #### Information Security Program
 **Question:** Describe your organization's information security program and governance structure.
 
-**Response:** Averox maintains a comprehensive information security program based on NIST Cybersecurity Framework and ISO 27001 standards. Our security governance includes:
+**Response:**   maintains a comprehensive information security program based on NIST Cybersecurity Framework and ISO 27001 standards. Our security governance includes:
 
 - Chief Information Security Officer (CISO) reporting directly to CEO
 - Information Security Steering Committee with executive representation
@@ -824,17 +824,17 @@ This document provides comprehensive government procurement compliance informati
 **Contact Information:**
 
 **Government Program Office**  
-- Email: government@averox.com
-- Phone: +1-855-AVEROX-GOV
-- Emergency: +1-855-AVEROX-911
+- Email: government@ .com
+- Phone: +1-855- -GOV
+- Emergency: +1-855- -911
 
 **Compliance Office**  
-- Email: compliance@averox.com
-- Phone: +1-855-AVEROX-COMP
+- Email: compliance@ .com
+- Phone: +1-855- -COMP
 
 **Customer Success**  
-- Email: success@averox.com
-- Phone: +1-855-AVEROX-SUC
+- Email: success@ .com
+- Phone: +1-855- -SUC
 
 ---
 

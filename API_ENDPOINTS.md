@@ -62,7 +62,7 @@ GET /api/vault/config-test
   "timestamp": "2025-10-15T10:30:00.000Z",
   "healthCheck": true,
   "config": {
-    "endpoint": "https://kms.averox.com",
+    "endpoint": "https://kms. .com",
     "token": "present",
     "transitMount": "transit"
   }

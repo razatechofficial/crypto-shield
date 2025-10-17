@@ -1,8 +1,8 @@
 # Export Control Compliance Documentation
-## Averox Enterprise Cryptographic SDK - International Trade Compliance
+##   Enterprise Cryptographic SDK - International Trade Compliance
 
 **Document Classification:** Unclassified // For Official Use Only  
-**Document Control:** AVEROX-EXP-001  
+**Document Control:**  -EXP-001  
 **Effective Date:** September 11, 2025  
 **Review Cycle:** Annual  
 **Next Review:** September 11, 2026  
@@ -12,7 +12,7 @@
 
 ## Executive Summary
 
-This document provides comprehensive export control compliance information for the Averox Enterprise Cryptographic SDK, covering all applicable U.S. export control regulations including the Export Administration Regulations (EAR), International Traffic in Arms Regulations (ITAR), and relevant international trade agreements.
+This document provides comprehensive export control compliance information for the   Enterprise Cryptographic SDK, covering all applicable U.S. export control regulations including the Export Administration Regulations (EAR), International Traffic in Arms Regulations (ITAR), and relevant international trade agreements.
 
 ### Quick Reference
 
@@ -516,17 +516,17 @@ This document provides comprehensive export control compliance information for t
 **Contact Information:**
 
 **Export Control Compliance Office**  
-- Email: export-compliance@averox.com
-- Phone: +1-855-AVEROX-EXP
-- Emergency: +1-855-AVEROX-911
+- Email: export-compliance@ .com
+- Phone: +1-855- -EXP
+- Emergency: +1-855- -911
 
 **Legal Counsel**  
-- Email: legal@averox.com
-- Phone: +1-855-AVEROX-LAW
+- Email: legal@ .com
+- Phone: +1-855- -LAW
 
 **Government Relations**  
-- Email: gov-relations@averox.com
-- Phone: +1-855-AVEROX-GOV
+- Email: gov-relations@ .com
+- Phone: +1-855- -GOV
 
 ---
 

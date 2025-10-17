@@ -4,12 +4,12 @@
 
 ### 1. InvalidTagError Not Being Thrown Correctly
 
-**Problem**: Tests expect `InvalidTagError` but SDK throws generic `AveroxCryptoError`.
+**Problem**: Tests expect `InvalidTagError` but SDK throws generic ` CryptoError`.
 
 **Fix**: Update error handling in SDK's decrypt methods to properly detect and throw `InvalidTagError`:
 
 ```typescript
-// In src/index.ts - AveroxCrypto.decrypt() method
+// In src/index.ts -  Crypto.decrypt() method
 try {
   const decipher = crypto.createDecipheriv(
     "aes-256-gcm",
@@ -34,10 +34,10 @@ try {
   ) {
     throw new InvalidTagError("Authentication tag verification failed");
   }
-  if (error instanceof AveroxCryptoError) throw error;
+  if (error instanceof CryptoError) throw error;
   const finalErrorMessage =
     error instanceof Error ? error.message : "Unknown decryption error";
-  throw new AveroxCryptoError(
+  throw new CryptoError(
     "DECRYPTION_FAILED",
     `Decryption failed: ${finalErrorMessage}`
   );
@@ -51,7 +51,7 @@ try {
 **Fix**: Implement proper zeroization with state tracking:
 
 ```typescript
-export class AveroxCrypto {
+export class Crypto {
   private _masterKey: Buffer;
   private _isZeroized: boolean = false;
 
@@ -68,7 +68,7 @@ export class AveroxCrypto {
 
   encrypt(plaintext: string | Buffer, aad: string | Buffer): EncryptedEnvelope {
     if (this._isZeroized) {
-      throw new AveroxCryptoError(
+      throw new CryptoError(
         "ZEROIZED",
         "Cannot encrypt: instance has been zeroized"
       );
@@ -78,7 +78,7 @@ export class AveroxCrypto {
 
   decrypt(envelope: EncryptedEnvelope, aad: string | Buffer): string {
     if (this._isZeroized) {
-      throw new AveroxCryptoError(
+      throw new CryptoError(
         "ZEROIZED",
         "Cannot decrypt: instance has been zeroized"
       );
@@ -146,7 +146,7 @@ npm test -- test-envelope-encryption.test.ts
 
 ```bash
 # Set environment variables first
-export VAULT_ENDPOINT=https://kms.averox.com
+export VAULT_ENDPOINT=https://kms. .com
 export VAULT_TOKEN=your_vault_token_here
 export KEK_NAME=kek-test-tenant
 export VAULT_TRANSIT_MOUNT=transit
@@ -187,7 +187,7 @@ Time:        ~20s
 
 Before running envelope encryption tests, ensure:
 
-1. Vault is accessible at `https://kms.averox.com`
+1. Vault is accessible at `https://kms. .com`
 2. Transit engine is mounted at `/transit`
 3. Test KEK exists: `kek-test-tenant`
 4. Token has permissions:
@@ -200,7 +200,7 @@ Before running envelope encryption tests, ensure:
 ```bash
 # Using curl
 curl -X POST \
-  https://kms.averox.com/v1/transit/keys/kek-test-tenant \
+  https://kms. .com/v1/transit/keys/kek-test-tenant \
   -H "X-Vault-Token: your_vault_token_here" \
   -d '{
     "type": "aes256-gcm96",

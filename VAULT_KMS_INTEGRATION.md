@@ -42,7 +42,7 @@ CryptoShield now integrates with HashiCorp Vault for enterprise-grade Key Manage
 
 ### 1. Vault Configuration
 
-**Vault Endpoint**: `https://kms.averox.com`  
+**Vault Endpoint**: `https://kms. .com`  
 **Root Token**: `your_vault_token_here`  
 **Transit Mount**: `/transit`
 
@@ -78,7 +78,7 @@ Add to `.env`:
 
 ```env
 # Vault KMS Configuration
-VAULT_ENDPOINT=https://kms.averox.com
+VAULT_ENDPOINT=https://kms. .com
 VAULT_TOKEN=your_vault_token_here
 VAULT_TRANSIT_MOUNT=transit
 ```
@@ -260,7 +260,7 @@ node test-vault-integration.js
 
    ```bash
    curl -H "X-Vault-Token: your_vault_token_here" \
-        https://kms.averox.com/v1/transit/keys
+        https://kms. .com/v1/transit/keys
    ```
 
 3. **Download SDK:**
@@ -295,7 +295,7 @@ await vaultKms.ensureTransitMounted();
 
 **Check:**
 
-1. Vault endpoint is accessible: `https://kms.averox.com`
+1. Vault endpoint is accessible: `https://kms. .com`
 2. Token is valid
 3. Network connectivity
 

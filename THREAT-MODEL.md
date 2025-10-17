@@ -2,22 +2,24 @@
 
 ## Overview
 
-This document outlines the threat model for the Averox Enterprise Cryptographic SDK, identifying assets, threat actors, attack vectors, and implemented mitigations.
+This document outlines the threat model for the Enterprise Cryptographic SDK, identifying assets, threat actors, attack vectors, and implemented mitigations.
 
 ## Executive Summary
 
-The Averox Enterprise Cryptographic SDK is designed to protect sensitive data through authenticated encryption while maintaining high performance and cross-platform compatibility. Our threat model addresses both traditional cryptographic attacks and modern supply chain and side-channel threats.
+The Enterprise Cryptographic SDK is designed to protect sensitive data through authenticated encryption while maintaining high performance and cross-platform compatibility. Our threat model addresses both traditional cryptographic attacks and modern supply chain and side-channel threats.
 
 ## Assets
 
 ### Primary Assets (Crown Jewels)
 
 1. **Encryption Keys**
+
    - 256-bit AES master keys
    - Derived keys from KDF operations
    - Key derivation parameters (salts, iterations)
 
 2. **Plaintext Data**
+
    - User data before encryption
    - Intermediate processing buffers
    - Decrypted results
@@ -30,6 +32,7 @@ The Averox Enterprise Cryptographic SDK is designed to protect sensitive data th
 ### Secondary Assets
 
 4. **Cryptographic Implementation**
+
    - Algorithm implementations
    - Security parameters
    - Configuration data
@@ -45,7 +48,7 @@ The Averox Enterprise Cryptographic SDK is designed to protect sensitive data th
 ┌─────────────────────────────────────────────────────────────┐
 │                    Application Layer                        │
 ├─────────────────────────────────────────────────────────────┤
-│                Averox Enterprise SDK                        │  <- Primary Trust Boundary
+│                  Enterprise SDK                        │  <- Primary Trust Boundary
 │  ┌─────────────────┬─────────────────┬─────────────────┐   │
 │  │   Crypto Core   │   KDF Module    │   Telemetry     │   │
 │  └─────────────────┴─────────────────┴─────────────────┘   │
@@ -59,7 +62,7 @@ The Averox Enterprise Cryptographic SDK is designed to protect sensitive data th
 ### Trust Assumptions
 
 - **Operating System**: Provides secure random number generation and memory protection
-- **Hardware Platform**: Offers basic isolation and timing consistency  
+- **Hardware Platform**: Offers basic isolation and timing consistency
 - **Compiler/Runtime**: Produces correct and secure code from source
 - **Dependencies**: Maintain security and correctness (verified through supply chain controls)
 
@@ -72,6 +75,7 @@ The Averox Enterprise Cryptographic SDK is designed to protect sensitive data th
 **Access Level**: Network-level observation and manipulation
 
 **Attack Vectors**:
+
 - Passive interception of encrypted communications
 - Active man-in-the-middle attacks
 - Replay attacks with captured ciphertexts
@@ -84,6 +88,7 @@ The Averox Enterprise Cryptographic SDK is designed to protect sensitive data th
 **Access Level**: User-level or administrator access
 
 **Attack Vectors**:
+
 - Memory dumping to extract keys
 - Side-channel attacks (timing, cache)
 - Process inspection and debugging
@@ -96,6 +101,7 @@ The Averox Enterprise Cryptographic SDK is designed to protect sensitive data th
 **Access Level**: Same process or elevated privileges
 
 **Attack Vectors**:
+
 - Memory scanning for cryptographic keys
 - API hooking and interception
 - Resource exhaustion attacks
@@ -108,6 +114,7 @@ The Averox Enterprise Cryptographic SDK is designed to protect sensitive data th
 **Access Level**: Development/build environment access
 
 **Attack Vectors**:
+
 - Malicious dependencies injection
 - Build process compromise
 - Package repository attacks
@@ -120,6 +127,7 @@ The Averox Enterprise Cryptographic SDK is designed to protect sensitive data th
 **Access Level**: Developer, administrator, or operator privileges
 
 **Attack Vectors**:
+
 - Intentional vulnerabilities introduction
 - Configuration weakening
 - Key material exposure
@@ -132,6 +140,7 @@ The Averox Enterprise Cryptographic SDK is designed to protect sensitive data th
 **Access Level**: Multiple attack vectors simultaneously
 
 **Attack Vectors**:
+
 - Zero-day exploits
 - Hardware-level attacks
 - Sophisticated side-channel analysis
@@ -141,26 +150,26 @@ The Averox Enterprise Cryptographic SDK is designed to protect sensitive data th
 
 ### 🔍 Systematic Threat Identification
 
-| STRIDE Category | Threat | Impact | Mitigation | Residual Risk |
-|-----------------|--------|--------|------------|---------------|
-| **Spoofing** | Key impersonation | High | Digital signatures, key fingerprints | Low |
-| **Tampering** | Ciphertext modification | High | Authentication tags (GCM) | Low |
-| **Repudiation** | Deny cryptographic operations | Medium | Audit logging, non-repudiation | Low |
-| **Information Disclosure** | Key extraction via side-channels | Critical | Constant-time operations, memory zeroization | Medium |
-| **Denial of Service** | Resource exhaustion attacks | Medium | Rate limiting, input validation | Medium |
-| **Elevation of Privilege** | Bypass cryptographic controls | Critical | Secure defaults, privilege separation | Low |
+| STRIDE Category            | Threat                           | Impact   | Mitigation                                   | Residual Risk |
+| -------------------------- | -------------------------------- | -------- | -------------------------------------------- | ------------- |
+| **Spoofing**               | Key impersonation                | High     | Digital signatures, key fingerprints         | Low           |
+| **Tampering**              | Ciphertext modification          | High     | Authentication tags (GCM)                    | Low           |
+| **Repudiation**            | Deny cryptographic operations    | Medium   | Audit logging, non-repudiation               | Low           |
+| **Information Disclosure** | Key extraction via side-channels | Critical | Constant-time operations, memory zeroization | Medium        |
+| **Denial of Service**      | Resource exhaustion attacks      | Medium   | Rate limiting, input validation              | Medium        |
+| **Elevation of Privilege** | Bypass cryptographic controls    | Critical | Secure defaults, privilege separation        | Low           |
 
 ### 🛡️ LINDDUN Privacy Analysis
 
-| LINDDUN Category | Privacy Threat | SDK Impact | Mitigation |
-|------------------|----------------|------------|------------|
-| **Linkability** | Correlation of encrypted data | Low | Random IVs, key rotation |
-| **Identifiability** | User identification via crypto patterns | Low | Uniform envelope format |
-| **Non-repudiation** | Cryptographic proof of operations | Medium | Configurable audit levels |
-| **Detectability** | Presence of encryption detectable | Low | Standard envelope format |
-| **Disclosure** | Metadata leakage | Medium | Minimal envelope metadata |
-| **Unawareness** | Users unaware of crypto operations | High | Clear documentation, explicit consent |
-| **Non-compliance** | Privacy regulation violations | High | GDPR-compliant key management |
+| LINDDUN Category    | Privacy Threat                          | SDK Impact | Mitigation                            |
+| ------------------- | --------------------------------------- | ---------- | ------------------------------------- |
+| **Linkability**     | Correlation of encrypted data           | Low        | Random IVs, key rotation              |
+| **Identifiability** | User identification via crypto patterns | Low        | Uniform envelope format               |
+| **Non-repudiation** | Cryptographic proof of operations       | Medium     | Configurable audit levels             |
+| **Detectability**   | Presence of encryption detectable       | Low        | Standard envelope format              |
+| **Disclosure**      | Metadata leakage                        | Medium     | Minimal envelope metadata             |
+| **Unawareness**     | Users unaware of crypto operations      | High       | Clear documentation, explicit consent |
+| **Non-compliance**  | Privacy regulation violations           | High       | GDPR-compliant key management         |
 
 ---
 
@@ -169,30 +178,34 @@ The Averox Enterprise Cryptographic SDK is designed to protect sensitive data th
 ### 🚨 RECENTLY DISCLOSED CVEs
 
 #### CVE-2024-8932 - OpenSSL AES-GCM Implementation (CVSS 7.5)
+
 **Affected**: OpenSSL 3.0.0-3.0.11, 3.1.0-3.1.3  
 **Impact**: Potential side-channel key recovery  
 **Mitigation**: Updated to OpenSSL 3.0.12+ with constant-time guarantees  
-**Status**: ✅ PATCHED in SDK v2.0.0  
+**Status**: ✅ PATCHED in SDK v2.0.0
 
 #### CVE-2024-6119 - Node.js Crypto Module (CVSS 6.5)
+
 **Affected**: Node.js 18.0.0-18.20.3, 20.0.0-20.15.0  
 **Impact**: Memory disclosure during key derivation  
 **Mitigation**: Upgraded to Node.js 18.20.4+ with secure memory handling  
-**Status**: ✅ PATCHED in SDK v2.0.0  
+**Status**: ✅ PATCHED in SDK v2.0.0
 
 #### CVE-2024-4741 - Timing Attack in PBKDF2 (CVSS 5.3)
+
 **Affected**: Multiple PBKDF2 implementations  
 **Impact**: Password strength inference via timing  
 **Mitigation**: Constant-time PBKDF2 with minimum iteration enforcement  
-**Status**: ✅ MITIGATED in SDK v2.0.0  
+**Status**: ✅ MITIGATED in SDK v2.0.0
 
 ### ⚠️ SUPPLY CHAIN VULNERABILITIES
 
 #### CVE-2024-28849 - Package Repository Compromise (CVSS 9.3)
+
 **Affected**: NPM packages with weak authentication  
 **Impact**: Malicious code injection via dependency confusion  
 **Mitigation**: Package pinning, SBOM verification, reproducible builds  
-**Status**: ✅ PROTECTED via supply chain security controls  
+**Status**: ✅ PROTECTED via supply chain security controls
 
 ---
 
@@ -202,18 +215,20 @@ The Averox Enterprise Cryptographic SDK is designed to protect sensitive data th
 
 **Threat Actor**: Network Attacker  
 **Attack Vector**: Active man-in-the-middle  
-**CVE Reference**: Similar to CVE-2020-1971 (OpenSSL NULL pointer)  
+**CVE Reference**: Similar to CVE-2020-1971 (OpenSSL NULL pointer)
 
 **Attack Flow**:
+
 1. Attacker intercepts encrypted envelope
 2. Modifies ciphertext, IV, or tag fields
 3. Forwards modified envelope to recipient
 4. Attempts to cause controlled decryption failure
 
 **Impact**: Potential information leakage through error patterns  
-**CVSS Score**: 6.5 (Medium) - Network access required  
+**CVSS Score**: 6.5 (Medium) - Network access required
 
 **Mitigations**:
+
 - ✅ Authentication tags prevent undetected modification
 - ✅ Constant-time comparison prevents timing oracles
 - ✅ Typed errors without sensitive information leakage
@@ -225,18 +240,20 @@ The Averox Enterprise Cryptographic SDK is designed to protect sensitive data th
 
 **Threat Actor**: Local System Attacker  
 **Attack Vector**: Timing/cache analysis  
-**CVE Reference**: Similar to CVE-2018-0737 (OpenSSL cache timing)  
+**CVE Reference**: Similar to CVE-2018-0737 (OpenSSL cache timing)
 
 **Attack Flow**:
+
 1. Attacker gains local system access
 2. Measures timing variations in crypto operations
 3. Performs statistical analysis to recover key bits
 4. Reconstructs encryption keys from patterns
 
 **Impact**: Complete cryptographic key compromise  
-**CVSS Score**: 8.4 (High) - Local access, high complexity  
+**CVSS Score**: 8.4 (High) - Local access, high complexity
 
 **Mitigations**:
+
 - ✅ Constant-time implementations for critical operations
 - ✅ AES-NI hardware acceleration where available
 - ✅ Memory access pattern randomization
@@ -248,18 +265,20 @@ The Averox Enterprise Cryptographic SDK is designed to protect sensitive data th
 
 **Threat Actor**: Malicious Software  
 **Attack Vector**: Memory dumping/scanning  
-**CVE Reference**: Similar to CVE-2014-0160 (Heartbleed)  
+**CVE Reference**: Similar to CVE-2014-0160 (Heartbleed)
 
 **Attack Flow**:
+
 1. Malware gains process access
 2. Scans memory for key-like patterns
 3. Extracts encryption keys from memory
 4. Uses keys to decrypt captured data
 
 **Impact**: Exposure of all data encrypted with compromised keys  
-**CVSS Score**: 9.1 (Critical) - Code execution required  
+**CVSS Score**: 9.1 (Critical) - Code execution required
 
 **Mitigations**:
+
 - ✅ Automatic memory zeroization (OPENSSL_cleanse)
 - ✅ Minimal key lifetime in memory
 - ✅ Stack and heap protection measures
@@ -271,20 +290,22 @@ The Averox Enterprise Cryptographic SDK is designed to protect sensitive data th
 
 **Threat Actor**: Supply Chain Attacker  
 **Attack Vector**: Dependency poisoning  
-**CVE Reference**: CVE-2021-44228 (Log4Shell), CVE-2024-28849 (NPM)  
+**CVE Reference**: CVE-2021-44228 (Log4Shell), CVE-2024-28849 (NPM)
 
 **Attack Flow**:
+
 1. Attacker compromises upstream dependency
 2. Injects malicious code or backdoors
 3. Malicious package distributed through normal channels
 4. Backdoor activated in production systems
 
 **Impact**: Systemic compromise across all users  
-**CVSS Score**: 9.8 (Critical) - Remote code execution  
+**CVSS Score**: 9.8 (Critical) - Remote code execution
 
 **Mitigations**:
+
 - ✅ Software Bill of Materials (SBOM) generation
-- ✅ Dependency pinning and verification  
+- ✅ Dependency pinning and verification
 - ✅ Automated security scanning (CodeQL, Snyk)
 - ✅ Reproducible builds and signatures
 - ✅ Provenance attestation (SLSA Level 3)
@@ -295,21 +316,23 @@ The Averox Enterprise Cryptographic SDK is designed to protect sensitive data th
 
 **Threat Actor**: Network Attacker  
 **Attack Vector**: Cryptographic weakness exploitation  
-**CVE Reference**: CVE-2008-0166 (Debian OpenSSL), CVE-2012-0441 (NSS)  
+**CVE Reference**: CVE-2008-0166 (Debian OpenSSL), CVE-2012-0441 (NSS)
 
 **Attack Flow**:
+
 1. Attacker observes multiple encrypted messages
 2. Identifies patterns in IV/nonce generation
 3. Exploits predictable randomness
 4. Recovers keys or plaintext through cryptanalysis
 
 **Impact**: Compromise of all messages with weak randomness  
-**CVSS Score**: 7.4 (High) - Network observation required  
+**CVSS Score**: 7.4 (High) - Network observation required
 
 **Mitigations**:
+
 - ✅ Operating system CSPRNG (crypto.randomBytes, SecureRandom)
 - ✅ Entropy validation and testing (NIST SP 800-90A)
-- ✅ Proper IV/nonce uniqueness guarantees  
+- ✅ Proper IV/nonce uniqueness guarantees
 - ✅ Statistical randomness testing in CI (DIEHARD, TestU01)
 
 **Residual Risk**: LOW - Multiple entropy sources and validation
@@ -318,33 +341,33 @@ The Averox Enterprise Cryptographic SDK is designed to protect sensitive data th
 
 ### Cryptographic Controls
 
-| Control | Implementation | Threat Mitigation |
-|---------|----------------|-------------------|
-| **AES-256-GCM** | NIST-approved authenticated encryption | Data confidentiality and integrity |
-| **12-byte IV** | Cryptographically secure random generation | Prevents IV reuse attacks |
-| **Authentication Tags** | 16-byte GCM tags | Prevents tampering and forgery |
-| **AAD Support** | Context binding through additional data | Prevents context switching attacks |
-| **Key Derivation** | HKDF, PBKDF2, Scrypt, Argon2id | Strengthens password-derived keys |
+| Control                 | Implementation                             | Threat Mitigation                  |
+| ----------------------- | ------------------------------------------ | ---------------------------------- |
+| **AES-256-GCM**         | NIST-approved authenticated encryption     | Data confidentiality and integrity |
+| **12-byte IV**          | Cryptographically secure random generation | Prevents IV reuse attacks          |
+| **Authentication Tags** | 16-byte GCM tags                           | Prevents tampering and forgery     |
+| **AAD Support**         | Context binding through additional data    | Prevents context switching attacks |
+| **Key Derivation**      | HKDF, PBKDF2, Scrypt, Argon2id             | Strengthens password-derived keys  |
 
 ### Implementation Controls
 
-| Control | Implementation | Threat Mitigation |
-|---------|----------------|-------------------|
-| **Memory Zeroization** | Automatic clearing of sensitive buffers | Prevents memory disclosure attacks |
-| **Timing-Safe Comparison** | Constant-time equality checks | Prevents timing side-channel attacks |
-| **Input Validation** | Comprehensive parameter checking | Prevents malformed input attacks |
-| **Error Handling** | Typed errors without information leakage | Prevents error-based information disclosure |
-| **Envelope Validation** | JSON schema and format verification | Prevents envelope manipulation attacks |
+| Control                    | Implementation                           | Threat Mitigation                           |
+| -------------------------- | ---------------------------------------- | ------------------------------------------- |
+| **Memory Zeroization**     | Automatic clearing of sensitive buffers  | Prevents memory disclosure attacks          |
+| **Timing-Safe Comparison** | Constant-time equality checks            | Prevents timing side-channel attacks        |
+| **Input Validation**       | Comprehensive parameter checking         | Prevents malformed input attacks            |
+| **Error Handling**         | Typed errors without information leakage | Prevents error-based information disclosure |
+| **Envelope Validation**    | JSON schema and format verification      | Prevents envelope manipulation attacks      |
 
 ### Operational Controls
 
-| Control | Implementation | Threat Mitigation |
-|---------|----------------|-------------------|
-| **Telemetry Controls** | Opt-in with no sensitive data logging | Prevents accidental information disclosure |
-| **Supply Chain Security** | SBOM generation and dependency scanning | Prevents supply chain attacks |
-| **Static Analysis** | Automated code security scanning | Identifies potential vulnerabilities |
-| **Fuzz Testing** | Continuous input fuzzing | Discovers input handling vulnerabilities |
-| **Memory Safety Testing** | AddressSanitizer and Valgrind | Prevents memory corruption vulnerabilities |
+| Control                   | Implementation                          | Threat Mitigation                          |
+| ------------------------- | --------------------------------------- | ------------------------------------------ |
+| **Telemetry Controls**    | Opt-in with no sensitive data logging   | Prevents accidental information disclosure |
+| **Supply Chain Security** | SBOM generation and dependency scanning | Prevents supply chain attacks              |
+| **Static Analysis**       | Automated code security scanning        | Identifies potential vulnerabilities       |
+| **Fuzz Testing**          | Continuous input fuzzing                | Discovers input handling vulnerabilities   |
+| **Memory Safety Testing** | AddressSanitizer and Valgrind           | Prevents memory corruption vulnerabilities |
 
 ## Risk Assessment
 
@@ -355,6 +378,7 @@ The Averox Enterprise Cryptographic SDK is designed to protect sensitive data th
 ### Medium Risk (Monitor and Improve)
 
 1. **Side-Channel Attacks on Non-Hardware-Accelerated Platforms**
+
    - **Risk**: Timing variations on software-only AES implementations
    - **Mitigation**: Constant-time software implementations, hardware acceleration detection
    - **Monitoring**: Performance testing across platforms
@@ -367,6 +391,7 @@ The Averox Enterprise Cryptographic SDK is designed to protect sensitive data th
 ### Low Risk (Acceptable with Current Controls)
 
 1. **Memory Pressure Attacks**
+
    - **Risk**: DoS through excessive memory allocation
    - **Mitigation**: Bounded data structures, resource limits
    - **Status**: Acceptable for typical enterprise deployments
@@ -382,7 +407,7 @@ The Averox Enterprise Cryptographic SDK is designed to protect sensitive data th
 
 - **Unit Tests**: Cryptographic correctness and edge cases
 - **Integration Tests**: End-to-end security scenarios
-- **Property Tests**: Invariant verification with random inputs  
+- **Property Tests**: Invariant verification with random inputs
 - **Performance Tests**: Timing consistency validation
 
 ### Periodic Testing
@@ -439,12 +464,14 @@ The Averox Enterprise Cryptographic SDK is designed to protect sensitive data th
 ### Continuous Threat Intelligence Integration
 
 #### Government Threat Feed Sources
+
 - **CISA Known Exploited Vulnerabilities**: Real-time vulnerability intelligence
 - **FBI Flash Alerts**: Law enforcement cybersecurity notifications
 - **NSA Cybersecurity Advisories**: National security threat intelligence
 - **DHS Binding Operational Directives**: Mandatory security requirements
 
 #### Industry and Academic Sources
+
 - **MITRE ATT&CK Framework**: Adversary tactics and techniques database
 - **CVE/NVD Database**: Common vulnerabilities and exposures tracking
 - **Academic Research**: University and research institution publications
@@ -453,6 +480,7 @@ The Averox Enterprise Cryptographic SDK is designed to protect sensitive data th
 ### Threat Model Review Schedule
 
 #### Regular Review Cycle
+
 - **Weekly**: Threat intelligence review and integration
 - **Monthly**: Risk assessment updates and trend analysis
 - **Quarterly**: Comprehensive threat model review and updates
@@ -460,6 +488,7 @@ The Averox Enterprise Cryptographic SDK is designed to protect sensitive data th
 - **Annually**: Complete threat model overhaul and validation
 
 #### Event-Driven Reviews
+
 - **Security Incidents**: Post-incident threat model updates
 - **New Vulnerabilities**: CVE and threat landscape changes
 - **Regulatory Changes**: Government policy and requirement updates
@@ -469,14 +498,16 @@ The Averox Enterprise Cryptographic SDK is designed to protect sensitive data th
 ### Government Review and Approval Process
 
 #### Review Authority Structure
-| Review Level | Authority | Scope | Frequency |
-|--------------|-----------|-------|-----------|
-| **Technical Review** | Senior Security Architect | Technical accuracy, completeness | Quarterly |
-| **Management Review** | Chief Information Security Officer | Risk acceptance, resource allocation | Semi-Annual |
-| **Government Review** | Federal Security Program Manager | Compliance, government requirements | Annual |
-| **Executive Approval** | Chief Technology Officer | Strategic alignment, budget impact | Annual |
+
+| Review Level           | Authority                          | Scope                                | Frequency   |
+| ---------------------- | ---------------------------------- | ------------------------------------ | ----------- |
+| **Technical Review**   | Senior Security Architect          | Technical accuracy, completeness     | Quarterly   |
+| **Management Review**  | Chief Information Security Officer | Risk acceptance, resource allocation | Semi-Annual |
+| **Government Review**  | Federal Security Program Manager   | Compliance, government requirements  | Annual      |
+| **Executive Approval** | Chief Technology Officer           | Strategic alignment, budget impact   | Annual      |
 
 #### Stakeholder Involvement
+
 - **Development Teams**: Technical implementation feedback
 - **Operations Teams**: Operational feasibility and monitoring capabilities
 - **Government Liaisons**: Compliance and regulatory requirements
@@ -486,12 +517,14 @@ The Averox Enterprise Cryptographic SDK is designed to protect sensitive data th
 ### Version Control and Change Management
 
 #### Document Version Control
+
 - **Version Numbering**: Semantic versioning for threat model documents
 - **Change Tracking**: Detailed change logs with security impact analysis
 - **Approval Workflow**: Multi-level approval for significant changes
 - **Distribution Control**: Secure distribution to authorized personnel only
 
 #### Impact Assessment for Changes
+
 - **Risk Impact**: Assessment of changes on overall risk posture
 - **Compliance Impact**: Effect on government compliance requirements
 - **Operational Impact**: Changes required in operational procedures
@@ -502,15 +535,16 @@ The Averox Enterprise Cryptographic SDK is designed to protect sensitive data th
 **Document Classification**: Unclassified // For Official Use Only  
 **Distribution Control**: Government security personnel with need-to-know  
 **Retention Period**: 7 years after system decommission or replacement  
-**Destruction Method**: In accordance with NIST SP 800-88 Rev. 1  
+**Destruction Method**: In accordance with NIST SP 800-88 Rev. 1
 
-**Primary Author**: Principal Security Architect (security-architect@averox.com)  
+**Primary Author**: Principal Security Architect (security-architect@ .com)  
 **Contributing Authors**: Government Security Team, Federal Compliance Office  
 **Technical Reviewers**: Senior Cryptographic Engineer, Security Architecture Team  
 **Government Reviewers**: Federal Security Program Manager, Compliance Office  
-**Approval Authority**: Chief Information Security Officer  
+**Approval Authority**: Chief Information Security Officer
 
 **Document History**:
+
 - v3.0 (2025-09-11): Government-level STRIDE/LINDDUN analysis implementation
 - v2.1 (2024-12-11): Federal compliance requirements integration
 - v2.0 (2024-09-11): Enterprise threat model with government considerations
@@ -519,7 +553,7 @@ The Averox Enterprise Cryptographic SDK is designed to protect sensitive data th
 
 **Last Review**: September 11, 2025  
 **Next Scheduled Review**: December 11, 2025  
-**Emergency Review Contact**: +1-855-AVEROX-SEC  
-**Government Emergency Contact**: gov-security@averox.com  
+**Emergency Review Contact**: +1-855- -SEC  
+**Government Emergency Contact**: gov-security@ .com
 
 **This document contains sensitive security information. Handle in accordance with organizational security policies and applicable government information handling procedures. Distribution outside authorized government personnel is prohibited.**

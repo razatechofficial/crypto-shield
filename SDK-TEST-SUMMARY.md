@@ -21,16 +21,16 @@
 - `test/error-handling.test.ts` (implied)
 
 **Problem:**
-Tests expect `InvalidTagError` when authentication fails, but SDK throws generic `AveroxCryptoError`.
+Tests expect `InvalidTagError` when authentication fails, but SDK throws generic ` CryptoError`.
 
 **Root Cause:**
 
 ```typescript
 // Current code in src/index.ts
 catch (error) {
-  if (error instanceof AveroxCryptoError) throw error;
+  if (error instanceof  CryptoError) throw error;
   const finalErrorMessage = error instanceof Error ? error.message : 'Unknown decryption error';
-  throw new AveroxCryptoError('DECRYPTION_FAILED', `Decryption failed: ${finalErrorMessage}`);
+  throw new  CryptoError('DECRYPTION_FAILED', `Decryption failed: ${finalErrorMessage}`);
 }
 ```
 
@@ -46,8 +46,8 @@ catch (error) {
   )) {
     throw new InvalidTagError('Authentication tag verification failed');
   }
-  if (error instanceof AveroxCryptoError) throw error;
-  throw new AveroxCryptoError('DECRYPTION_FAILED', `Decryption failed: ${error instanceof Error ? error.message : 'Unknown'}`);
+  if (error instanceof  CryptoError) throw error;
+  throw new  CryptoError('DECRYPTION_FAILED', `Decryption failed: ${error instanceof Error ? error.message : 'Unknown'}`);
 }
 ```
 
@@ -74,7 +74,7 @@ After calling `zeroize()`, the SDK should:
 **Fix Required:**
 
 ```typescript
-export class AveroxCrypto {
+export class  Crypto {
   private _masterKey: Buffer;
   private _isZeroized: boolean = false;
 
@@ -85,7 +85,7 @@ export class AveroxCrypto {
 
   encrypt(plaintext: string | Buffer, aad: string | Buffer): EncryptedEnvelope {
     if (this._isZeroized) {
-      throw new AveroxCryptoError(
+      throw new  CryptoError(
         "ZEROIZED",
         "Cannot encrypt: instance has been zeroized"
       );
@@ -95,7 +95,7 @@ export class AveroxCrypto {
 
   decrypt(envelope: EncryptedEnvelope, aad: string | Buffer): string {
     if (this._isZeroized) {
-      throw new AveroxCryptoError(
+      throw new  CryptoError(
         "ZEROIZED",
         "Cannot decrypt: instance has been zeroized"
       );
@@ -213,13 +213,13 @@ Current test suite **does not test** Vault KMS envelope encryption functionality
 1. **Fix InvalidTagError Detection**
 
    - File: `src/index.ts`
-   - Methods: `AveroxCrypto.decrypt()`, `ChaCha20Poly1305.decrypt()`
+   - Methods: ` Crypto.decrypt()`, `ChaCha20Poly1305.decrypt()`
    - Time: 30 minutes
 
 2. **Implement Proper Zeroize**
 
    - File: `src/index.ts`
-   - Classes: `AveroxCrypto`, `ChaCha20Poly1305`
+   - Classes: ` Crypto`, `ChaCha20Poly1305`
    - Time: 1 hour
 
 3. **Fix TypeScript Errors**
@@ -279,7 +279,7 @@ let content = fs.readFileSync(indexPath, "utf8");
 
 // Fix 1: Add InvalidTagError detection
 content = content.replace(
-  /catch \(error\) \{[\s\S]*?throw new AveroxCryptoError\('DECRYPTION_FAILED'/g,
+  /catch \(error\) \{[\s\S]*?throw new  CryptoError\('DECRYPTION_FAILED'/g,
   `catch (error) {
     if (error instanceof Error && (
       error.message.includes('Unsupported state or unable to authenticate data') ||
@@ -288,14 +288,14 @@ content = content.replace(
     )) {
       throw new InvalidTagError('Authentication tag verification failed');
     }
-    if (error instanceof AveroxCryptoError) throw error;
-    throw new AveroxCryptoError('DECRYPTION_FAILED'`
+    if (error instanceof  CryptoError) throw error;
+    throw new  CryptoError('DECRYPTION_FAILED'`
 );
 
 // Fix 2: Add zeroize state tracking
 content = content.replace(
-  /export class AveroxCrypto \{/,
-  `export class AveroxCrypto {
+  /export class  Crypto \{/,
+  `export class  Crypto {
   private _isZeroized: boolean = false;`
 );
 
@@ -303,7 +303,7 @@ content = content.replace(
   /encrypt\(plaintext:/g,
   `encrypt(plaintext: string | Buffer, aad: string | Buffer): EncryptedEnvelope {
     if (this._isZeroized) {
-      throw new AveroxCryptoError('ZEROIZED', 'Cannot encrypt: instance has been zeroized');
+      throw new  CryptoError('ZEROIZED', 'Cannot encrypt: instance has been zeroized');
     }
     return this._encrypt(plaintext`
 );
@@ -338,7 +338,7 @@ npm test
 .\run-vault-tests.ps1
 
 # Or manual
-$env:VAULT_ENDPOINT = "https://kms.averox.com"
+$env:VAULT_ENDPOINT = "https://kms. .com"
 $env:VAULT_TOKEN = "your_vault_token_here"
 $env:KEK_NAME = "kek-test-tenant"
 npm test -- test-envelope-encryption.test.ts
@@ -379,8 +379,8 @@ npm test -- test-envelope-encryption.test.ts
 
 If tests still fail after fixes:
 
-1. Check Vault connectivity: `curl https://kms.averox.com/v1/sys/health`
-2. Verify token: `curl -H "X-Vault-Token: YOUR_TOKEN" https://kms.averox.com/v1/auth/token/lookup-self`
+1. Check Vault connectivity: `curl https://kms. .com/v1/sys/health`
+2. Verify token: `curl -H "X-Vault-Token: YOUR_TOKEN" https://kms. .com/v1/auth/token/lookup-self`
 3. Check Node.js version: `node --version` (should be ≥16)
 4. Clear test cache: `npm test -- --clearCache`
 5. Reinstall dependencies: `rm -rf node_modules && npm install`

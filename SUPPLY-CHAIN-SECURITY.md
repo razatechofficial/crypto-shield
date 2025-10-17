@@ -1,5 +1,5 @@
 # Government-Level Supply Chain Security Documentation
-## Averox Cryptographic SDK - Comprehensive Security Implementation
+##   Cryptographic SDK - Comprehensive Security Implementation
 
 **Document Version:** 2.0.0  
 **Classification:** Unclassified  
@@ -10,7 +10,7 @@
 
 ## Executive Summary
 
-This document describes the comprehensive supply chain security measures implemented in the Averox Cryptographic SDK to meet government-level security requirements. The implementation addresses critical supply chain vulnerabilities and provides defense against sophisticated supply chain attacks.
+This document describes the comprehensive supply chain security measures implemented in the   Cryptographic SDK to meet government-level security requirements. The implementation addresses critical supply chain vulnerabilities and provides defense against sophisticated supply chain attacks.
 
 ### Key Security Achievements
 
@@ -151,7 +151,7 @@ node scripts/reproducible-builds.js verify ./build-checksums-previous.json
 node scripts/artifact-signing.js init
 
 # Sign artifact
-node scripts/artifact-signing.js sign ./dist/averox-sdk.js
+node scripts/artifact-signing.js sign ./dist/ -sdk.js
 
 # Batch sign all artifacts
 node scripts/artifact-signing.js batch
@@ -339,19 +339,19 @@ node scripts/artifact-signing.js batch
 ## 10. Contact & Support
 
 ### 10.1 Security Team
-- **Primary Contact:** security@averox.com
+- **Primary Contact:** security@ .com
 - **Emergency Hotline:** 24/7 incident response
 - **GPG Key:** Available in PUBLIC-KEYS.json
 
 ### 10.2 Government Liaison
-- **Compliance Officer:** compliance@averox.com
-- **Audit Requests:** audit@averox.com
-- **Incident Reporting:** incidents@averox.com
+- **Compliance Officer:** compliance@ .com
+- **Audit Requests:** audit@ .com
+- **Incident Reporting:** incidents@ .com
 
 ---
 
 **Document Control:**
-- **Prepared by:** Averox Security Team
+- **Prepared by:**   Security Team
 - **Reviewed by:** Chief Security Officer
 - **Approved by:** Government Compliance Officer
 - **Next Review:** July 11, 2025

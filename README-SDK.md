@@ -1,4 +1,4 @@
-# Averox Confidential Computing SDK v3.0.0
+#   Confidential Computing SDK v3.0.0
 
 ## Production-Ready Confidential Computing for Enterprise
 
@@ -114,7 +114,7 @@ session = await sdk.create_mpc_session(3, 2)
 ## Installation
 
 ```bash
-npm install averox-confidential-computing-sdk
+npm install  -confidential-computing-sdk
 ```
 
 ```bash
