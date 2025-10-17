@@ -210,21 +210,31 @@ export class VaultKmsService {
    */
   async rotateKEK(kekName: string): Promise<number> {
     console.log(`🔄 Rotating KEK: ${kekName}...`);
+    console.log(`🔄 Vault endpoint: ${this.endpoint}`);
+    console.log(`🔄 Transit mount: ${this.transitMount}`);
+    console.log(`🔄 Token present: ${this.token ? "yes" : "no"}`);
 
     try {
-      const response = await fetch(
-        `${this.endpoint}/v1/${this.transitMount}/keys/${kekName}/rotate`,
-        {
-          method: "POST",
-          headers: {
-            "X-Vault-Token": this.token,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      const url = `${this.endpoint}/v1/${this.transitMount}/keys/${kekName}/rotate`;
+      console.log(`🔄 Rotation URL: ${url}`);
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "X-Vault-Token": this.token,
+          "Content-Type": "application/json",
+        },
+      });
+
+      console.log(`🔄 Rotation response status: ${response.status}`);
+      console.log(`🔄 Rotation response headers:`, response.headers);
 
       if (!response.ok) {
         const error = await response.text();
+        console.error(
+          `🔄 Rotation failed with status ${response.status}:`,
+          error
+        );
         throw new Error(`Failed to rotate KEK: ${error}`);
       }
 
@@ -232,9 +242,10 @@ export class VaultKmsService {
 
       // Get updated key info
       const keyInfo = await this.getKeyInfo(kekName);
+      console.log(`🔄 New key info after rotation:`, keyInfo);
       return keyInfo.latest_version;
     } catch (error) {
-      console.error("Error rotating KEK:", error);
+      console.error("🔥 Error rotating KEK:", error);
       throw error;
     }
   }
@@ -355,6 +366,344 @@ export class VaultKmsService {
       console.error("Error deleting KEK:", error);
       throw error;
     }
+  }
+
+  /**
+   * List all keys in the transit engine
+   */
+  async listAllKeys(): Promise<string[]> {
+    const url = `${this.endpoint}/v1/${this.transitMount}/keys?list=true`;
+    console.log("🔍 Vault listAllKeys - URL:", url);
+    console.log(
+      "🔍 Vault listAllKeys - Token:",
+      this.token ? "present" : "missing"
+    );
+
+    // Use GET with ?list=true parameter for Vault LIST operation
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "X-Vault-Token": this.token,
+        "Content-Type": "application/json",
+      },
+    });
+
+    console.log("🔍 Vault listAllKeys - Response status:", response.status);
+    console.log("🔍 Vault listAllKeys - Response headers:", response.headers);
+
+    if (!response.ok) {
+      const error = await response.text();
+      console.error("🔍 Vault listAllKeys - Error response:", error);
+      throw new Error(`Failed to list keys: ${error}`);
+    }
+
+    const data = await response.json();
+    console.log("🔍 Vault listAllKeys - Success data:", data);
+    return data.data?.keys || [];
+  }
+
+  /**
+   * Get all KEKs for a specific tenant
+   */
+  async getTenantKEKs(tenantId: string): Promise<any[]> {
+    try {
+      console.log(`🔍 Getting KEKs for tenant: ${tenantId}`);
+
+      // First, try to list all keys from Vault
+      let allKeys: string[] = [];
+      try {
+        allKeys = await this.listAllKeys();
+        console.log(`🔍 Found ${allKeys.length} total keys in Vault:`, allKeys);
+      } catch (error) {
+        console.warn(
+          "🔍 Failed to list all keys, falling back to known KEKs:",
+          error
+        );
+        // Fallback to known KEKs if listing fails
+        allKeys = [
+          "kek-67016887-7471-4ac4-abae-021d05f09e2a",
+          "kek-d1c24b6f-08ed-4b0e-ad01-56c2e9e2f0ff",
+        ];
+      }
+
+      // Filter keys that belong to this tenant (contain tenant ID or start with 'kek-')
+      const tenantKEKs = allKeys.filter(
+        (keyName) => keyName.includes(tenantId) || keyName.startsWith("kek-")
+      );
+
+      console.log(
+        `🔍 Found ${tenantKEKs.length} KEKs for tenant ${tenantId}:`,
+        tenantKEKs
+      );
+
+      const kekDetails = [];
+      for (const kekName of tenantKEKs) {
+        try {
+          console.log(`🔍 Getting info for KEK: ${kekName}`);
+          const keyInfo = await this.getKeyInfo(kekName);
+          console.log(`🔍 Successfully got info for KEK: ${kekName}`, keyInfo);
+          console.log(
+            `🔍 Creation time for ${kekName}:`,
+            keyInfo.creation_time,
+            typeof keyInfo.creation_time
+          );
+
+          kekDetails.push({
+            id: kekName,
+            kekName,
+            algorithm: keyInfo.type,
+            keyVersion: keyInfo.latest_version,
+            minAvailableVersion: keyInfo.min_available_version,
+            minDecryptionVersion: keyInfo.min_decryption_version,
+            supportsEncryption: keyInfo.supports_encryption,
+            supportsDecryption: keyInfo.supports_decryption,
+            supportsSigning: keyInfo.supports_signing,
+            supportsDerivation: keyInfo.derived,
+            createdAt: keyInfo.creation_time
+              ? new Date(keyInfo.creation_time * 1000).toISOString()
+              : new Date().toISOString(),
+            tenantId,
+            keyType: "primary",
+            status: "active",
+            usageCount: 0,
+            maxUsage: null,
+            usagePercentage: null,
+          });
+        } catch (error) {
+          console.warn(`🔍 Failed to get info for KEK ${kekName}:`, error);
+          // Skip deleted or non-existent KEKs instead of including them
+          console.log(
+            `🔍 Skipping KEK ${kekName} as it doesn't exist or is inaccessible`
+          );
+        }
+      }
+
+      console.log(
+        `🔍 Returning ${kekDetails.length} valid KEKs for tenant ${tenantId}`
+      );
+      return kekDetails;
+    } catch (error) {
+      console.error("Error getting tenant KEKs:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Encrypt data using a KEK
+   */
+  async encryptData(
+    kekName: string,
+    plaintext: string,
+    context?: string
+  ): Promise<string> {
+    const url = `${this.endpoint}/v1/${this.transitMount}/encrypt/${kekName}`;
+
+    const payload: any = {
+      plaintext: Buffer.from(plaintext).toString("base64"),
+    };
+
+    if (context) {
+      payload.context = Buffer.from(context).toString("base64");
+    }
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "X-Vault-Token": this.token,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to encrypt data: ${error}`);
+    }
+
+    const data = await response.json();
+    return data.data.ciphertext;
+  }
+
+  /**
+   * Decrypt data using a KEK
+   */
+  async decryptData(
+    kekName: string,
+    ciphertext: string,
+    context?: string
+  ): Promise<string> {
+    const url = `${this.endpoint}/v1/${this.transitMount}/decrypt/${kekName}`;
+
+    const payload: any = {
+      ciphertext,
+    };
+
+    if (context) {
+      payload.context = Buffer.from(context).toString("base64");
+    }
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "X-Vault-Token": this.token,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to decrypt data: ${error}`);
+    }
+
+    const data = await response.json();
+    // Return the base64 plaintext directly to preserve binary data
+    return data.data.plaintext;
+  }
+
+  /**
+   * Generate a new Data Encryption Key (DEK) and encrypt it with the KEK
+   */
+  async generateDatakey(
+    kekName: string,
+    context?: string
+  ): Promise<{ plaintext: string; ciphertext: string }> {
+    const url = `${this.endpoint}/v1/${this.transitMount}/datakey/plaintext/${kekName}`;
+
+    const payload: any = {};
+    if (context) {
+      payload.context = Buffer.from(context).toString("base64");
+    }
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "X-Vault-Token": this.token,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to generate datakey: ${error}`);
+    }
+
+    const data = await response.json();
+    return {
+      plaintext: data.data.plaintext,
+      ciphertext: data.data.ciphertext,
+    };
+  }
+
+  /**
+   * Rewrap ciphertext with the latest version of the KEK
+   */
+  async rewrapCiphertext(
+    kekName: string,
+    ciphertext: string,
+    context?: string
+  ): Promise<string> {
+    const url = `${this.endpoint}/v1/${this.transitMount}/rewrap/${kekName}`;
+
+    const payload: any = {
+      ciphertext,
+    };
+
+    if (context) {
+      payload.context = Buffer.from(context).toString("base64");
+    }
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "X-Vault-Token": this.token,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to rewrap ciphertext: ${error}`);
+    }
+
+    const data = await response.json();
+    return data.data.ciphertext;
+  }
+
+  /**
+   * Generate HMAC for data integrity verification
+   */
+  async generateHmac(
+    kekName: string,
+    data: string,
+    context?: string
+  ): Promise<string> {
+    const url = `${this.endpoint}/v1/${this.transitMount}/hmac/${kekName}`;
+
+    const payload: any = {
+      input: Buffer.from(data).toString("base64"),
+    };
+
+    if (context) {
+      payload.context = Buffer.from(context).toString("base64");
+    }
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "X-Vault-Token": this.token,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to generate HMAC: ${error}`);
+    }
+
+    const responseData = await response.json();
+    return responseData.data.hmac;
+  }
+
+  /**
+   * Verify HMAC for data integrity
+   */
+  async verifyHmac(
+    kekName: string,
+    data: string,
+    hmac: string,
+    context?: string
+  ): Promise<boolean> {
+    const url = `${this.endpoint}/v1/${this.transitMount}/verify/${kekName}`;
+
+    const payload: any = {
+      input: Buffer.from(data).toString("base64"),
+      hmac,
+    };
+
+    if (context) {
+      payload.context = Buffer.from(context).toString("base64");
+    }
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "X-Vault-Token": this.token,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to verify HMAC: ${error}`);
+    }
+
+    const responseData = await response.json();
+    return responseData.data.valid === true;
   }
 
   /**

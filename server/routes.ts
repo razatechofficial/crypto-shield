@@ -1388,6 +1388,805 @@ plaintext = encryption.decrypt(envelope)
     }
   );
 
+  // SDK TELEMETRY API ENDPOINTS
+  // Based on OpenTelemetry semantic conventions and industry standards
+  app.post("/api/sdk/telemetry", async (req, res) => {
+    try {
+      const {
+        sdkId,
+        operation,
+        algorithm,
+        duration,
+        success,
+        errorCode,
+        inputSize,
+        outputSize,
+        keyVersion,
+        kekName,
+        performanceGrade,
+        metadata,
+      } = req.body;
+
+      // Validate required fields
+      if (!sdkId) {
+        return res.status(400).json({
+          success: false,
+          message: "SDK ID is required",
+          error: "MISSING_SDK_ID",
+        });
+      }
+
+      // Verify SDK exists and get tenant ID
+      const sdk = await storage.getSDK(sdkId);
+      if (!sdk) {
+        return res.status(404).json({
+          success: false,
+          message: "SDK not found",
+          error: "SDK_NOT_FOUND",
+        });
+      }
+
+      console.log(`📊 SDK Telemetry received:`, {
+        sdkId,
+        operation,
+        algorithm,
+        duration,
+        success,
+        tenantId: sdk.tenantId,
+        timestamp: new Date().toISOString(),
+      });
+
+      // Store SDK telemetry data with proper tenant ID from SDK
+      await storage.createPerformanceMetric({
+        id: `sdk_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        tenantId: sdk.tenantId, // Use tenant ID from SDK record
+        sdkId: sdkId,
+        metricType: `sdk_${operation}`,
+        value: duration || 0,
+        unit: "ms",
+        timestamp: new Date(),
+        metadata: JSON.stringify({
+          // OpenTelemetry semantic conventions
+          operation,
+          algorithm,
+          success,
+          errorCode,
+          inputSize,
+          outputSize,
+          keyVersion,
+          kekName,
+          performanceGrade,
+          // SDK context
+          sdkName: sdk.name,
+          sdkLanguages: sdk.languages,
+          sdkApplicationType: sdk.applicationType,
+          sdkDeploymentEnvironment: sdk.deploymentEnvironment,
+          sdkSecurityLevel: sdk.securityLevel,
+          // Enterprise telemetry enhancements
+          timestamp: new Date().toISOString(),
+          sessionId: metadata?.sessionId || null,
+          userId: metadata?.userId || null,
+          clientVersion: metadata?.clientVersion || null,
+          platform: metadata?.platform || null,
+          environment: metadata?.environment || null,
+          region: metadata?.region || null,
+          deviceInfo: metadata?.deviceInfo || null,
+          networkInfo: metadata?.networkInfo || null,
+          customEvents: metadata?.customEvents || null,
+          businessMetrics: metadata?.businessMetrics || null,
+          // Additional metadata
+          ...metadata,
+        }),
+      });
+
+      res.json({
+        success: true,
+        message: "SDK telemetry data recorded successfully",
+        timestamp: new Date().toISOString(),
+        sdkId,
+        tenantId: sdk.tenantId,
+      });
+    } catch (error: any) {
+      console.error("Error recording SDK telemetry:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to record SDK telemetry",
+        error: error.message,
+      });
+    }
+  });
+
+  app.get("/api/sdk/telemetry/:sdkId", isAuthenticated, async (req, res) => {
+    try {
+      const { sdkId } = req.params;
+      const user = req.user as any;
+      const tenantId = user.tenantId || "default-tenant";
+
+      // Verify SDK exists and belongs to tenant
+      const sdk = await storage.getSDK(sdkId);
+      if (!sdk) {
+        return res.status(404).json({
+          success: false,
+          message: "SDK not found",
+          error: "SDK_NOT_FOUND",
+        });
+      }
+
+      if (sdk.tenantId !== tenantId) {
+        return res.status(403).json({
+          success: false,
+          message: "Access denied: SDK belongs to different tenant",
+          error: "ACCESS_DENIED",
+        });
+      }
+
+      const startDate = req.query.startDate
+        ? new Date(req.query.startDate as string)
+        : new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const endDate = req.query.endDate
+        ? new Date(req.query.endDate as string)
+        : new Date();
+
+      console.log(
+        `📊 Fetching SDK telemetry for ${sdkId} from ${startDate.toISOString()} to ${endDate.toISOString()}`
+      );
+
+      // Get SDK-specific telemetry data
+      const telemetryData = await storage.getPerformanceMetrics(tenantId, 1000);
+      const sdkTelemetry = telemetryData.filter(
+        (metric) =>
+          metric.sdkId === sdkId &&
+          metric.timestamp &&
+          metric.timestamp >= startDate &&
+          metric.timestamp <= endDate
+      );
+
+      // Calculate comprehensive analytics following industry standards
+      const analytics = {
+        // Basic metrics
+        totalOperations: sdkTelemetry.length,
+        successRate:
+          sdkTelemetry.length > 0
+            ? sdkTelemetry.filter((m) => {
+                const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+                return meta.success;
+              }).length / sdkTelemetry.length
+            : 0,
+        errorRate:
+          sdkTelemetry.length > 0
+            ? sdkTelemetry.filter((m) => {
+                const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+                return !meta.success;
+              }).length / sdkTelemetry.length
+            : 0,
+
+        // Performance metrics
+        averageDuration:
+          sdkTelemetry.length > 0
+            ? sdkTelemetry.reduce((sum, m) => sum + m.value, 0) /
+              sdkTelemetry.length
+            : 0,
+        minDuration:
+          sdkTelemetry.length > 0
+            ? Math.min(...sdkTelemetry.map((m) => m.value))
+            : 0,
+        maxDuration:
+          sdkTelemetry.length > 0
+            ? Math.max(...sdkTelemetry.map((m) => m.value))
+            : 0,
+
+        // Operation breakdown
+        operationsByType: sdkTelemetry.reduce((acc, m) => {
+          const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+          const op = meta.operation || "unknown";
+          acc[op] = (acc[op] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>),
+
+        // Algorithm usage
+        algorithmsUsed: [
+          ...new Set(
+            sdkTelemetry
+              .map((m) => {
+                const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+                return meta.algorithm;
+              })
+              .filter(Boolean)
+          ),
+        ],
+
+        // Performance grades (A-F)
+        performanceGrades: sdkTelemetry.reduce((acc, m) => {
+          const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+          const grade = meta.performanceGrade || "unknown";
+          acc[grade] = (acc[grade] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>),
+
+        // Error analysis
+        errorTypes: sdkTelemetry.reduce((acc, m) => {
+          const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+          if (!meta.success && meta.errorCode) {
+            acc[meta.errorCode] = (acc[meta.errorCode] || 0) + 1;
+          }
+          return acc;
+        }, {} as Record<string, number>),
+
+        // Data throughput
+        totalInputSize: sdkTelemetry.reduce((sum, m) => {
+          const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+          return sum + (meta.inputSize || 0);
+        }, 0),
+        totalOutputSize: sdkTelemetry.reduce((sum, m) => {
+          const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+          return sum + (meta.outputSize || 0);
+        }, 0),
+      };
+
+      res.json({
+        success: true,
+        sdkId,
+        sdkInfo: {
+          name: sdk.name,
+          languages: sdk.languages,
+          applicationType: sdk.applicationType,
+          deploymentEnvironment: sdk.deploymentEnvironment,
+          securityLevel: sdk.securityLevel,
+        },
+        data: sdkTelemetry,
+        analytics,
+        period: {
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+        },
+        totalRecords: sdkTelemetry.length,
+      });
+    } catch (error: any) {
+      console.error("Error fetching SDK telemetry:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch SDK telemetry",
+        error: error.message,
+      });
+    }
+  });
+
+  app.get("/api/sdk/telemetry", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const tenantId = user.tenantId || "default-tenant";
+
+      const startDate = req.query.startDate
+        ? new Date(req.query.startDate as string)
+        : new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const endDate = req.query.endDate
+        ? new Date(req.query.endDate as string)
+        : new Date();
+
+      console.log(
+        `📊 Fetching all SDK telemetry for tenant ${tenantId} from ${startDate.toISOString()} to ${endDate.toISOString()}`
+      );
+
+      // Get all SDKs for this tenant
+      const tenantSDKs = await storage.getSDKs(tenantId);
+
+      // Get all SDK telemetry data for this tenant
+      const telemetryData = await storage.getPerformanceMetrics(tenantId, 1000);
+      const sdkTelemetry = telemetryData.filter(
+        (metric) =>
+          metric.metricType.startsWith("sdk_") &&
+          metric.timestamp &&
+          metric.timestamp >= startDate &&
+          metric.timestamp <= endDate
+      );
+
+      // Group by SDK with SDK info
+      const sdkGroups = sdkTelemetry.reduce((acc, metric) => {
+        const sdkId = metric.sdkId || "unknown";
+        if (!acc[sdkId]) {
+          acc[sdkId] = {
+            sdkInfo: tenantSDKs.find((sdk) => sdk.id === sdkId) || null,
+            metrics: [],
+          };
+        }
+        acc[sdkId].metrics.push(metric);
+        return acc;
+      }, {} as Record<string, { sdkInfo: any; metrics: any[] }>);
+
+      // Calculate comprehensive tenant-level analytics
+      const summary = {
+        // Tenant overview
+        totalSDKs: tenantSDKs.length,
+        activeSDKs: Object.keys(sdkGroups).length,
+        totalOperations: sdkTelemetry.length,
+
+        // Success metrics
+        successRate:
+          sdkTelemetry.length > 0
+            ? sdkTelemetry.filter((m) => {
+                const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+                return meta.success;
+              }).length / sdkTelemetry.length
+            : 0,
+        errorRate:
+          sdkTelemetry.length > 0
+            ? sdkTelemetry.filter((m) => {
+                const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+                return !meta.success;
+              }).length / sdkTelemetry.length
+            : 0,
+
+        // Performance metrics
+        averageDuration:
+          sdkTelemetry.length > 0
+            ? sdkTelemetry.reduce((sum, m) => sum + m.value, 0) /
+              sdkTelemetry.length
+            : 0,
+        minDuration:
+          sdkTelemetry.length > 0
+            ? Math.min(...sdkTelemetry.map((m) => m.value))
+            : 0,
+        maxDuration:
+          sdkTelemetry.length > 0
+            ? Math.max(...sdkTelemetry.map((m) => m.value))
+            : 0,
+
+        // Top operations across all SDKs
+        topOperations: Object.entries(
+          sdkTelemetry.reduce((acc, m) => {
+            const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+            const op = meta.operation || "unknown";
+            acc[op] = (acc[op] || 0) + 1;
+            return acc;
+          }, {} as Record<string, number>)
+        )
+          .sort(([, a], [, b]) => b - a)
+          .slice(0, 10),
+
+        // Top algorithms across all SDKs
+        topAlgorithms: Object.entries(
+          sdkTelemetry.reduce((acc, m) => {
+            const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+            const algo = meta.algorithm || "unknown";
+            acc[algo] = (acc[algo] || 0) + 1;
+            return acc;
+          }, {} as Record<string, number>)
+        )
+          .sort(([, a], [, b]) => b - a)
+          .slice(0, 10),
+
+        // SDK performance ranking
+        sdkPerformance: Object.entries(sdkGroups)
+          .map(([sdkId, group]) => {
+            const metrics = group.metrics;
+            const avgDuration =
+              metrics.length > 0
+                ? metrics.reduce((sum, m) => sum + m.value, 0) / metrics.length
+                : 0;
+            const successRate =
+              metrics.length > 0
+                ? metrics.filter((m) => {
+                    const meta = m.metadata
+                      ? JSON.parse(m.metadata as string)
+                      : {};
+                    return meta.success;
+                  }).length / metrics.length
+                : 0;
+
+            return {
+              sdkId,
+              sdkName: group.sdkInfo?.name || "Unknown",
+              operationCount: metrics.length,
+              averageDuration: avgDuration,
+              successRate: successRate,
+              lastActivity:
+                metrics.length > 0
+                  ? Math.max(
+                      ...metrics.map((m) => new Date(m.timestamp).getTime())
+                    )
+                  : null,
+            };
+          })
+          .sort((a, b) => b.operationCount - a.operationCount),
+
+        // Data throughput
+        totalInputSize: sdkTelemetry.reduce((sum, m) => {
+          const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+          return sum + (meta.inputSize || 0);
+        }, 0),
+        totalOutputSize: sdkTelemetry.reduce((sum, m) => {
+          const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+          return sum + (meta.outputSize || 0);
+        }, 0),
+      };
+
+      res.json({
+        success: true,
+        tenantId,
+        summary,
+        sdkGroups,
+        period: {
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+        },
+        totalRecords: sdkTelemetry.length,
+      });
+    } catch (error: any) {
+      console.error("Error fetching SDK telemetry:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch SDK telemetry",
+        error: error.message,
+      });
+    }
+  });
+
+  // ENTERPRISE TELEMETRY ANALYTICS ENDPOINT
+  app.get("/api/sdk/telemetry/analytics", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const tenantId = user.tenantId || "default-tenant";
+
+      const startDate = req.query.startDate
+        ? new Date(req.query.startDate as string)
+        : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // Default: last 7 days
+      const endDate = req.query.endDate
+        ? new Date(req.query.endDate as string)
+        : new Date();
+
+      console.log(
+        `📊 Fetching enterprise telemetry analytics for tenant ${tenantId} from ${startDate.toISOString()} to ${endDate.toISOString()}`
+      );
+
+      // Get all SDKs and telemetry data for this tenant
+      const tenantSDKs = await storage.getSDKs(tenantId);
+      const telemetryData = await storage.getPerformanceMetrics(
+        tenantId,
+        10000
+      );
+      const sdkTelemetry = telemetryData.filter(
+        (metric) =>
+          metric.metricType.startsWith("sdk_") &&
+          metric.timestamp &&
+          metric.timestamp >= startDate &&
+          metric.timestamp <= endDate
+      );
+
+      // Enterprise Analytics Dashboard Data
+      const analytics = {
+        // Overview Metrics
+        overview: {
+          totalSDKs: tenantSDKs.length,
+          activeSDKs: [...new Set(sdkTelemetry.map((m) => m.sdkId))].length,
+          totalOperations: sdkTelemetry.length,
+          uniqueUsers: [
+            ...new Set(
+              sdkTelemetry
+                .map((m) => {
+                  const meta = m.metadata
+                    ? JSON.parse(m.metadata as string)
+                    : {};
+                  return meta.userId;
+                })
+                .filter(Boolean)
+            ),
+          ].length,
+          uniqueSessions: [
+            ...new Set(
+              sdkTelemetry
+                .map((m) => {
+                  const meta = m.metadata
+                    ? JSON.parse(m.metadata as string)
+                    : {};
+                  return meta.sessionId;
+                })
+                .filter(Boolean)
+            ),
+          ].length,
+        },
+
+        // Performance Metrics
+        performance: {
+          averageResponseTime:
+            sdkTelemetry.length > 0
+              ? sdkTelemetry.reduce((sum, m) => sum + m.value, 0) /
+                sdkTelemetry.length
+              : 0,
+          p50ResponseTime:
+            sdkTelemetry.length > 0
+              ? sdkTelemetry.sort((a, b) => a.value - b.value)[
+                  Math.floor(sdkTelemetry.length * 0.5)
+                ]?.value || 0
+              : 0,
+          p95ResponseTime:
+            sdkTelemetry.length > 0
+              ? sdkTelemetry.sort((a, b) => a.value - b.value)[
+                  Math.floor(sdkTelemetry.length * 0.95)
+                ]?.value || 0
+              : 0,
+          p99ResponseTime:
+            sdkTelemetry.length > 0
+              ? sdkTelemetry.sort((a, b) => a.value - b.value)[
+                  Math.floor(sdkTelemetry.length * 0.99)
+                ]?.value || 0
+              : 0,
+          throughput:
+            sdkTelemetry.length > 0
+              ? sdkTelemetry.length /
+                ((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60))
+              : 0, // ops/hour
+        },
+
+        // Success & Error Metrics
+        reliability: {
+          successRate:
+            sdkTelemetry.length > 0
+              ? sdkTelemetry.filter((m) => {
+                  const meta = m.metadata
+                    ? JSON.parse(m.metadata as string)
+                    : {};
+                  return meta.success;
+                }).length / sdkTelemetry.length
+              : 0,
+          errorRate:
+            sdkTelemetry.length > 0
+              ? sdkTelemetry.filter((m) => {
+                  const meta = m.metadata
+                    ? JSON.parse(m.metadata as string)
+                    : {};
+                  return !meta.success;
+                }).length / sdkTelemetry.length
+              : 0,
+          errorBreakdown: sdkTelemetry.reduce((acc, m) => {
+            const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+            if (!meta.success && meta.errorCode) {
+              acc[meta.errorCode] = (acc[meta.errorCode] || 0) + 1;
+            }
+            return acc;
+          }, {} as Record<string, number>),
+        },
+
+        // Usage Patterns
+        usage: {
+          operationsByType: sdkTelemetry.reduce((acc, m) => {
+            const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+            const op = meta.operation || "unknown";
+            acc[op] = (acc[op] || 0) + 1;
+            return acc;
+          }, {} as Record<string, number>),
+          algorithmsUsed: Object.entries(
+            sdkTelemetry.reduce((acc, m) => {
+              const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+              const algo = meta.algorithm || "unknown";
+              acc[algo] = (acc[algo] || 0) + 1;
+              return acc;
+            }, {} as Record<string, number>)
+          ).sort(([, a], [, b]) => b - a),
+          platformsUsed: Object.entries(
+            sdkTelemetry.reduce((acc, m) => {
+              const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+              const platform = meta.platform || "unknown";
+              acc[platform] = (acc[platform] || 0) + 1;
+              return acc;
+            }, {} as Record<string, number>)
+          ).sort(([, a], [, b]) => b - a),
+          environmentsUsed: Object.entries(
+            sdkTelemetry.reduce((acc, m) => {
+              const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+              const env = meta.environment || "unknown";
+              acc[env] = (acc[env] || 0) + 1;
+              return acc;
+            }, {} as Record<string, number>)
+          ).sort(([, a], [, b]) => b - a),
+        },
+
+        // Geographic & Infrastructure
+        infrastructure: {
+          regionsUsed: Object.entries(
+            sdkTelemetry.reduce((acc, m) => {
+              const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+              const region = meta.region || "unknown";
+              acc[region] = (acc[region] || 0) + 1;
+              return acc;
+            }, {} as Record<string, number>)
+          ).sort(([, a], [, b]) => b - a),
+          clientVersions: Object.entries(
+            sdkTelemetry.reduce((acc, m) => {
+              const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+              const version = meta.clientVersion || "unknown";
+              acc[version] = (acc[version] || 0) + 1;
+              return acc;
+            }, {} as Record<string, number>)
+          ).sort(([, a], [, b]) => b - a),
+        },
+
+        // SDK Performance Ranking
+        sdkRanking: Object.entries(
+          sdkTelemetry.reduce((acc, m) => {
+            const sdkId = m.sdkId || "unknown";
+            if (!acc[sdkId]) {
+              acc[sdkId] = {
+                sdkId,
+                sdkInfo: tenantSDKs.find((sdk) => sdk.id === sdkId) || null,
+                operations: 0,
+                totalDuration: 0,
+                errors: 0,
+                lastActivity: null,
+              };
+            }
+            acc[sdkId].operations++;
+            acc[sdkId].totalDuration += m.value;
+            acc[sdkId].lastActivity = Math.max(
+              acc[sdkId].lastActivity || 0,
+              new Date(m.timestamp).getTime()
+            );
+            const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+            if (!meta.success) acc[sdkId].errors++;
+            return acc;
+          }, {} as Record<string, any>)
+        )
+          .map(([sdkId, data]) => ({
+            sdkId,
+            sdkName: data.sdkInfo?.name || "Unknown",
+            operationCount: data.operations,
+            averageDuration:
+              data.operations > 0 ? data.totalDuration / data.operations : 0,
+            successRate:
+              data.operations > 0
+                ? (data.operations - data.errors) / data.operations
+                : 0,
+            lastActivity: data.lastActivity
+              ? new Date(data.lastActivity).toISOString()
+              : null,
+            languages: data.sdkInfo?.languages || null,
+            applicationType: data.sdkInfo?.applicationType || null,
+            securityLevel: data.sdkInfo?.securityLevel || null,
+          }))
+          .sort((a, b) => b.operationCount - a.operationCount),
+
+        // Time Series Data (for charts)
+        timeSeries: {
+          hourly: generateTimeSeriesData(
+            sdkTelemetry,
+            startDate,
+            endDate,
+            "hour"
+          ),
+          daily: generateTimeSeriesData(
+            sdkTelemetry,
+            startDate,
+            endDate,
+            "day"
+          ),
+        },
+
+        // Data Throughput
+        throughput: {
+          totalInputSize: sdkTelemetry.reduce((sum, m) => {
+            const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+            return sum + (meta.inputSize || 0);
+          }, 0),
+          totalOutputSize: sdkTelemetry.reduce((sum, m) => {
+            const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+            return sum + (meta.outputSize || 0);
+          }, 0),
+          averageInputSize:
+            sdkTelemetry.length > 0
+              ? sdkTelemetry.reduce((sum, m) => {
+                  const meta = m.metadata
+                    ? JSON.parse(m.metadata as string)
+                    : {};
+                  return sum + (meta.inputSize || 0);
+                }, 0) / sdkTelemetry.length
+              : 0,
+          averageOutputSize:
+            sdkTelemetry.length > 0
+              ? sdkTelemetry.reduce((sum, m) => {
+                  const meta = m.metadata
+                    ? JSON.parse(m.metadata as string)
+                    : {};
+                  return sum + (meta.outputSize || 0);
+                }, 0) / sdkTelemetry.length
+              : 0,
+        },
+      };
+
+      res.json({
+        success: true,
+        tenantId,
+        analytics,
+        period: {
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+        },
+        generatedAt: new Date().toISOString(),
+      });
+    } catch (error: any) {
+      console.error("Error fetching enterprise telemetry analytics:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch enterprise telemetry analytics",
+        error: error.message,
+      });
+    }
+  });
+
+  // Helper function for time series data
+  function generateTimeSeriesData(
+    telemetry: any[],
+    startDate: Date,
+    endDate: Date,
+    granularity: "hour" | "day"
+  ) {
+    const interval =
+      granularity === "hour" ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+    const buckets: Record<
+      string,
+      { operations: number; errors: number; totalDuration: number }
+    > = {};
+
+    for (
+      let time = startDate.getTime();
+      time <= endDate.getTime();
+      time += interval
+    ) {
+      const bucketKey =
+        new Date(time).toISOString().split("T")[0] +
+        (granularity === "hour"
+          ? `T${new Date(time)
+              .getHours()
+              .toString()
+              .padStart(2, "0")}:00:00.000Z`
+          : "T00:00:00.000Z");
+      buckets[bucketKey] = { operations: 0, errors: 0, totalDuration: 0 };
+    }
+
+    telemetry.forEach((m) => {
+      const timestamp = new Date(m.timestamp);
+      const bucketTime =
+        granularity === "hour"
+          ? new Date(
+              timestamp.getFullYear(),
+              timestamp.getMonth(),
+              timestamp.getDate(),
+              timestamp.getHours()
+            ).getTime()
+          : new Date(
+              timestamp.getFullYear(),
+              timestamp.getMonth(),
+              timestamp.getDate()
+            ).getTime();
+
+      const bucketKey =
+        new Date(bucketTime).toISOString().split("T")[0] +
+        (granularity === "hour"
+          ? `T${new Date(bucketTime)
+              .getHours()
+              .toString()
+              .padStart(2, "0")}:00:00.000Z`
+          : "T00:00:00.000Z");
+
+      if (buckets[bucketKey]) {
+        buckets[bucketKey].operations++;
+        buckets[bucketKey].totalDuration += m.value;
+        const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+        if (!meta.success) buckets[bucketKey].errors++;
+      }
+    });
+
+    return Object.entries(buckets).map(([timestamp, data]) => ({
+      timestamp,
+      operations: data.operations,
+      errors: data.errors,
+      successRate:
+        data.operations > 0
+          ? (data.operations - data.errors) / data.operations
+          : 0,
+      averageDuration:
+        data.operations > 0 ? data.totalDuration / data.operations : 0,
+    }));
+  }
+
   // MONITORING ENDPOINTS
   app.get("/api/monitoring/operations", isAuthenticated, async (req, res) => {
     try {
@@ -1595,6 +2394,1085 @@ plaintext = encryption.decrypt(envelope)
     } catch (error) {
       console.error("Error updating key status:", error);
       res.status(500).json({ message: "Failed to update key status" });
+    }
+  });
+
+  // ============================================================================
+  // VAULT KEK MANAGEMENT ENDPOINTS
+  // ============================================================================
+
+  // ============================================================================
+  // VAULT CRYPTOGRAPHIC OPERATIONS ENDPOINTS
+  // ============================================================================
+
+  // Encrypt data using a KEK
+  app.post(
+    "/api/vault/keys/:kekName/encrypt",
+    isAuthenticated,
+    async (req, res) => {
+      try {
+        const { kekName } = req.params;
+        const { plaintext, context } = req.body;
+
+        if (!plaintext) {
+          return res.status(400).json({ message: "Plaintext is required" });
+        }
+
+        const user = req.user as any;
+        const tenantId =
+          user.tenantId ||
+          (await storage.getOrCreateTenantForUser(
+            user.id || user.claims?.sub,
+            user.email || user.claims?.email
+          ));
+
+        // Verify KEK belongs to tenant
+        if (!kekName.includes(tenantId)) {
+          return res
+            .status(403)
+            .json({ message: "Unauthorized access to KEK" });
+        }
+
+        const { getVaultKmsService } = await import("./services/vaultKms");
+        const vaultKms = getVaultKmsService();
+
+        const ciphertext = await vaultKms.encryptData(
+          kekName,
+          plaintext,
+          context
+        );
+
+        res.json({
+          success: true,
+          ciphertext,
+          kekName,
+          encryptedAt: new Date().toISOString(),
+        });
+      } catch (error) {
+        console.error("Error encrypting data:", error);
+        res
+          .status(500)
+          .json({ message: "Failed to encrypt data", error: error.message });
+      }
+    }
+  );
+
+  // Decrypt data using a KEK
+  app.post(
+    "/api/vault/keys/:kekName/decrypt",
+    isAuthenticated,
+    async (req, res) => {
+      try {
+        const { kekName } = req.params;
+        const { ciphertext, context } = req.body;
+
+        if (!ciphertext) {
+          return res.status(400).json({ message: "Ciphertext is required" });
+        }
+
+        const user = req.user as any;
+        const tenantId =
+          user.tenantId ||
+          (await storage.getOrCreateTenantForUser(
+            user.id || user.claims?.sub,
+            user.email || user.claims?.email
+          ));
+
+        // Verify KEK belongs to tenant
+        if (!kekName.includes(tenantId)) {
+          return res
+            .status(403)
+            .json({ message: "Unauthorized access to KEK" });
+        }
+
+        const { getVaultKmsService } = await import("./services/vaultKms");
+        const vaultKms = getVaultKmsService();
+
+        const plaintext = await vaultKms.decryptData(
+          kekName,
+          ciphertext,
+          context
+        );
+
+        res.json({
+          success: true,
+          plaintext,
+          kekName,
+          decryptedAt: new Date().toISOString(),
+        });
+      } catch (error) {
+        console.error("Error decrypting data:", error);
+        res
+          .status(500)
+          .json({ message: "Failed to decrypt data", error: error.message });
+      }
+    }
+  );
+
+  // Generate a new Data Encryption Key (DEK)
+  app.post(
+    "/api/vault/keys/:kekName/datakey",
+    isAuthenticated,
+    async (req, res) => {
+      try {
+        const { kekName } = req.params;
+        const { context } = req.body;
+
+        const user = req.user as any;
+        const tenantId =
+          user.tenantId ||
+          (await storage.getOrCreateTenantForUser(
+            user.id || user.claims?.sub,
+            user.email || user.claims?.email
+          ));
+
+        // Verify KEK belongs to tenant
+        if (!kekName.includes(tenantId)) {
+          return res
+            .status(403)
+            .json({ message: "Unauthorized access to KEK" });
+        }
+
+        const { getVaultKmsService } = await import("./services/vaultKms");
+        const vaultKms = getVaultKmsService();
+
+        const datakey = await vaultKms.generateDatakey(kekName, context);
+
+        res.json({
+          success: true,
+          plaintext: datakey.plaintext,
+          ciphertext: datakey.ciphertext,
+          kekName,
+          generatedAt: new Date().toISOString(),
+        });
+      } catch (error) {
+        console.error("Error generating datakey:", error);
+        res.status(500).json({
+          message: "Failed to generate datakey",
+          error: error.message,
+        });
+      }
+    }
+  );
+
+  // Rewrap ciphertext with latest KEK version
+  app.post(
+    "/api/vault/keys/:kekName/rewrap",
+    isAuthenticated,
+    async (req, res) => {
+      try {
+        const { kekName } = req.params;
+        const { ciphertext, context } = req.body;
+
+        if (!ciphertext) {
+          return res.status(400).json({ message: "Ciphertext is required" });
+        }
+
+        const user = req.user as any;
+        const tenantId =
+          user.tenantId ||
+          (await storage.getOrCreateTenantForUser(
+            user.id || user.claims?.sub,
+            user.email || user.claims?.email
+          ));
+
+        // Verify KEK belongs to tenant
+        if (!kekName.includes(tenantId)) {
+          return res
+            .status(403)
+            .json({ message: "Unauthorized access to KEK" });
+        }
+
+        const { getVaultKmsService } = await import("./services/vaultKms");
+        const vaultKms = getVaultKmsService();
+
+        const newCiphertext = await vaultKms.rewrapCiphertext(
+          kekName,
+          ciphertext,
+          context
+        );
+
+        res.json({
+          success: true,
+          originalCiphertext: ciphertext,
+          newCiphertext,
+          kekName,
+          rewrappedAt: new Date().toISOString(),
+        });
+      } catch (error) {
+        console.error("Error rewrapping ciphertext:", error);
+        res.status(500).json({
+          message: "Failed to rewrap ciphertext",
+          error: error.message,
+        });
+      }
+    }
+  );
+
+  // Generate HMAC for data integrity
+  app.post(
+    "/api/vault/keys/:kekName/hmac",
+    isAuthenticated,
+    async (req, res) => {
+      try {
+        const { kekName } = req.params;
+        const { data, context } = req.body;
+
+        if (!data) {
+          return res.status(400).json({ message: "Data is required" });
+        }
+
+        const user = req.user as any;
+        const tenantId =
+          user.tenantId ||
+          (await storage.getOrCreateTenantForUser(
+            user.id || user.claims?.sub,
+            user.email || user.claims?.email
+          ));
+
+        // Verify KEK belongs to tenant
+        if (!kekName.includes(tenantId)) {
+          return res
+            .status(403)
+            .json({ message: "Unauthorized access to KEK" });
+        }
+
+        const { getVaultKmsService } = await import("./services/vaultKms");
+        const vaultKms = getVaultKmsService();
+
+        const hmac = await vaultKms.generateHmac(kekName, data, context);
+
+        res.json({
+          success: true,
+          hmac,
+          kekName,
+          dataHash: Buffer.from(data).toString("base64"),
+          generatedAt: new Date().toISOString(),
+        });
+      } catch (error) {
+        console.error("Error generating HMAC:", error);
+        res
+          .status(500)
+          .json({ message: "Failed to generate HMAC", error: error.message });
+      }
+    }
+  );
+
+  // Verify HMAC for data integrity
+  app.post(
+    "/api/vault/keys/:kekName/verify",
+    isAuthenticated,
+    async (req, res) => {
+      try {
+        const { kekName } = req.params;
+        const { data, hmac, context } = req.body;
+
+        if (!data || !hmac) {
+          return res
+            .status(400)
+            .json({ message: "Data and HMAC are required" });
+        }
+
+        const user = req.user as any;
+        const tenantId =
+          user.tenantId ||
+          (await storage.getOrCreateTenantForUser(
+            user.id || user.claims?.sub,
+            user.email || user.claims?.email
+          ));
+
+        // Verify KEK belongs to tenant
+        if (!kekName.includes(tenantId)) {
+          return res
+            .status(403)
+            .json({ message: "Unauthorized access to KEK" });
+        }
+
+        const { getVaultKmsService } = await import("./services/vaultKms");
+        const vaultKms = getVaultKmsService();
+
+        const isValid = await vaultKms.verifyHmac(kekName, data, hmac, context);
+
+        res.json({
+          success: true,
+          valid: isValid,
+          kekName,
+          verifiedAt: new Date().toISOString(),
+        });
+      } catch (error) {
+        console.error("Error verifying HMAC:", error);
+        res
+          .status(500)
+          .json({ message: "Failed to verify HMAC", error: error.message });
+      }
+    }
+  );
+
+  // ============================================================================
+  // VAULT KEK MANAGEMENT ENDPOINTS
+  // ============================================================================
+
+  // Create a new KEK in Vault
+  app.post("/api/vault/keys", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const tenantId =
+        user.tenantId ||
+        (await storage.getOrCreateTenantForUser(
+          user.id || user.claims?.sub,
+          user.email || user.claims?.email
+        ));
+
+      const { algorithm = "aes256-gcm96", keyType = "primary" } = req.body;
+
+      console.log(`🔑 Creating new KEK for tenant ${tenantId}...`);
+      console.log(`🔑 Algorithm: ${algorithm}, Key Type: ${keyType}`);
+
+      const { getVaultKmsService } = await import("./services/vaultKms");
+      const vaultKms = getVaultKmsService();
+
+      // Create the KEK in Vault
+      const kekMetadata = await vaultKms.createTenantKEK(tenantId, algorithm);
+
+      console.log(`✅ KEK created successfully:`, kekMetadata);
+
+      res.json({
+        success: true,
+        message: "KEK created successfully in HashiCorp Vault",
+        kekMetadata,
+        tenantId,
+        createdAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("Error creating Vault KEK:", error);
+      res.status(500).json({
+        message: "Failed to create KEK in Vault",
+        error: error.message,
+      });
+    }
+  });
+
+  // Get tenant's KEK information from Vault
+  app.get("/api/vault/keys", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const tenantId =
+        user.tenantId ||
+        (await storage.getOrCreateTenantForUser(
+          user.id || user.claims?.sub,
+          user.email || user.claims?.email
+        ));
+
+      const { getVaultKmsService } = await import("./services/vaultKms");
+      const vaultKms = getVaultKmsService();
+
+      const kekName = `kek-${tenantId}`;
+
+      try {
+        const keyInfo = await vaultKms.getKeyInfo(kekName);
+
+        res.json({
+          kekName,
+          algorithm: keyInfo.type,
+          keyVersion: keyInfo.latest_version,
+          minAvailableVersion: keyInfo.min_available_version,
+          minDecryptionVersion: keyInfo.min_decryption_version,
+          supportsEncryption: keyInfo.supports_encryption,
+          supportsDecryption: keyInfo.supports_decryption,
+          supportsSigning: keyInfo.supports_signing,
+          supportsDerivation: keyInfo.derived,
+          createdAt: keyInfo.creation_time,
+          tenantId,
+        });
+      } catch (keyError) {
+        // KEK doesn't exist or is inaccessible
+        console.log(
+          `KEK ${kekName} not found or inaccessible:`,
+          keyError.message
+        );
+        res.json({
+          kekName: null,
+          algorithm: null,
+          keyVersion: null,
+          minAvailableVersion: null,
+          minDecryptionVersion: null,
+          supportsEncryption: false,
+          supportsDecryption: false,
+          supportsSigning: false,
+          supportsDerivation: false,
+          createdAt: null,
+          tenantId,
+          message: "No KEK found for this tenant",
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching Vault KEK info:", error);
+      res.status(500).json({ message: "Failed to fetch KEK information" });
+    }
+  });
+
+  // Get all Vault KEKs for tenant
+  app.get("/api/vault/keys/all", isAuthenticated, async (req, res) => {
+    try {
+      console.log("🔥 VAULT KEKS ALL ENDPOINT HIT!");
+      console.log("Request URL:", req.url);
+      console.log("Request method:", req.method);
+      console.log("User:", req.user);
+
+      const user = req.user as any;
+      const tenantId =
+        user.tenantId ||
+        (await storage.getOrCreateTenantForUser(
+          user.id || user.claims?.sub,
+          user.email || user.claims?.email
+        ));
+
+      console.log("Tenant ID:", tenantId);
+
+      const { getVaultKmsService } = await import("./services/vaultKms");
+      const vaultKms = getVaultKmsService();
+
+      // Get all KEKs for this tenant from Vault
+      const vaultKeks = await vaultKms.getTenantKEKs(tenantId);
+
+      console.log(
+        `Found ${vaultKeks.length} KEKs for tenant ${tenantId}:`,
+        vaultKeks.map((k) => k.kekName)
+      );
+
+      res.json(vaultKeks);
+    } catch (error) {
+      console.error("Error fetching all Vault KEKs:", error);
+      res.status(500).json({ message: "Failed to fetch Vault KEKs" });
+    }
+  });
+
+  // Test endpoint to verify server is working (no auth required)
+  app.get("/api/vault/test-public", async (req, res) => {
+    try {
+      console.log("🔥 PUBLIC VAULT TEST ENDPOINT HIT!");
+      console.log("Request URL:", req.url);
+      console.log("Request method:", req.method);
+      console.log("Request headers:", req.headers);
+
+      res.json({
+        message: "Vault API is working (public)",
+        timestamp: new Date().toISOString(),
+        server: "running",
+        route: "test-public",
+        url: req.url,
+      });
+    } catch (error) {
+      console.error("Error in public test endpoint:", error);
+      res.status(500).json({ message: "Public test endpoint error" });
+    }
+  });
+
+  // Temporary test endpoints for Vault operations (no auth required for testing)
+  app.post("/api/vault/test/encrypt", async (req, res) => {
+    try {
+      const { kekName, plaintext, context } = req.body;
+
+      if (!kekName || !plaintext) {
+        return res
+          .status(400)
+          .json({ message: "kekName and plaintext are required" });
+      }
+
+      const { getVaultKmsService } = await import("./services/vaultKms");
+      const vaultKms = getVaultKmsService();
+
+      const ciphertext = await vaultKms.encryptData(
+        kekName,
+        plaintext,
+        context
+      );
+
+      res.json({
+        success: true,
+        ciphertext,
+        kekName,
+        encryptedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("Test encrypt error:", error);
+      res
+        .status(500)
+        .json({ message: "Failed to encrypt data", error: error.message });
+    }
+  });
+
+  app.post("/api/vault/test/decrypt", async (req, res) => {
+    try {
+      const { kekName, ciphertext, context } = req.body;
+
+      if (!kekName || !ciphertext) {
+        return res
+          .status(400)
+          .json({ message: "kekName and ciphertext are required" });
+      }
+
+      const { getVaultKmsService } = await import("./services/vaultKms");
+      const vaultKms = getVaultKmsService();
+
+      const plaintext = await vaultKms.decryptData(
+        kekName,
+        ciphertext,
+        context
+      );
+
+      res.json({
+        success: true,
+        plaintext,
+        kekName,
+        decryptedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("Test decrypt error:", error);
+      res
+        .status(500)
+        .json({ message: "Failed to decrypt data", error: error.message });
+    }
+  });
+
+  app.post("/api/vault/test/datakey", async (req, res) => {
+    try {
+      const { kekName, context } = req.body;
+
+      if (!kekName) {
+        return res.status(400).json({ message: "kekName is required" });
+      }
+
+      const { getVaultKmsService } = await import("./services/vaultKms");
+      const vaultKms = getVaultKmsService();
+
+      const datakey = await vaultKms.generateDatakey(kekName, context);
+
+      res.json({
+        success: true,
+        plaintext: datakey.plaintext,
+        ciphertext: datakey.ciphertext,
+        kekName,
+        generatedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("Test datakey error:", error);
+      res
+        .status(500)
+        .json({ message: "Failed to generate datakey", error: error.message });
+    }
+  });
+
+  app.post("/api/vault/test/rewrap", async (req, res) => {
+    try {
+      const { kekName, ciphertext, context } = req.body;
+
+      if (!kekName || !ciphertext) {
+        return res
+          .status(400)
+          .json({ message: "kekName and ciphertext are required" });
+      }
+
+      const { getVaultKmsService } = await import("./services/vaultKms");
+      const vaultKms = getVaultKmsService();
+
+      const newCiphertext = await vaultKms.rewrapCiphertext(
+        kekName,
+        ciphertext,
+        context
+      );
+
+      res.json({
+        success: true,
+        originalCiphertext: ciphertext,
+        newCiphertext,
+        kekName,
+        rewrappedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("Test rewrap error:", error);
+      res
+        .status(500)
+        .json({ message: "Failed to rewrap ciphertext", error: error.message });
+    }
+  });
+
+  app.post("/api/vault/test/hmac", async (req, res) => {
+    try {
+      const { kekName, data, context } = req.body;
+
+      if (!kekName || !data) {
+        return res
+          .status(400)
+          .json({ message: "kekName and data are required" });
+      }
+
+      const { getVaultKmsService } = await import("./services/vaultKms");
+      const vaultKms = getVaultKmsService();
+
+      const hmac = await vaultKms.generateHmac(kekName, data, context);
+
+      res.json({
+        success: true,
+        hmac,
+        kekName,
+        dataHash: Buffer.from(data).toString("base64"),
+        generatedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("Test HMAC error:", error);
+      res
+        .status(500)
+        .json({ message: "Failed to generate HMAC", error: error.message });
+    }
+  });
+
+  app.post("/api/vault/test/verify", async (req, res) => {
+    try {
+      const { kekName, data, hmac, context } = req.body;
+
+      if (!kekName || !data || !hmac) {
+        return res
+          .status(400)
+          .json({ message: "kekName, data, and hmac are required" });
+      }
+
+      const { getVaultKmsService } = await import("./services/vaultKms");
+      const vaultKms = getVaultKmsService();
+
+      const isValid = await vaultKms.verifyHmac(kekName, data, hmac, context);
+
+      res.json({
+        success: true,
+        valid: isValid,
+        kekName,
+        verifiedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("Test verify error:", error);
+      res
+        .status(500)
+        .json({ message: "Failed to verify HMAC", error: error.message });
+    }
+  });
+
+  // Vault configuration test endpoint
+  app.get("/api/vault/config-test", async (req, res) => {
+    try {
+      console.log("🔥 VAULT CONFIG TEST ENDPOINT HIT!");
+
+      const { getVaultKmsService } = await import("./services/vaultKms");
+      const vaultKms = getVaultKmsService();
+
+      // Test basic Vault connectivity
+      const healthCheck = await vaultKms.healthCheck();
+
+      res.json({
+        message: "Vault configuration test",
+        timestamp: new Date().toISOString(),
+        healthCheck,
+        config: {
+          endpoint: process.env.VAULT_ENDPOINT || "https://kms.averox.com",
+          token: process.env.VAULT_TOKEN ? "present" : "missing",
+          transitMount: process.env.VAULT_TRANSIT_MOUNT || "transit",
+        },
+      });
+    } catch (error) {
+      console.error("Error in vault config test:", error);
+      res.status(500).json({
+        message: "Vault config test error",
+        error: error.message,
+      });
+    }
+  });
+
+  // Test endpoint to verify server is working
+  app.get("/api/vault/test", isAuthenticated, async (req, res) => {
+    try {
+      res.json({
+        message: "Vault API is working",
+        timestamp: new Date().toISOString(),
+        user: req.user ? "authenticated" : "not authenticated",
+      });
+    } catch (error) {
+      console.error("Error in test endpoint:", error);
+      res.status(500).json({ message: "Test endpoint error" });
+    }
+  });
+
+  // Debug endpoint to list all keys in Vault (for troubleshooting)
+  app.get("/api/vault/keys/debug", isAuthenticated, async (req, res) => {
+    try {
+      const { getVaultKmsService } = await import("./services/vaultKms");
+      const vaultKms = getVaultKmsService();
+
+      const allKeys = await vaultKms.listAllKeys();
+
+      res.json({
+        totalKeys: allKeys.length,
+        keys: allKeys,
+        message: "All keys in Vault transit engine",
+      });
+    } catch (error) {
+      console.error("Error listing all Vault keys:", error);
+      res.status(500).json({
+        message: "Failed to list Vault keys",
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
+
+  // Rotate tenant's KEK in Vault
+  app.post("/api/vault/keys/rotate", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const tenantId =
+        user.tenantId ||
+        (await storage.getOrCreateTenantForUser(
+          user.id || user.claims?.sub,
+          user.email || user.claims?.email
+        ));
+
+      const { getVaultKmsService } = await import("./services/vaultKms");
+      const vaultKms = getVaultKmsService();
+
+      const kekName = `kek-${tenantId}`;
+      const newVersion = await vaultKms.rotateKEK(kekName);
+
+      // Note: KEK version is managed directly in HashiCorp Vault
+      // No need to update local database - Vault is the source of truth
+
+      // Create security event
+      await storage.createSecurityEvent({
+        tenantId,
+        eventType: "key_rotated",
+        severity: "high",
+        description: `KEK rotated to version ${newVersion}`,
+        metadata: {
+          kekName,
+          newVersion,
+          rotatedBy: user.id || user.claims?.sub,
+        },
+      });
+
+      res.json({
+        success: true,
+        message: "KEK rotated successfully in HashiCorp Vault",
+        kekName,
+        newVersion,
+        rotatedAt: new Date().toISOString(),
+        source: "vault",
+      });
+    } catch (error) {
+      console.error("Error rotating KEK:", error);
+      res.status(500).json({ message: "Failed to rotate KEK" });
+    }
+  });
+
+  // Emergency key rotation
+  app.post(
+    "/api/vault/keys/emergency-rotate",
+    isAuthenticated,
+    async (req, res) => {
+      try {
+        const user = req.user as any;
+        const tenantId =
+          user.tenantId ||
+          (await storage.getOrCreateTenantForUser(
+            user.id || user.claims?.sub,
+            user.email || user.claims?.email
+          ));
+
+        // Verify admin permissions for emergency operations
+        const userRecord = await storage.getUser(user.id || user.claims?.sub);
+        if (!userRecord || userRecord.role !== "admin") {
+          return res.status(403).json({
+            message: "Admin permissions required for emergency rotation",
+          });
+        }
+
+        const { getVaultKmsService } = await import("./services/vaultKms");
+        const vaultKms = getVaultKmsService();
+
+        const kekName = `kek-${tenantId}`;
+        const newVersion = await vaultKms.rotateKEK(kekName);
+
+        // Note: KEK version is managed directly in HashiCorp Vault
+        // No need to update local database - Vault is the source of truth
+
+        // Create high-severity security event
+        await storage.createSecurityEvent({
+          tenantId,
+          eventType: "emergency_key_rotation",
+          severity: "critical",
+          description: `EMERGENCY KEK rotation to version ${newVersion}`,
+          metadata: {
+            kekName,
+            newVersion,
+            rotatedBy: user.id || user.claims?.sub,
+            reason: "emergency_rotation",
+          },
+        });
+
+        res.json({
+          success: true,
+          message: "Emergency KEK rotation completed",
+          kekName,
+          newVersion,
+          rotatedAt: new Date().toISOString(),
+          emergency: true,
+        });
+      } catch (error) {
+        console.error("Error in emergency KEK rotation:", error);
+        res
+          .status(500)
+          .json({ message: "Failed to perform emergency KEK rotation" });
+      }
+    }
+  );
+
+  // Get key usage statistics
+  app.get("/api/keys/usage/:keyId", isAuthenticated, async (req, res) => {
+    try {
+      const { keyId } = req.params;
+      const user = req.user as any;
+      const tenantId =
+        user.tenantId ||
+        (await storage.getOrCreateTenantForUser(
+          user.id || user.claims?.sub,
+          user.email || user.claims?.email
+        ));
+
+      const usageStats = await storage.getKeyUsageStats(keyId);
+
+      res.json({
+        keyId,
+        usageCount: usageStats.usageCount,
+        maxUsage: usageStats.maxUsage,
+        usagePercentage: usageStats.maxUsage
+          ? Math.round((usageStats.usageCount / usageStats.maxUsage) * 100)
+          : null,
+      });
+    } catch (error) {
+      console.error("Error fetching key usage stats:", error);
+      res.status(500).json({ message: "Failed to fetch key usage statistics" });
+    }
+  });
+
+  // Get key rotation history
+  app.get("/api/keys/rotation-history", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const tenantId =
+        user.tenantId ||
+        (await storage.getOrCreateTenantForUser(
+          user.id || user.claims?.sub,
+          user.email || user.claims?.email
+        ));
+
+      const history = await storage.getTenantRotationHistory(tenantId, 50);
+
+      res.json(history);
+    } catch (error) {
+      console.error("Error fetching rotation history:", error);
+      res.status(500).json({ message: "Failed to fetch rotation history" });
+    }
+  });
+
+  // Increment key usage counter
+  app.post("/api/keys/usage/increment", isAuthenticated, async (req, res) => {
+    try {
+      const { keyId } = req.body;
+      const user = req.user as any;
+
+      if (!keyId) {
+        return res.status(400).json({ message: "keyId is required" });
+      }
+
+      await storage.incrementKeyUsage(keyId);
+
+      res.json({ success: true, message: "Key usage incremented" });
+    } catch (error) {
+      console.error("Error incrementing key usage:", error);
+      res.status(500).json({ message: "Failed to increment key usage" });
+    }
+  });
+
+  // ============================================================================
+  // INDIVIDUAL VAULT KEK OPERATIONS
+  // ============================================================================
+
+  // Rotate specific Vault KEK
+  app.post(
+    "/api/vault/keys/:kekName/rotate",
+    isAuthenticated,
+    async (req, res) => {
+      try {
+        const { kekName } = req.params;
+        console.log("🔥 KEK ROTATION ENDPOINT HIT!");
+        console.log("KEK Name:", kekName);
+        console.log("Request URL:", req.url);
+
+        const user = req.user as any;
+        const tenantId =
+          user.tenantId ||
+          (await storage.getOrCreateTenantForUser(
+            user.id || user.claims?.sub,
+            user.email || user.claims?.email
+          ));
+
+        console.log("Tenant ID:", tenantId);
+        console.log("User:", user);
+
+        // Verify KEK belongs to tenant - check if KEK name contains tenant ID
+        if (!kekName.includes(tenantId)) {
+          return res
+            .status(403)
+            .json({ message: "Unauthorized access to KEK" });
+        }
+
+        const { getVaultKmsService } = await import("./services/vaultKms");
+        const vaultKms = getVaultKmsService();
+
+        console.log("🔍 Attempting to rotate KEK:", kekName);
+        const newVersion = await vaultKms.rotateKEK(kekName);
+        console.log("🔍 KEK rotation successful, new version:", newVersion);
+
+        // Note: KEK version is managed directly in HashiCorp Vault
+        // No need to update local database - Vault is the source of truth
+
+        // Create security event
+        await storage.createSecurityEvent({
+          tenantId,
+          eventType: "key_rotated",
+          severity: "high",
+          description: `KEK ${kekName} rotated to version ${newVersion}`,
+          metadata: {
+            kekName,
+            newVersion,
+            rotatedBy: user.id || user.claims?.sub,
+          },
+        });
+
+        res.json({
+          success: true,
+          message: "KEK rotated successfully in HashiCorp Vault",
+          kekName,
+          newVersion,
+          rotatedAt: new Date().toISOString(),
+          source: "vault",
+        });
+      } catch (error) {
+        console.error("🔥 KEK ROTATION ERROR:", error);
+        console.error("Error details:", {
+          message: error.message,
+          stack: error.stack,
+          kekName: req.params.kekName,
+          tenantId: req.user?.tenantId,
+        });
+        res.status(500).json({
+          message: "Failed to rotate KEK",
+          error: error.message,
+        });
+      }
+    }
+  );
+
+  // Delete specific Vault KEK
+  app.delete("/api/vault/keys/:kekName", isAuthenticated, async (req, res) => {
+    try {
+      const { kekName } = req.params;
+      const user = req.user as any;
+      const tenantId =
+        user.tenantId ||
+        (await storage.getOrCreateTenantForUser(
+          user.id || user.claims?.sub,
+          user.email || user.claims?.email
+        ));
+
+      // Verify admin permissions for KEK deletion
+      const userRecord = await storage.getUser(user.id || user.claims?.sub);
+      if (!userRecord || userRecord.role !== "admin") {
+        return res
+          .status(403)
+          .json({ message: "Admin permissions required for KEK deletion" });
+      }
+
+      // Verify KEK belongs to tenant
+      if (!kekName.startsWith(`kek-${tenantId}`)) {
+        return res.status(403).json({ message: "Unauthorized access to KEK" });
+      }
+
+      const { getVaultKmsService } = await import("./services/vaultKms");
+      const vaultKms = getVaultKmsService();
+
+      await vaultKms.deleteKEK(kekName);
+
+      // Create security event
+      await storage.createSecurityEvent({
+        tenantId,
+        eventType: "key_deleted",
+        severity: "critical",
+        description: `KEK ${kekName} deleted permanently`,
+        metadata: {
+          kekName,
+          deletedBy: user.id || user.claims?.sub,
+        },
+      });
+
+      res.json({
+        success: true,
+        message: "KEK deleted successfully",
+        kekName,
+        deletedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("Error deleting KEK:", error);
+      res.status(500).json({ message: "Failed to delete KEK" });
+    }
+  });
+
+  // Get specific Vault KEK details
+  app.get("/api/vault/keys/:kekName", isAuthenticated, async (req, res) => {
+    try {
+      const { kekName } = req.params;
+      const user = req.user as any;
+      const tenantId =
+        user.tenantId ||
+        (await storage.getOrCreateTenantForUser(
+          user.id || user.claims?.sub,
+          user.email || user.claims?.email
+        ));
+
+      // Verify KEK belongs to tenant
+      if (!kekName.startsWith(`kek-${tenantId}`)) {
+        return res.status(403).json({ message: "Unauthorized access to KEK" });
+      }
+
+      const { getVaultKmsService } = await import("./services/vaultKms");
+      const vaultKms = getVaultKmsService();
+
+      const keyInfo = await vaultKms.getKeyInfo(kekName);
+
+      res.json({
+        id: kekName,
+        kekName,
+        algorithm: keyInfo.type,
+        keyVersion: keyInfo.latest_version,
+        minAvailableVersion: keyInfo.min_available_version,
+        minDecryptionVersion: keyInfo.min_decryption_version,
+        supportsEncryption: keyInfo.supports_encryption,
+        supportsDecryption: keyInfo.supports_decryption,
+        supportsSigning: keyInfo.supports_signing,
+        supportsDerivation: keyInfo.derived,
+        createdAt: keyInfo.creation_time,
+        tenantId,
+        keyType: "primary",
+        status: "active",
+      });
+    } catch (error) {
+      console.error("Error fetching KEK details:", error);
+      res.status(500).json({ message: "Failed to fetch KEK details" });
     }
   });
 

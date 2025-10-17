@@ -77,6 +77,7 @@ export default function KeyManagement() {
   const [vaultKekInfo, setVaultKekInfo] = useState<any>(null);
   const [isVaultKekLoading, setIsVaultKekLoading] = useState(false);
   const [rotationHistory, setRotationHistory] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState("keys");
 
   // Use Vault KEKs instead of database keys
   const { data: keys = [], isLoading } = useQuery({
@@ -741,31 +742,462 @@ export default function KeyManagement() {
   };
 
   return (
-    <div className="p-6">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">
-            Enterprise KMS Vault
-          </h1>
-          <p className="text-slate-400">
-            83+ cryptographic algorithms • Hardware Security Module • NIST &
-            Post-Quantum Standards
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      {/* Header with gradient background */}
+      <div className="relative bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 shadow-2xl">
+        <div className="absolute inset-0 bg-black/20"></div>
+        <div className="relative max-w-7xl mx-auto px-6 py-12">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+            <div className="text-white">
+              <h1 className="text-4xl lg:text-5xl font-bold mb-3 bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent">
+                Enterprise KMS Vault
+              </h1>
+              <p className="text-blue-100 text-lg lg:text-xl max-w-2xl">
+                83+ cryptographic algorithms • Hardware Security Module • NIST & Post-Quantum Standards
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Dialog
+                open={isGenerateDialogOpen}
+                onOpenChange={setIsGenerateDialogOpen}
+              >
+                <DialogTrigger asChild>
+                  <Button
+                    className="bg-white/10 backdrop-blur-sm hover:bg-white/20 text-white border border-white/20 px-8 py-4 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+                    data-testid="button-generate-key"
+                  >
+                    <Plus className="w-5 h-5 mr-2" />
+                    Generate New Key
+                  </Button>
+                </DialogTrigger>
+              </Dialog>
+            </div>
+          </div>
         </div>
-        <Dialog
-          open={isGenerateDialogOpen}
-          onOpenChange={setIsGenerateDialogOpen}
-        >
-          <DialogTrigger asChild>
-            <Button
-              className="bg-blue-500 hover:bg-blue-600 text-white"
-              data-testid="button-generate-key"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Generate New Key
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="bg-white border-gray-200 text-black">
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* Navigation Tabs */}
+        <div className="mb-8">
+          <div className="flex flex-wrap gap-2 p-1 bg-slate-800/50 rounded-xl backdrop-blur-sm border border-slate-700/50">
+            {[
+              { id: "keys", label: "Vault Keys", icon: Key },
+              { id: "operations", label: "Crypto Operations", icon: Lock },
+              { id: "analytics", label: "Analytics", icon: History },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
+                  activeTab === tab.id
+                    ? "bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg"
+                    : "text-slate-300 hover:text-white hover:bg-slate-700/50"
+                }`}
+              >
+                <tab.icon className="w-4 h-4" />
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === "keys" && (
+          <div className="space-y-8">
+            {/* Vault KEK Status Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Primary KEK Card */}
+              <Card className="bg-gradient-to-br from-blue-500/10 to-blue-600/20 border-blue-500/30 backdrop-blur-sm">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-blue-100 text-lg">Primary KEK</CardTitle>
+                    <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-300 text-sm">Algorithm</span>
+                      <span className="text-white font-medium">AES-256-GCM</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-300 text-sm">Version</span>
+                      <span className="text-white font-medium">v5</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-300 text-sm">Status</span>
+                      <Badge className="bg-green-500/20 text-green-300 border-green-500/30">
+                        Active
+                      </Badge>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Secondary KEK Card */}
+              <Card className="bg-gradient-to-br from-purple-500/10 to-purple-600/20 border-purple-500/30 backdrop-blur-sm">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-purple-100 text-lg">Secondary KEK</CardTitle>
+                    <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-300 text-sm">Algorithm</span>
+                      <span className="text-white font-medium">ChaCha20-Poly1305</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-300 text-sm">Version</span>
+                      <span className="text-white font-medium">v2</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-300 text-sm">Status</span>
+                      <Badge className="bg-green-500/20 text-green-300 border-green-500/30">
+                        Active
+                      </Badge>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Usage Stats Card */}
+              <Card className="bg-gradient-to-br from-emerald-500/10 to-emerald-600/20 border-emerald-500/30 backdrop-blur-sm">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-emerald-100 text-lg">Usage Stats</CardTitle>
+                    <Zap className="w-5 h-5 text-emerald-400" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-300 text-sm">Operations Today</span>
+                      <span className="text-white font-medium">1,247</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-300 text-sm">Success Rate</span>
+                      <span className="text-white font-medium">99.9%</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-300 text-sm">Avg Response</span>
+                      <span className="text-white font-medium">12ms</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Vault KEKs Table */}
+            <Card className="bg-slate-800/50 border-slate-700/50 backdrop-blur-sm">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-white text-xl">Vault KEKs</CardTitle>
+                  <div className="flex items-center gap-4">
+                    <div className="relative">
+                      <Input
+                        placeholder="Search keys..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 w-64"
+                      />
+                    </div>
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger className="bg-slate-700/50 border-slate-600 text-white w-32">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-800 border-slate-700">
+                        <SelectItem value="all">All</SelectItem>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="inactive">Inactive</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                    <span className="ml-3 text-slate-300">Loading Vault KEKs...</span>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="border-slate-700">
+                          <TableHead className="text-slate-300">KEK Name</TableHead>
+                          <TableHead className="text-slate-300">Algorithm</TableHead>
+                          <TableHead className="text-slate-300">Version</TableHead>
+                          <TableHead className="text-slate-300">Capabilities</TableHead>
+                          <TableHead className="text-slate-300">Status</TableHead>
+                          <TableHead className="text-slate-300">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {keys.map((key: any) => (
+                          <TableRow key={key.id} className="border-slate-700 hover:bg-slate-700/30 transition-colors">
+                            <TableCell className="text-white font-medium">
+                              <div className="flex items-center gap-2">
+                                <Key className="w-4 h-4 text-blue-400" />
+                                {key.kekName}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-slate-300">{key.algorithm}</TableCell>
+                            <TableCell className="text-slate-300">v{key.keyVersion}</TableCell>
+                            <TableCell>
+                              <div className="flex flex-wrap gap-1">
+                                {key.supportsEncryption && (
+                                  <Badge variant="outline" className="text-xs border-blue-500/30 text-blue-300">
+                                    Encrypt
+                                  </Badge>
+                                )}
+                                {key.supportsDecryption && (
+                                  <Badge variant="outline" className="text-xs border-green-500/30 text-green-300">
+                                    Decrypt
+                                  </Badge>
+                                )}
+                                {key.supportsSigning && (
+                                  <Badge variant="outline" className="text-xs border-purple-500/30 text-purple-300">
+                                    Sign
+                                  </Badge>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge className="bg-green-500/20 text-green-300 border-green-500/30">
+                                Active
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="border-blue-500/30 text-blue-300 hover:bg-blue-500/20"
+                                        onClick={() => {
+                                          setSelectedKeyDetails(key);
+                                          setIsKeyDetailsOpen(true);
+                                        }}
+                                      >
+                                        <Eye className="w-4 h-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>View Details</TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="border-orange-500/30 text-orange-300 hover:bg-orange-500/20"
+                                        onClick={() => rotateKekMutation.mutate(key.kekName)}
+                                        disabled={rotateKekMutation.isPending}
+                                      >
+                                        <RotateCcw className="w-4 h-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Rotate Key</TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="border-slate-500/30 text-slate-300 hover:bg-slate-500/20"
+                                        onClick={() => copyToClipboard(key.kekName, "KEK Name")}
+                                      >
+                                        <Copy className="w-4 h-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Copy KEK Name</TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {activeTab === "operations" && (
+          <div className="space-y-8">
+            {/* Cryptographic Operations */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+              {/* Encrypt */}
+              <Card className="bg-gradient-to-br from-blue-500/10 to-blue-600/20 border-blue-500/30 backdrop-blur-sm">
+                <CardHeader>
+                  <CardTitle className="text-white flex items-center gap-2">
+                    <Lock className="w-5 h-5 text-blue-400" />
+                    Encrypt Data
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CryptoOperationForm
+                    operation="encrypt"
+                    kekNames={vaultKeks.map((k: any) => k.kekName)}
+                    onSuccess={(result) => {
+                      toast({
+                        title: "Data Encrypted",
+                        description: "Your data has been encrypted successfully",
+                      });
+                    }}
+                  />
+                </CardContent>
+              </Card>
+
+              {/* Decrypt */}
+              <Card className="bg-gradient-to-br from-green-500/10 to-green-600/20 border-green-500/30 backdrop-blur-sm">
+                <CardHeader>
+                  <CardTitle className="text-white flex items-center gap-2">
+                    <Unlock className="w-5 h-5 text-green-400" />
+                    Decrypt Data
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CryptoOperationForm
+                    operation="decrypt"
+                    kekNames={vaultKeks.map((k: any) => k.kekName)}
+                    onSuccess={(result) => {
+                      toast({
+                        title: "Data Decrypted",
+                        description: "Your data has been decrypted successfully",
+                      });
+                    }}
+                  />
+                </CardContent>
+              </Card>
+
+              {/* Generate Data Key */}
+              <Card className="bg-gradient-to-br from-purple-500/10 to-purple-600/20 border-purple-500/30 backdrop-blur-sm">
+                <CardHeader>
+                  <CardTitle className="text-white flex items-center gap-2">
+                    <Key className="w-5 h-5 text-purple-400" />
+                    Generate Data Key
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CryptoOperationForm
+                    operation="datakey"
+                    kekNames={vaultKeks.map((k: any) => k.kekName)}
+                    onSuccess={(result) => {
+                      toast({
+                        title: "Data Key Generated",
+                        description: "New data encryption key has been generated",
+                      });
+                    }}
+                  />
+                </CardContent>
+              </Card>
+
+              {/* Rewrap */}
+              <Card className="bg-gradient-to-br from-orange-500/10 to-orange-600/20 border-orange-500/30 backdrop-blur-sm">
+                <CardHeader>
+                  <CardTitle className="text-white flex items-center gap-2">
+                    <RefreshCw className="w-5 h-5 text-orange-400" />
+                    Rewrap Ciphertext
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CryptoOperationForm
+                    operation="rewrap"
+                    kekNames={vaultKeks.map((k: any) => k.kekName)}
+                    onSuccess={(result) => {
+                      toast({
+                        title: "Ciphertext Rewrapped",
+                        description: "Data has been re-encrypted with new key version",
+                      });
+                    }}
+                  />
+                </CardContent>
+              </Card>
+
+              {/* Generate HMAC */}
+              <Card className="bg-gradient-to-br from-cyan-500/10 to-cyan-600/20 border-cyan-500/30 backdrop-blur-sm">
+                <CardHeader>
+                  <CardTitle className="text-white flex items-center gap-2">
+                    <Hash className="w-5 h-5 text-cyan-400" />
+                    Generate HMAC
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CryptoOperationForm
+                    operation="hmac"
+                    kekNames={vaultKeks.map((k: any) => k.kekName)}
+                    onSuccess={(result) => {
+                      toast({
+                        title: "HMAC Generated",
+                        description: "HMAC has been generated for data integrity",
+                      });
+                    }}
+                  />
+                </CardContent>
+              </Card>
+
+              {/* Verify HMAC */}
+              <Card className="bg-gradient-to-br from-emerald-500/10 to-emerald-600/20 border-emerald-500/30 backdrop-blur-sm">
+                <CardHeader>
+                  <CardTitle className="text-white flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5 text-emerald-400" />
+                    Verify HMAC
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CryptoOperationForm
+                    operation="verify"
+                    kekNames={vaultKeks.map((k: any) => k.kekName)}
+                    onSuccess={(result) => {
+                      toast({
+                        title: "HMAC Verified",
+                        description: result.valid
+                          ? "HMAC is valid"
+                          : "HMAC is invalid",
+                        variant: result.valid ? "default" : "destructive",
+                      });
+                    }}
+                  />
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "analytics" && (
+          <div className="space-y-8">
+            {/* Analytics Content */}
+            <Card className="bg-slate-800/50 border-slate-700/50 backdrop-blur-sm">
+              <CardHeader>
+                <CardTitle className="text-white text-xl">Key Usage Analytics</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-12">
+                  <History className="w-16 h-16 text-slate-400 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-slate-300 mb-2">Analytics Coming Soon</h3>
+                  <p className="text-slate-400">Detailed usage analytics and performance metrics will be available here.</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </div>
+
+      {/* Generate Key Dialog */}
+      <DialogContent className="bg-white border-gray-200 text-black max-w-2xl">
             <DialogHeader>
               <DialogTitle>Generate New Encryption Key</DialogTitle>
             </DialogHeader>
@@ -2462,18 +2894,18 @@ function CryptoOperationForm({
   const showContextField = operation !== "datakey";
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-6">
       <div>
-        <Label htmlFor="kek-select" className="text-white">
+        <Label htmlFor="kek-select" className="text-white font-medium mb-2 block">
           Select KEK
         </Label>
         <Select value={selectedKek} onValueChange={setSelectedKek}>
-          <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+          <SelectTrigger className="bg-slate-700/50 border-slate-600 text-white rounded-lg h-11">
             <SelectValue placeholder="Choose a KEK" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="bg-slate-800 text-white border-slate-700">
             {kekNames.map((kek) => (
-              <SelectItem key={kek} value={kek} className="text-white">
+              <SelectItem key={kek} value={kek} className="hover:bg-slate-700">
                 {kek}
               </SelectItem>
             ))}
@@ -2483,7 +2915,7 @@ function CryptoOperationForm({
 
       {operation !== "datakey" && (
         <div>
-          <Label htmlFor="input-data" className="text-white">
+          <Label htmlFor="input-data" className="text-white font-medium mb-2 block">
             {getInputLabel()}
           </Label>
           <Textarea
@@ -2491,7 +2923,7 @@ function CryptoOperationForm({
             value={inputData}
             onChange={(e) => setInputData(e.target.value)}
             placeholder={getInputPlaceholder()}
-            className="bg-slate-700 border-slate-600 text-white min-h-[100px]"
+            className="bg-slate-700/50 border-slate-600 text-white min-h-[120px] rounded-lg resize-none"
             rows={4}
           />
         </div>
@@ -2499,7 +2931,7 @@ function CryptoOperationForm({
 
       {operation === "verify" && (
         <div>
-          <Label htmlFor="hmac-input" className="text-white">
+          <Label htmlFor="hmac-input" className="text-white font-medium mb-2 block">
             HMAC to Verify
           </Label>
           <Input
@@ -2507,14 +2939,14 @@ function CryptoOperationForm({
             value={hmacValue}
             onChange={(e) => setHmacValue(e.target.value)}
             placeholder="vault:v4:your-hmac-here"
-            className="bg-slate-700 border-slate-600 text-white"
+            className="bg-slate-700/50 border-slate-600 text-white rounded-lg h-11"
           />
         </div>
       )}
 
       {showContextField && (
         <div>
-          <Label htmlFor="context" className="text-white">
+          <Label htmlFor="context" className="text-white font-medium mb-2 block">
             Context (Optional)
           </Label>
           <Input
@@ -2522,7 +2954,7 @@ function CryptoOperationForm({
             value={context}
             onChange={(e) => setContext(e.target.value)}
             placeholder="Additional context for security"
-            className="bg-slate-700 border-slate-600 text-white"
+            className="bg-slate-700/50 border-slate-600 text-white rounded-lg h-11"
           />
         </div>
       )}
@@ -2530,7 +2962,7 @@ function CryptoOperationForm({
       <Button
         type="submit"
         disabled={isLoading || !selectedKek}
-        className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+        className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-semibold py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {isLoading ? (
           <>
@@ -2551,36 +2983,41 @@ function CryptoOperationForm({
       </Button>
 
       {error && (
-        <div className="p-3 bg-red-900/20 border border-red-500/50 rounded text-red-300 text-sm">
-          <XCircle className="w-4 h-4 inline mr-2" />
-          {error}
+        <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-300 text-sm backdrop-blur-sm">
+          <div className="flex items-center gap-2">
+            <XCircle className="w-4 h-4 flex-shrink-0" />
+            <span className="font-medium">Error:</span>
+          </div>
+          <p className="mt-1 ml-6">{error}</p>
         </div>
       )}
 
       {result && (
-        <div className="p-3 bg-green-900/20 border border-green-500/50 rounded text-green-300 text-sm">
-          <CheckCircle className="w-4 h-4 inline mr-2" />
-          <div className="font-semibold mb-2">Result:</div>
+        <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-lg text-green-300 text-sm backdrop-blur-sm">
+          <div className="flex items-center gap-2 mb-3">
+            <CheckCircle className="w-4 h-4 flex-shrink-0" />
+            <span className="font-semibold">Operation Successful</span>
+          </div>
           <div className="space-y-2">
             {operation === "encrypt" && (
               <div>
-                <div className="font-medium">Ciphertext:</div>
-                <div className="bg-slate-800 p-2 rounded text-xs font-mono break-all">
+                <div className="font-medium mb-2">Ciphertext:</div>
+                <div className="bg-slate-800/50 p-3 rounded-lg text-xs font-mono break-all border border-slate-700/50">
                   {result.ciphertext}
                 </div>
               </div>
             )}
             {operation === "decrypt" && (
-              <div className="space-y-2">
+              <div className="space-y-4">
                 <div>
-                  <div className="font-medium">Plaintext (Base64):</div>
-                  <div className="bg-slate-800 p-2 rounded text-xs font-mono break-all">
+                  <div className="font-medium mb-2">Plaintext (Base64):</div>
+                  <div className="bg-slate-800/50 p-3 rounded-lg text-xs font-mono break-all border border-slate-700/50">
                     {result.plaintext}
                   </div>
                 </div>
                 <div>
-                  <div className="font-medium">Plaintext (Raw Bytes):</div>
-                  <div className="bg-slate-800 p-2 rounded text-xs font-mono break-all max-h-32 overflow-y-auto">
+                  <div className="font-medium mb-2">Plaintext (Raw Bytes):</div>
+                  <div className="bg-slate-800/50 p-3 rounded-lg text-xs font-mono break-all max-h-32 overflow-y-auto border border-slate-700/50">
                     {(() => {
                       try {
                         // Decode base64 to get raw bytes
@@ -2593,8 +3030,8 @@ function CryptoOperationForm({
                   </div>
                 </div>
                 <div>
-                  <div className="font-medium">Plaintext (Hex):</div>
-                  <div className="bg-slate-800 p-2 rounded text-xs font-mono break-all">
+                  <div className="font-medium mb-2">Plaintext (Hex):</div>
+                  <div className="bg-slate-800/50 p-3 rounded-lg text-xs font-mono break-all border border-slate-700/50">
                     {(() => {
                       try {
                         // Decode base64 to get raw bytes, then convert to hex
@@ -2611,8 +3048,8 @@ function CryptoOperationForm({
                   </div>
                 </div>
                 <div>
-                  <div className="font-medium">Plaintext (UTF-8):</div>
-                  <div className="bg-slate-800 p-2 rounded text-xs font-mono break-all">
+                  <div className="font-medium mb-2">Plaintext (UTF-8):</div>
+                  <div className="bg-slate-800/50 p-3 rounded-lg text-xs font-mono break-all border border-slate-700/50">
                     {(() => {
                       try {
                         // Try to decode as UTF-8
@@ -2633,16 +3070,16 @@ function CryptoOperationForm({
               </div>
             )}
             {operation === "datakey" && (
-              <div className="space-y-2">
+              <div className="space-y-4">
                 <div>
-                  <div className="font-medium">Plaintext DEK (Base64):</div>
-                  <div className="bg-slate-800 p-2 rounded text-xs font-mono break-all">
+                  <div className="font-medium mb-2">Plaintext DEK (Base64):</div>
+                  <div className="bg-slate-800/50 p-3 rounded-lg text-xs font-mono break-all border border-slate-700/50">
                     {result.plaintext}
                   </div>
                 </div>
                 <div>
-                  <div className="font-medium">Plaintext DEK (Hex):</div>
-                  <div className="bg-slate-800 p-2 rounded text-xs font-mono break-all">
+                  <div className="font-medium mb-2">Plaintext DEK (Hex):</div>
+                  <div className="bg-slate-800/50 p-3 rounded-lg text-xs font-mono break-all border border-slate-700/50">
                     {(() => {
                       try {
                         return Array.from(atob(result.plaintext))
@@ -2657,8 +3094,8 @@ function CryptoOperationForm({
                   </div>
                 </div>
                 <div>
-                  <div className="font-medium">Encrypted DEK:</div>
-                  <div className="bg-slate-800 p-2 rounded text-xs font-mono break-all">
+                  <div className="font-medium mb-2">Encrypted DEK:</div>
+                  <div className="bg-slate-800/50 p-3 rounded-lg text-xs font-mono break-all border border-slate-700/50">
                     {result.ciphertext}
                   </div>
                 </div>
@@ -2666,31 +3103,38 @@ function CryptoOperationForm({
             )}
             {operation === "rewrap" && (
               <div>
-                <div className="font-medium">New Ciphertext:</div>
-                <div className="bg-slate-800 p-2 rounded text-xs font-mono break-all">
+                <div className="font-medium mb-2">New Ciphertext:</div>
+                <div className="bg-slate-800/50 p-3 rounded-lg text-xs font-mono break-all border border-slate-700/50">
                   {result.newCiphertext}
                 </div>
               </div>
             )}
             {operation === "hmac" && (
               <div>
-                <div className="font-medium">HMAC:</div>
-                <div className="bg-slate-800 p-2 rounded text-xs font-mono break-all">
+                <div className="font-medium mb-2">HMAC:</div>
+                <div className="bg-slate-800/50 p-3 rounded-lg text-xs font-mono break-all border border-slate-700/50">
                   {result.hmac}
                 </div>
               </div>
             )}
             {operation === "verify" && (
               <div>
-                <div className="font-medium">Verification Result:</div>
+                <div className="font-medium mb-2">Verification Result:</div>
                 <div
-                  className={`p-2 rounded text-sm font-semibold ${
+                  className={`p-3 rounded-lg text-sm font-medium ${
                     result.valid
-                      ? "bg-green-800 text-green-200"
-                      : "bg-red-800 text-red-200"
+                      ? "bg-green-500/20 text-green-300 border border-green-500/30"
+                      : "bg-red-500/20 text-red-300 border border-red-500/30"
                   }`}
                 >
-                  {result.valid ? "✓ Valid HMAC" : "✗ Invalid HMAC"}
+                  <div className="flex items-center gap-2">
+                    {result.valid ? (
+                      <CheckCircle className="w-4 h-4" />
+                    ) : (
+                      <XCircle className="w-4 h-4" />
+                    )}
+                    {result.valid ? "Valid HMAC" : "Invalid HMAC"}
+                  </div>
                 </div>
               </div>
             )}

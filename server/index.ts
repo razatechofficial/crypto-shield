@@ -66,53 +66,46 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = config.server.port;
-  server.listen(
-    {
-      port,
-      host: "0.0.0.0",
-      reusePort: true,
-    },
-    () => {
-      log(`serving on port ${port}`);
+  server.listen(port, "0.0.0.0", () => {
+    log(`serving on port ${port}`);
 
-      // Production configuration validation (graceful degradation)
-      if (process.env.NODE_ENV === "production") {
-        let configIssues = [];
+    // Production configuration validation (graceful degradation)
+    if (process.env.NODE_ENV === "production") {
+      let configIssues = [];
 
-        if (
-          !process.env.STRIPE_SECRET_KEY ||
-          process.env.STRIPE_SECRET_KEY.startsWith("sk_test_development")
-        ) {
-          console.warn(
-            "⚠️ WARNING: STRIPE_SECRET_KEY not configured for production - billing features will be unavailable"
-          );
-          configIssues.push("Stripe billing");
-        }
-        if (!process.env.STRIPE_WEBHOOK_SECRET) {
-          console.warn(
-            "⚠️ WARNING: STRIPE_WEBHOOK_SECRET not configured for production - webhook processing will be unavailable"
-          );
-          configIssues.push("Stripe webhooks");
-        }
-
-        if (configIssues.length === 0) {
-          console.log("✅ Production Stripe configuration validated");
-        } else {
-          console.warn(
-            `⚠️ Production running with degraded services: ${configIssues.join(
-              ", "
-            )}`
-          );
-          console.warn(
-            "Application will continue but some features may be limited"
-          );
-        }
+      if (
+        !process.env.STRIPE_SECRET_KEY ||
+        process.env.STRIPE_SECRET_KEY.startsWith("sk_test_development")
+      ) {
+        console.warn(
+          "⚠️ WARNING: STRIPE_SECRET_KEY not configured for production - billing features will be unavailable"
+        );
+        configIssues.push("Stripe billing");
+      }
+      if (!process.env.STRIPE_WEBHOOK_SECRET) {
+        console.warn(
+          "⚠️ WARNING: STRIPE_WEBHOOK_SECRET not configured for production - webhook processing will be unavailable"
+        );
+        configIssues.push("Stripe webhooks");
       }
 
-      // Initialize automated key rotation scheduler
-      initializeKeyRotationScheduler();
+      if (configIssues.length === 0) {
+        console.log("✅ Production Stripe configuration validated");
+      } else {
+        console.warn(
+          `⚠️ Production running with degraded services: ${configIssues.join(
+            ", "
+          )}`
+        );
+        console.warn(
+          "Application will continue but some features may be limited"
+        );
+      }
     }
-  );
+
+    // Initialize automated key rotation scheduler
+    initializeKeyRotationScheduler();
+  });
 
   // Graceful shutdown
   process.on("SIGINT", () => {
