@@ -51,7 +51,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   Tooltip,
   TooltipContent,
@@ -77,6 +77,7 @@ export default function KeyManagement() {
   const [vaultKekInfo, setVaultKekInfo] = useState<any>(null);
   const [isVaultKekLoading, setIsVaultKekLoading] = useState(false);
   const [rotationHistory, setRotationHistory] = useState<any[]>([]);
+  const loadedUsageStats = useRef<Set<string>>(new Set());
 
   // Use Vault KEKs instead of database keys
   const { data: keys = [], isLoading } = useQuery({
@@ -640,23 +641,25 @@ export default function KeyManagement() {
     },
   });
 
-  // Filter and search logic
-  const filteredKeys = Array.isArray(keys)
-    ? keys.filter((key: any) => {
-        const matchesSearch =
-          !searchQuery ||
-          key.keyId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          key.keyType?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          key.algorithm?.displayName
-            ?.toLowerCase()
-            .includes(searchQuery.toLowerCase());
+  // Filter and search logic - memoized to prevent unnecessary re-renders
+  const filteredKeys = useMemo(() => {
+    return Array.isArray(keys)
+      ? keys.filter((key: any) => {
+          const matchesSearch =
+            !searchQuery ||
+            key.keyId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            key.keyType?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            key.algorithm?.displayName
+              ?.toLowerCase()
+              .includes(searchQuery.toLowerCase());
 
-        const matchesStatus =
-          statusFilter === "all" || key.status === statusFilter;
+          const matchesStatus =
+            statusFilter === "all" || key.status === statusFilter;
 
-        return matchesSearch && matchesStatus;
-      })
-    : [];
+          return matchesSearch && matchesStatus;
+        })
+      : [];
+  }, [keys, searchQuery, statusFilter]);
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -678,7 +681,8 @@ export default function KeyManagement() {
     setSelectedKeyDetails(key);
     setIsKeyDetailsOpen(true);
     // Load usage stats for the selected key
-    if (!keyUsageStats[key.id]) {
+    if (!keyUsageStats[key.id] && !loadedUsageStats.current.has(key.id)) {
+      loadedUsageStats.current.add(key.id);
       fetchKeyUsageMutation.mutate(key.id);
     }
   };
@@ -687,12 +691,13 @@ export default function KeyManagement() {
   useEffect(() => {
     if (filteredKeys.length > 0) {
       filteredKeys.forEach((key: any) => {
-        if (!keyUsageStats[key.id]) {
+        if (!keyUsageStats[key.id] && !loadedUsageStats.current.has(key.id)) {
+          loadedUsageStats.current.add(key.id);
           fetchKeyUsageMutation.mutate(key.id);
         }
       });
     }
-  }, [filteredKeys]);
+  }, [filteredKeys.length, keys]); // Only depend on length and keys, not the entire filteredKeys array
 
   const getKeyTypeDescription = (keyType: string) => {
     switch (keyType) {

@@ -1547,14 +1547,14 @@ plaintext = encryption.decrypt(envelope)
         successRate:
           sdkTelemetry.length > 0
             ? sdkTelemetry.filter((m) => {
-                const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+                const meta = m.metadata || {};
                 return meta.success;
               }).length / sdkTelemetry.length
             : 0,
         errorRate:
           sdkTelemetry.length > 0
             ? sdkTelemetry.filter((m) => {
-                const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+                const meta = m.metadata || {};
                 return !meta.success;
               }).length / sdkTelemetry.length
             : 0,
@@ -1576,7 +1576,7 @@ plaintext = encryption.decrypt(envelope)
 
         // Operation breakdown
         operationsByType: sdkTelemetry.reduce((acc, m) => {
-          const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+          const meta = m.metadata || {};
           const op = meta.operation || "unknown";
           acc[op] = (acc[op] || 0) + 1;
           return acc;
@@ -1587,7 +1587,7 @@ plaintext = encryption.decrypt(envelope)
           ...new Set(
             sdkTelemetry
               .map((m) => {
-                const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+                const meta = m.metadata || {};
                 return meta.algorithm;
               })
               .filter(Boolean)
@@ -1596,7 +1596,7 @@ plaintext = encryption.decrypt(envelope)
 
         // Performance grades (A-F)
         performanceGrades: sdkTelemetry.reduce((acc, m) => {
-          const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+          const meta = m.metadata || {};
           const grade = meta.performanceGrade || "unknown";
           acc[grade] = (acc[grade] || 0) + 1;
           return acc;
@@ -1604,7 +1604,7 @@ plaintext = encryption.decrypt(envelope)
 
         // Error analysis
         errorTypes: sdkTelemetry.reduce((acc, m) => {
-          const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+          const meta = m.metadata || {};
           if (!meta.success && meta.errorCode) {
             acc[meta.errorCode] = (acc[meta.errorCode] || 0) + 1;
           }
@@ -1613,11 +1613,11 @@ plaintext = encryption.decrypt(envelope)
 
         // Data throughput
         totalInputSize: sdkTelemetry.reduce((sum, m) => {
-          const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+          const meta = m.metadata || {};
           return sum + (meta.inputSize || 0);
         }, 0),
         totalOutputSize: sdkTelemetry.reduce((sum, m) => {
-          const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+          const meta = m.metadata || {};
           return sum + (meta.outputSize || 0);
         }, 0),
       };
@@ -1703,14 +1703,14 @@ plaintext = encryption.decrypt(envelope)
         successRate:
           sdkTelemetry.length > 0
             ? sdkTelemetry.filter((m) => {
-                const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+                const meta = m.metadata || {};
                 return meta.success;
               }).length / sdkTelemetry.length
             : 0,
         errorRate:
           sdkTelemetry.length > 0
             ? sdkTelemetry.filter((m) => {
-                const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+                const meta = m.metadata || {};
                 return !meta.success;
               }).length / sdkTelemetry.length
             : 0,
@@ -1733,7 +1733,7 @@ plaintext = encryption.decrypt(envelope)
         // Top operations across all SDKs
         topOperations: Object.entries(
           sdkTelemetry.reduce((acc, m) => {
-            const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+            const meta = m.metadata || {};
             const op = meta.operation || "unknown";
             acc[op] = (acc[op] || 0) + 1;
             return acc;
@@ -1745,7 +1745,7 @@ plaintext = encryption.decrypt(envelope)
         // Top algorithms across all SDKs
         topAlgorithms: Object.entries(
           sdkTelemetry.reduce((acc, m) => {
-            const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+            const meta = m.metadata || {};
             const algo = meta.algorithm || "unknown";
             acc[algo] = (acc[algo] || 0) + 1;
             return acc;
@@ -1765,9 +1765,7 @@ plaintext = encryption.decrypt(envelope)
             const successRate =
               metrics.length > 0
                 ? metrics.filter((m) => {
-                    const meta = m.metadata
-                      ? JSON.parse(m.metadata as string)
-                      : {};
+                    const meta = m.metadata ? m.metadata : {};
                     return meta.success;
                   }).length / metrics.length
                 : 0;
@@ -1790,11 +1788,11 @@ plaintext = encryption.decrypt(envelope)
 
         // Data throughput
         totalInputSize: sdkTelemetry.reduce((sum, m) => {
-          const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+          const meta = m.metadata || {};
           return sum + (meta.inputSize || 0);
         }, 0),
         totalOutputSize: sdkTelemetry.reduce((sum, m) => {
-          const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+          const meta = m.metadata || {};
           return sum + (meta.outputSize || 0);
         }, 0),
       };
@@ -1862,9 +1860,7 @@ plaintext = encryption.decrypt(envelope)
             ...new Set(
               sdkTelemetry
                 .map((m) => {
-                  const meta = m.metadata
-                    ? JSON.parse(m.metadata as string)
-                    : {};
+                  const meta = m.metadata ? m.metadata : {};
                   return meta.userId;
                 })
                 .filter(Boolean)
@@ -1874,9 +1870,7 @@ plaintext = encryption.decrypt(envelope)
             ...new Set(
               sdkTelemetry
                 .map((m) => {
-                  const meta = m.metadata
-                    ? JSON.parse(m.metadata as string)
-                    : {};
+                  const meta = m.metadata ? m.metadata : {};
                   return meta.sessionId;
                 })
                 .filter(Boolean)
@@ -1921,23 +1915,19 @@ plaintext = encryption.decrypt(envelope)
           successRate:
             sdkTelemetry.length > 0
               ? sdkTelemetry.filter((m) => {
-                  const meta = m.metadata
-                    ? JSON.parse(m.metadata as string)
-                    : {};
+                  const meta = m.metadata ? m.metadata : {};
                   return meta.success;
                 }).length / sdkTelemetry.length
               : 0,
           errorRate:
             sdkTelemetry.length > 0
               ? sdkTelemetry.filter((m) => {
-                  const meta = m.metadata
-                    ? JSON.parse(m.metadata as string)
-                    : {};
+                  const meta = m.metadata ? m.metadata : {};
                   return !meta.success;
                 }).length / sdkTelemetry.length
               : 0,
           errorBreakdown: sdkTelemetry.reduce((acc, m) => {
-            const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+            const meta = m.metadata || {};
             if (!meta.success && meta.errorCode) {
               acc[meta.errorCode] = (acc[meta.errorCode] || 0) + 1;
             }
@@ -1948,14 +1938,14 @@ plaintext = encryption.decrypt(envelope)
         // Usage Patterns
         usage: {
           operationsByType: sdkTelemetry.reduce((acc, m) => {
-            const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+            const meta = m.metadata || {};
             const op = meta.operation || "unknown";
             acc[op] = (acc[op] || 0) + 1;
             return acc;
           }, {} as Record<string, number>),
           algorithmsUsed: Object.entries(
             sdkTelemetry.reduce((acc, m) => {
-              const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+              const meta = m.metadata || {};
               const algo = meta.algorithm || "unknown";
               acc[algo] = (acc[algo] || 0) + 1;
               return acc;
@@ -1963,7 +1953,7 @@ plaintext = encryption.decrypt(envelope)
           ).sort(([, a], [, b]) => b - a),
           platformsUsed: Object.entries(
             sdkTelemetry.reduce((acc, m) => {
-              const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+              const meta = m.metadata || {};
               const platform = meta.platform || "unknown";
               acc[platform] = (acc[platform] || 0) + 1;
               return acc;
@@ -1971,7 +1961,7 @@ plaintext = encryption.decrypt(envelope)
           ).sort(([, a], [, b]) => b - a),
           environmentsUsed: Object.entries(
             sdkTelemetry.reduce((acc, m) => {
-              const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+              const meta = m.metadata || {};
               const env = meta.environment || "unknown";
               acc[env] = (acc[env] || 0) + 1;
               return acc;
@@ -1983,7 +1973,7 @@ plaintext = encryption.decrypt(envelope)
         infrastructure: {
           regionsUsed: Object.entries(
             sdkTelemetry.reduce((acc, m) => {
-              const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+              const meta = m.metadata || {};
               const region = meta.region || "unknown";
               acc[region] = (acc[region] || 0) + 1;
               return acc;
@@ -1991,7 +1981,7 @@ plaintext = encryption.decrypt(envelope)
           ).sort(([, a], [, b]) => b - a),
           clientVersions: Object.entries(
             sdkTelemetry.reduce((acc, m) => {
-              const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+              const meta = m.metadata || {};
               const version = meta.clientVersion || "unknown";
               acc[version] = (acc[version] || 0) + 1;
               return acc;
@@ -2019,7 +2009,7 @@ plaintext = encryption.decrypt(envelope)
               acc[sdkId].lastActivity || 0,
               new Date(m.timestamp).getTime()
             );
-            const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+            const meta = m.metadata || {};
             if (!meta.success) acc[sdkId].errors++;
             return acc;
           }, {} as Record<string, any>)
@@ -2062,28 +2052,24 @@ plaintext = encryption.decrypt(envelope)
         // Data Throughput
         throughput: {
           totalInputSize: sdkTelemetry.reduce((sum, m) => {
-            const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+            const meta = m.metadata || {};
             return sum + (meta.inputSize || 0);
           }, 0),
           totalOutputSize: sdkTelemetry.reduce((sum, m) => {
-            const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+            const meta = m.metadata || {};
             return sum + (meta.outputSize || 0);
           }, 0),
           averageInputSize:
             sdkTelemetry.length > 0
               ? sdkTelemetry.reduce((sum, m) => {
-                  const meta = m.metadata
-                    ? JSON.parse(m.metadata as string)
-                    : {};
+                  const meta = m.metadata ? m.metadata : {};
                   return sum + (meta.inputSize || 0);
                 }, 0) / sdkTelemetry.length
               : 0,
           averageOutputSize:
             sdkTelemetry.length > 0
               ? sdkTelemetry.reduce((sum, m) => {
-                  const meta = m.metadata
-                    ? JSON.parse(m.metadata as string)
-                    : {};
+                  const meta = m.metadata ? m.metadata : {};
                   return sum + (meta.outputSize || 0);
                 }, 0) / sdkTelemetry.length
               : 0,
@@ -2168,7 +2154,7 @@ plaintext = encryption.decrypt(envelope)
       if (buckets[bucketKey]) {
         buckets[bucketKey].operations++;
         buckets[bucketKey].totalDuration += m.value;
-        const meta = m.metadata ? JSON.parse(m.metadata as string) : {};
+        const meta = m.metadata || {};
         if (!meta.success) buckets[bucketKey].errors++;
       }
     });
