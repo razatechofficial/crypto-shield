@@ -4578,30 +4578,6 @@ export class DatabaseStorage implements IStorage {
     return record;
   }
 
-  async getPerformanceMetrics(
-    tenantId: string,
-    metricType?: string,
-    hours = 24
-  ): Promise<PerformanceMetric[]> {
-    const since = new Date();
-    since.setHours(since.getHours() - hours);
-
-    const conditions = [
-      eq(performanceMetrics.tenantId, tenantId),
-      gte(performanceMetrics.timestamp, since),
-    ];
-
-    if (metricType) {
-      conditions.push(eq(performanceMetrics.metricType, metricType));
-    }
-
-    return await db
-      .select()
-      .from(performanceMetrics)
-      .where(and(...conditions))
-      .orderBy(desc(performanceMetrics.timestamp));
-  }
-
   // 3. Collect genuine performance metrics
   async getSystemHealthMetrics(tenantId: string): Promise<{
     encryptionPerformance: number;
@@ -5073,7 +5049,7 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(performanceMetrics)
       .where(eq(performanceMetrics.tenantId, tenantId))
-      .orderBy(desc(performanceMetrics.createdAt))
+      .orderBy(desc(performanceMetrics.timestamp))
       .limit(100);
 
     // Get recent crypto operations for success rate
@@ -5209,7 +5185,7 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(performanceMetrics)
       .where(eq(performanceMetrics.tenantId, tenantId))
-      .orderBy(desc(performanceMetrics.createdAt))
+      .orderBy(desc(performanceMetrics.timestamp))
       .limit(limit);
     return metrics;
   }

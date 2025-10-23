@@ -5,11 +5,6 @@ export default defineConfig({
   schema: "./shared/schema.ts",
   dialect: "postgresql",
   dbCredentials: {
-    host: "localhost",
-    port: 5432,
-    user: "postgres",
-    password: "1234",
-    database: "cryptoshield",
-    ssl: false,
+    url: "postgresql://ride_to_go_owner:lVFfQ26XGHBb@ep-withered-hat-a195u9hi-pooler.ap-southeast-1.aws.neon.tech/cryptoshield?sslmode=require&channel_binding=require",
   },
 });

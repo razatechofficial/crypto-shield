@@ -1393,21 +1393,21 @@ plaintext = encryption.decrypt(envelope)
   app.post("/api/sdk/telemetry", async (req, res) => {
     try {
       const {
-        sdkId,
-        operation,
-        algorithm,
-        duration,
-        success,
-        errorCode,
-        inputSize,
-        outputSize,
-        keyVersion,
-        kekName,
-        performanceGrade,
-        metadata,
+        sdkId, // Required field
+        operation, // Optional
+        algorithm, // Optional
+        duration, // Optional
+        success, // Optional
+        errorCode, // Optional
+        inputSize, // Optional
+        outputSize, // Optional
+        keyVersion, // Optional
+        kekName, // Optional
+        performanceGrade, // Optional
+        metadata, // Optional
       } = req.body;
 
-      // Validate required fields
+      // Only sdkId is required - all other fields are optional
       if (!sdkId) {
         return res.status(400).json({
           success: false,
@@ -1438,24 +1438,23 @@ plaintext = encryption.decrypt(envelope)
 
       // Store SDK telemetry data with proper tenant ID from SDK
       await storage.createPerformanceMetric({
-        id: `sdk_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         tenantId: sdk.tenantId, // Use tenant ID from SDK record
         sdkId: sdkId,
-        metricType: `sdk_${operation}`,
+        metricType: operation ? `sdk_${operation}` : "sdk_telemetry",
         value: duration || 0,
         unit: "ms",
         timestamp: new Date(),
         metadata: JSON.stringify({
           // OpenTelemetry semantic conventions
-          operation,
-          algorithm,
-          success,
-          errorCode,
-          inputSize,
-          outputSize,
-          keyVersion,
-          kekName,
-          performanceGrade,
+          operation: operation || null,
+          algorithm: algorithm || null,
+          success: success !== undefined ? success : null,
+          errorCode: errorCode || null,
+          inputSize: inputSize || null,
+          outputSize: outputSize || null,
+          keyVersion: keyVersion || null,
+          kekName: kekName || null,
+          performanceGrade: performanceGrade || null,
           // SDK context
           sdkName: sdk.name,
           sdkLanguages: sdk.languages,

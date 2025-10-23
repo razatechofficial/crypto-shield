@@ -1,0 +1,1 @@
+ALTER TABLE "encryption_keys" ADD CONSTRAINT "encryption_keys_id_unique" UNIQUE("id");

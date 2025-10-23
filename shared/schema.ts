@@ -390,7 +390,8 @@ export const encryptionKeys = pgTable(
   {
     id: varchar("id")
       .primaryKey()
-      .default(sql`gen_random_uuid()`),
+      .default(sql`gen_random_uuid()`)
+      .unique(),
     tenantId: varchar("tenant_id")
       .references(() => tenants.id)
       .notNull(),
